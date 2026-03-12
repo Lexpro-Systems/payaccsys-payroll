@@ -1,0 +1,147 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Lexpro Payroll: What's New</title>
+    
+    <!-- GOOGLE FONTS -->    
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    
+    <!-- LOAD FONT AWESOME -->
+    <link rel="stylesheet" href="https://www.lexproonline.co.za/cdn/font_awesome_5_13_0/css/all.min.css">
+        
+    <style type="text/css">
+        html, body {
+            margin: 0px;
+            padding: 0px;
+        }
+        
+        body {
+            margin: 0px auto;
+            max-width: 600px;
+            padding: 10px 40px 20px 40px;
+            background-color: #FFFFFF;
+            font-family: 'Roboto', sans-serif;
+            color: #2C333E;
+        }
+        
+        h1 {
+            font-size: 18px;
+        }
+        
+        h2 {
+            font-size: 14px;
+            margin: 30px 0px 0px 0px;
+        }
+        
+        p {
+            font-size: 14px;
+            margin: 20px 0px;
+            text-align: justify;
+        }
+        
+        ul {
+            font-size: 14px;
+        }
+        ul > li {
+            margin: 5px 0px 0px 0px;
+        }
+        
+        .overview-section {
+            margin: 0px 0px 20px 0px;
+            padding: 10px 0px;
+            width: 280px;
+            background-color: #F3F3F3;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .overview-section > ul  {
+            color: #2C333E;
+        }
+        .overview-section > ul > li > a {
+            font-size: 14px;
+            margin: 5px 0px 0px 0px;
+            color: #FC8C3A;
+        }
+        
+        .bi-weekly-payment-periods-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .bi-weekly-payment-periods-img > div {
+            background-image: url(bi-weekly_payment_period.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 325px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .bi-weekly-payment-periods-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+    </style>
+  
+</head>
+
+<body>
+    <h1>Overview</h1>
+    <div class="overview-section">
+        <ul>
+            <li><a href="#biweeklyPaymentPeriod">&QUOT;Every Two Weeks&QUOT; Payment Period</a></li>
+            <li><a href="#onceoffCalculationMethod">New Once-Off Payment Tax Calculation Method</a></li>
+        </ul>
+    </div>
+    
+    <a name="biweeklyPaymentPeriod"></a>
+    <h1>&QUOT;Every Two Weeks&QUOT; Payment Period</h1>
+    
+    <p>Lexpro Payroll now supports bi-weekly payment periods, allowing employees to receive a payslip every second week.</p>
+    
+    <div class="bi-weekly-payment-periods-img">
+        <div></div>
+        <p>&QUOT;Every Two Weeks&QUOT; payment period.</p>
+    </div>
+    
+    <a name="onceoffCalculationMethod"></a>
+    <h1>New Once-Off Payment Tax Calculation Method</h1>
+    
+    <p>A new, more accurate, method for calculating PAYE on once-off payslip items (such as bonus or annual payments) is available.</p>
+    
+    <p>In the past, the annualised method of calculating PAYE on once-off payments was used exclusively. This method entails that the basic salary plus the bonus amount is annualised to determine the annual taxable amount.</p>
+    
+    <p>For example, if an employee earns a salary of 15,000.00 per month and receives a bonus of 15,000.00, the PAYE will be calculated as follows:</p>
+    
+    <div style="margin: 0px 0px 0px 20px; padding: 10px; font-size: 14px; background-color: #828282; color: #FFFFFF; border-radius: 15px;">
+        15,000 (salary) + 15,000 (bonus) = 30,000 (total income for the month)<br>
+        30,000 * 12 (payment periods in the tax year) = 360,000 (total income for the year)<br>
+        According to the tax-table for 2024/2025, the PAYE on 360,000 = 57,397.00<br><br>
+        
+        PAYE for the payslip: 57,397.00 / 12 = 4,783.08
+    </div>
+    
+    <p>The new method, called the balance of remuneration method, calculates tax more accurately by determining the difference between the tax without the bonus and the tax including the bonus. For example, given the same scenario as above, tax will be calculated as follows:</p>
+    
+    <div style="margin: 0px 0px 0px 20px; padding: 10px; font-size: 14px; background-color: #828282; color: #FFFFFF; border-radius: 15px;">
+        15,000 (salary) * 12 (payment periods in the tax year) = 180,000<br>
+        PAYE on 180,000 = 15,165<br><br>
+        
+        180,000 (salary for the tax year) + 15,000 (bonus) = 195,000<br>
+        PAYE on 195,000 = 17,865<br><br>
+        
+        PAYE on bonus: 17,865 - 15,165 = 2,700<br>
+        PAYE on salary: 15,165 / 12 = 1,263.75<br><br>
+        
+        PAYE for the payslip: 1,263.75 (PAYE on salary) + 2,700 (PAYE on bonus) = 3,963.75<br>
+    </div>
+    
+    <p><b>Note that the annualised method will still be used for all existing companies. Please contact your consultant if you wish to use the balance of remuneration method instead.</b></p>
+    
+</body>
+</html>

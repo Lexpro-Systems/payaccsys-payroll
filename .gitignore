@@ -1,0 +1,41 @@
+# See http://help.github.com/ignore-files/ for more about ignoring files.
+
+# compiled output
+/build
+/liblx
+
+/client_data/
+/Dev docs/
+/site/temp/
+/site/admin/font
+/site/admin/php/config/config_database.php
+/site/admin/php/config/config_system.php
+/site/attendance/font
+/site/attendance/php/config/config_database.php
+/site/attendance/php/config/config_system.php
+/site/client/font/
+/site/client/client_data/
+/site/client/php/config/config_database.php
+/site/client/php/config/config_system.php
+/site/employee/font
+/site/employee/php/config/config_database.php
+/site/employee/php/config/config_system.php
+/site/employee/download/
+
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.env
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

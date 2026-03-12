@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <title>Payaccsys Payroll: Self-Service</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- APP FAVICON -->
+    <link rel="shortcut icon" href="gfx/favicon.ico" />
+    
+    <!-- GOOGLE FONTS -->    
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    
+    <!-- LOAD FONT AWESOME -->
+    <link rel="stylesheet" href="font/fontawesome_5_13_0/css/all.css">
+    
+    <!-- LOAD CSS -->
+    <link rel="stylesheet" href="css/common.css" />
+    
+    <!-- INCLUDE ZXCVBN LIBRARY -->
+    <script src="https://www.lexproonline.co.za/zxcvbn/zxcvbn.js"></script>
+    
+    <!-- INCLUDE LEXPRO LIBRARY -->
+    <script src="https://www.lexproonline.co.za/liblx/v0_0_2/lx.js"></script>
+    
+    <script src="js/app.js"></script>
+    <script src="js/commonSelectOptions.js"></script>
+    <script src="js/upload_manager.js"></script>
+    <script src="js/validators.js"></script>
+    
+    <script src="js/panel/login_panel.js"></script>
+    <script src="js/panel/main_panel.js"></script>
+    <script src="js/panel/mobile_menu_panel.js"></script>
+    <script src="js/panel/home_panel.js"></script>
+    <script src="js/panel/reset_password_panel.js"></script>
+    <script src="js/panel/sign_up_panel.js"></script>
+    <script src="js/panel/link_profile_panel.js"></script>
+    <script src="js/panel/switch_company_panel.js"></script>
+    
+    <script src="js/panel/profile_panel.js"></script>
+    
+    <script src="js/panel/payslips_panel.js"></script>
+    <script src="js/panel/view_payslip_panel.js"></script>
+    
+    <script src="js/panel/leave_panel.js"></script>
+    <script src="js/panel/add_leave_request_panel.js"></script>
+    <script src="js/panel/edit_leave_request_panel.js"></script>
+    <script src="js/panel/view_leave_request_panel.js"></script>
+    <script src="js/panel/update_leave_request_status_panel.js"></script>
+    <script src="js/panel/leave_request_decline_panel.js"></script>
+    <script src="js/panel/leave_type_history_panel.js"></script>
+    <script src="js/panel/export_leave_history_panel.js"></script>
+    
+    <script src="js/panel/attendance_panel.js"></script>
+    <script src="js/panel/view_attendance_panel.js"></script>
+    <script src="js/panel/export_attendance_history_panel.js"></script>
+    
+    <script src="js/panel/tax_certificates_panel.js"></script>
+    <script src="js/panel/view_tax_certificate_panel.js"></script>
+    
+    <script>
+        // Start all Javascript after the document has loaded.
+        window.bodyLoadEventHandler = function() {
+            // Create the library config object
+            let lxConfig = {
+                components: [
+                    'Panel',
+                    'Button',
+                    'Tooltip',
+                    'Label',
+                    'Heading',
+                    'Loader',
+                    'Textbox',
+                    'RadioButtonGroup',
+                    'RadioGroup',
+                    'Selectbox',
+                    'Password',
+                    'Checkbox',
+                    'Messagebox',
+                    'DropdownButton',
+                    'ScrollContainer',
+                    'Toolbar',
+                    'Container',
+                    'ShowMoreButton',
+                    'AddRemoveList',
+                    'ProgressBar',
+                    'ColumnLayout',
+                    'ModalWindow',
+                    'Display',
+                    'Grid',
+                    'DatePicker',
+                    'DateSelect',
+                    'Searchbox'
+                ],
+                
+                style: {
+                    global: { 
+                        highlightColor: '#EF4E45'
+                    },
+                    button: {
+                        defaultStyleColor: '#FFFFFF',
+                        textStyleColor: '#EF4E45',
+                        disabledBackgroundColor: '#C0C0C0' // '#D69E75'
+                    } /* ,
+                    textbox: {
+                        labelColor: '#A0A0A0',
+                        labelMargin: '0px',
+                        borderWidth: '0px 0px 1px 0px',
+                        padding: '0px 5px 0px 5px'
+                    },
+                    password: {
+                        labelColor: '#A0A0A0',
+                        labelMargin: '0px',
+                        borderWidth: '0px 0px 1px 0px',
+                        padding: '0px 5px 0px 5px'
+                    },
+                    datePicker: {
+                        labelColor: '#A0A0A0',
+                        labelMargin: '0px',
+                        borderWidth: '0px 0px 1px 0px',
+                        padding: '0px 5px 0px 5px'
+                    },
+                    selectbox: {
+                        labelColor: '#A0A0A0',
+                        labelMargin: '0px',
+                        borderWidth: '0px 0px 1px 0px',
+                        padding: '0px 5px 0px 5px'
+                    } */
+                }
+            };
+            
+            // Initialize lx library
+            lx.init(lxConfig, function() {
+                // Initialize the App
+                app.init();
+            });
+        }
+    </script>
+    
+    <style>
+        html {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+        }
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 14px;
+            color: #2C333E;
+            background: #F8F8F8;
+        }
+    </style>
+</head>
+
+<body onload="bodyLoadEventHandler();">
+    <div style="display: flex; flex-direction: column; width: 100%; height: 100%;">
+        <div style="display: block; flex: 1 1 100%;"></div>
+        <div style="display: block; width: 100%; text-align: center; color: #DFDFDF;">Payaccsys Payroll is loading...</div>
+        <div style="display: block; flex: 1 1 100%;"></div>
+    </div>
+</body>
+
+</html>

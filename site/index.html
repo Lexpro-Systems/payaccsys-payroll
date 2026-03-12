@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <title>Lexpro Systems</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1" charset="utf-8">
+    
+    <!-- APP FAVICON -->
+    <link rel="shortcut icon" href="https://www.lexproonline.co.za/favicon.ico" />
+    
+    <!-- GOOGLE FONTS -->    
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    
+    <!-- LOAD FONT AWESOME -->
+    <link rel="stylesheet" href="https://www.lexproonline.co.za/font/fontawesome_5_13_0/css/all.css">
+    
+    <!-- LOAD CSS -->
+    <!-- link rel="stylesheet" href="client/css/common.css" / -->
+    
+    <style>
+        html {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+        }
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+            /*font-family: 'Roboto', sans-serif;*/
+            /*font-family: 'Open Sans', sans-serif;*/
+            font-family: 'CustomFont', sans-serif;
+            font-size: 14px;
+            color: #2C333E;
+            background: #FFFFFF;
+        }
+        p {
+            font-size: calc(14px + 0.75vw);
+            text-align: justify;
+        }
+        a {
+            text-decoration: none;
+            color: #FC8C3A;
+        }
+        
+        /* CHANGE PADDING ON LOGO CONTAINER DEPENDING ON VIEW PORT WIDTH */
+        @media (min-width: 0px) and (max-width: 449px)  {
+            .logo_container {
+                font-size: 28px;
+                padding: 15px 15px;
+            }
+        }
+        @media (min-width: 450px) and (max-width: 549px)  {
+            .logo_container {
+                font-size: 38px;
+                padding: 20px 20px;
+            }
+        }
+        @media (min-width: 540px) and (max-width: 739px)  {
+            .logo_container {
+                font-size: 46px;
+                padding: 25px 25px;
+            }
+        }
+        @media (min-width: 740px) {
+            .logo_container {
+                font-size: 48px;
+                padding: 30px 30px;
+            }
+        }
+        
+        /* CHANGE MAIN DESCRIPTION FONT SIZE DEPENDING ON VIEW PORT WIDTH */
+        @media (min-width: 0px) and (max-width: 299px)  {
+            .main_description_text {
+                font-size: 22px;
+            }
+        }
+        @media (min-width: 300px) and (max-width: 739px)  {
+            .main_description_text {
+                font-size: 26px;
+            }
+        }
+        @media (min-width: 740px) {
+            .main_description_text {
+                font-size: 32px;
+            }
+        }
+        
+        .highlightText {
+            color: #0999a4;
+            font-weight: bold;
+        }
+        
+        /* SIGN-UP BUTTON STYLE */
+        .gotoPortalButton {
+            color: rgba(255, 255, 255, 0.5);
+            text-decoration: none;
+            background-color: #FFFFFF;
+        }
+        .gotoPortalButton:hover {
+            background-color: rgba(255, 255, 255, 0.5);
+            color: #FFFFFF;
+            
+        } 
+    </style>
+</head>
+
+<body>
+    <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: top; padding: 0px;">
+        
+        <!-- LOGO -->
+        <div class="logo_container" style="box-sizing: border-box; margin: 40px 0px; max-width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: space-between; background-color: #FFFFFF; border-radius: 15px;">
+            <div style="box-sizing: border-box; display: flex; flex-direction: column; align-items: center; width: 600px; min-width: 150px; margin: auto 0px;">
+                <img src="https://www.lexproonline.co.za/images/logo.svg" style="width: 100%; height: 100%;">
+            </div>
+            <div class="logo_text" style="box-sizing: border-box; margin: auto 0px auto 20px;">
+            </div>
+        </div>
+        
+        <!-- HEADER -->
+        <div style="box-sizing: border-box; width: 100%; background: linear-gradient(132deg, #093442, #09dfe8); display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; padding: 60px 30px; margin: 0px 0px 60px 0px;">
+            <!-- div class="main_description_text" style="box-sizing: border-box; max-width: 800px; text-align: center; color: #FFFFFF; margin: 10px 0px;">
+                Lexpro Systems 
+            </div -->
+            <div style="width: 100%; max-width: 1100px; display: flex; flex-direction: row; align-items: center; justify-content: space-around;">
+                <div style="display: flex; flex-direction: column; align-items: center; margin: 0px 0px auto 0px; width: 250px; min-width: 200px;">
+                    <a href="https://accounting.lexproonline.co.za/" target=_blank>
+                        <div class="gotoPortalButton" style="box-sizing: border-box; padding: 10px 10px; border: 0px solid white; border-radius: 15px; min-width: 160px; min-height: 160px;">
+                            <img src="https://www.lexproonline.co.za/images/accounting X.svg" style="width: 100%; height: 100%; max-width: 150px; max-height: 150px;">
+                        </div>
+                    </a>
+                    <div style="margin: 10px 0px 0px 0px; text-align: center; font-size: 24px; color: #FFFFFF;">Accounting</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; margin: 0px 0px auto 0px; width: 250px; min-width: 200px;">
+                    <a href="https://litigation.lexproonline.co.za/" target=_blank>
+                        <div class="gotoPortalButton" style="box-sizing: border-box; padding: 10px 10px; border: 0px solid white; border-radius: 15px; min-width: 160px; min-height: 160px;">
+                            <img src="https://www.lexproonline.co.za/images/litigation X.svg" style="width: 100%; height: 100%; max-width: 150px; max-height: 150px;">
+                        </div>
+                    </a>
+                    <div style="margin: 10px 0px 0px 0px; text-align: center; font-size: 24px; color: #FFFFFF;">Litigation</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; margin: 0px 0px auto 0px; width: 250px; min-width: 200px;">
+                    <a href="https://conveyancingv3.lexproonline.co.za/" target=_blank>
+                        <div class="gotoPortalButton" style="box-sizing: border-box; padding: 10px 10px; border: 0px solid white; border-radius: 15px; min-width: 160px; min-height: 160px;">
+                            <img src="https://www.lexproonline.co.za/images/conveyancing X.svg" style="width: 100%; height: 100%; max-width: 150px; max-height: 150px;">
+                        </div>
+                    </a>
+                    <div style="margin: 10px 0px 0px 0px; text-align: center; font-size: 24px; color: #FFFFFF;">Conveyancing</div>
+                </div>
+            </div>
+            <div style="width: 100%; max-width: 1100px; margin: 30px 0px 0px 0px; display: flex; flex-direction: row; align-items: center; justify-content: space-around;">
+                <div style="display: flex; flex-direction: column; align-items: center; margin: 0px 0px auto 0px; width: 250px; min-width: 200px;">
+                    <a href="https://estates.lexproonline.co.za/" target=_blank>
+                        <div class="gotoPortalButton" style="box-sizing: border-box; padding: 10px 10px; border: 0px solid white; border-radius: 15px; min-width: 160px; min-height: 160px;">
+                            <img src="https://www.lexproonline.co.za/images/estates X.svg" style="width: 100%; height: 100%; max-width: 150px; max-height: 150px;">
+                        </div>
+                    </a>
+                    <div style="margin: 10px 0px 0px 0px; text-align: center; font-size: 24px; color: #FFFFFF;">Estates</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; margin: 0px 0px auto 0px; width: 250px; min-width: 200px;">
+                    <a href="https://payroll.lexproonline.co.za/" target=_blank>
+                        <div class="gotoPortalButton" style="box-sizing: border-box; padding: 10px 10px; border: 0px solid white; border-radius: 15px; min-width: 160px; min-height: 160px;">
+                            <img src="https://www.lexproonline.co.za/images/payroll X.svg" style="width: 100%; height: 100%; max-width: 150px; max-height: 150px;">
+                        </div>
+                    </a>
+                    <div style="margin: 10px 0px 0px 0px; text-align: center; font-size: 24px; color: #FFFFFF;">Payroll</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; margin: 0px 0px auto 0px; width: 250px; min-width: 200px;">
+                    <a href="https://administration.lexproonline.co.za/" target=_blank>
+                        <div class="gotoPortalButton" style="box-sizing: border-box; padding: 10px 10px; border: 0px solid white; border-radius: 15px; min-width: 160px; min-height: 160px;">
+                            <img src="https://www.lexproonline.co.za/images/administration X.svg" style="width: 100%; height: 100%; max-width: 150px; max-height: 150px;">
+                        </div>
+                    </a>
+                    <div style="margin: 10px 0px 0px 0px; text-align: center; font-size: 24px; color: #FFFFFF;">S.74 Administrations</div>
+                </div>
+            </div>
+            <div style="width: 100%; max-width: 1100px; margin: 30px 0px 0px 0px; display: flex; flex-direction: row; align-items: center; justify-content: space-around;">
+                <div style="display: flex; flex-direction: column; align-items: center; margin: 0px 0px auto 0px; width: 250px; min-width: 200px;">
+                    <a href="https://estateagentsv2.lexproonline.co.za/" target=_blank>
+                        <div class="gotoPortalButton" style="box-sizing: border-box; padding: 10px 10px; border: 0px solid white; border-radius: 15px; min-width: 160px; min-height: 160px;">
+                            <img src="https://www.lexproonline.co.za/images/estateagents X.svg" style="width: 100%; height: 100%; max-width: 150px; max-height: 150px;">
+                        </div>
+                    </a>
+                    <div style="margin: 10px 0px 0px 0px; text-align: center; font-size: 24px; color: #FFFFFF;">Estate Agents</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; margin: 0px 0px auto 0px; width: 250px; min-width: 200px;">
+                    <a href="https://pay.lexproonline.co.za/" target=_blank>
+                        <div class="gotoPortalButton" style="box-sizing: border-box; padding: 10px 10px; border: 0px solid white; border-radius: 15px; min-width: 160px; min-height: 160px;">
+                            <img src="https://www.lexproonline.co.za/images/pay X.svg" style="width: 100%; height: 100%; max-width: 150px; max-height: 150px;">
+                        </div>
+                    </a>
+                    <div style="margin: 10px 0px 0px 0px; text-align: center; font-size: 24px; color: #FFFFFF;">Pay</div>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; margin: 0px 0px auto 0px; width: 250px; min-width: 200px;">
+                </div>
+            </div>
+        </div>
+        
+        <!-- DESCRIPTION -->
+        <div style="box-sizing: border-box; width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: left; justify-content: space-evenly; padding: 0px; margin: 0px 0px 0px 0px;">
+            <div style="box-sizing: border-box; width: 100%; text-align: left; font-size: calc(20px + 0.75vw); color: #0999a4; margin: 0px 0px 0px 0px;">
+                Why Lexpro?
+            </div>
+        </div>
+        <div style="box-sizing: border-box; width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: left; justify-content: space-evenly; padding: 0px; margin: 0px 0px 60px 0px;">
+            <ul style="list-style-type:none">
+                <li style="margin: 20px 0px 0px 0px; font-size: 20px;">
+                    <div style="box-sizing: border-box; display: flex; flex-direction: row;">
+                        <span style="margin: auto 15px auto 0px; color: #0999a4; font-size: 14px;">
+                            <i aria-hidden="true" class="fas fa-circle"></i>
+                        </span>
+                        <span>Online cloud based solutions that enables you or your employees to <span class="highlightText">WORK FROM HOME</span>;</span>
+                    <div>
+                </li>
+                <li style="margin: 20px 0px 0px 0px; font-size: 20px;">
+                    <div style="box-sizing: border-box; display: flex; flex-direction: row;">
+                        <span style="margin: auto 15px auto 0px; color: #0999a4; font-size: 14px;">
+                            <i aria-hidden="true" class="fas fa-circle"></i>
+                        </span>
+                        <span>Lexpro Systems is a <span class="highlightText">MARKET LEADER</span> in Software for Attorneys with Clients in South Africa and various other countries in Africa;</span>
+                    <div>
+                </li>
+                <li style="margin: 20px 0px 0px 0px; font-size: 20px;">
+                    <div style="box-sizing: border-box; display: flex; flex-direction: row;">
+                        <span style="margin: auto 15px auto 0px; color: #0999a4; font-size: 14px;">
+                            <i aria-hidden="true" class="fas fa-circle"></i>
+                        </span>
+                        <span><span class="highlightText">NATION-WIDE SUPPORT</span> from our offices in Pretoria, Centurion, Somerset-West, Bellville and Mossel Bay;</span>
+                    <div>
+                </li>
+                <li style="margin: 20px 0px 0px 0px; font-size: 20px;">
+                    <div style="box-sizing: border-box; display: flex; flex-direction: row;">
+                        <span style="margin: auto 15px auto 0px; color: #0999a4; font-size: 14px;">
+                            <i aria-hidden="true" class="fas fa-circle"></i>
+                        </span>
+                        <span>Lexpro employs <span class="highlightText">HIGHLY SKILLED STAFF</span> with expertise in Computer Science, Information systems, Law and Accounting. This expertise is combined with the latest Open Source software to create <span class="highlightText">POWERFUL AND FEATURE-PACKED APPLICATIONS</span> for Attorneys.</span>
+                    <div>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- CONTACT DETAILS -->
+        <div style="box-sizing: border-box; width: 100%; margin: auto 0px 0px 0px; background: linear-gradient(176deg, #0f617d, #0f617d); display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; padding: 60px;">
+            <div class="main_description_text" style="box-sizing: border-box; font-size: 26px; max-width: 800px; text-align: center; color: #FFFFFF; margin: 0px 0px 30px 0px;">
+                GET IN TOUCH
+            </div>
+            <div style="width: 100%; max-width: 900px; display: flex; flex-direction: row; align-items: center; justify-content: space-around;">
+                <div style="display: flex; flex-direction: row; align-items: center; margin: 0px 0px auto 0px;">
+                    <div style="box-sizing: border-box; font-size: 32px; color: #3bc2d4;">
+                        <i class="fas fa-phone"></i>
+                    </div>
+                    <div style="margin: auto 0px auto 20px; text-align: center; font-size: 24px; color: #FFFFFF;">012 345 4510</div>
+                </div>
+                <div style="display: flex; flex-direction: row; align-items: center; margin: 0px 0px auto 0px;">
+                    <div style="box-sizing: border-box; font-size: 32px; color: #3bc2d4;">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div style="margin: auto 0px auto 20px; text-align: center; font-size: 24px; color: #FFFFFF;"><a style="color: #FFFFFF;" href="mailto:info@lexpro.co.za">info@lexpro.co.za</a></div>
+                </div>
+                <div style="display: flex; flex-direction: row; align-items: center; margin: 0px 0px auto 0px;">
+                    <div style="box-sizing: border-box; font-size: 32px; color: #3bc2d4;">
+                        <i class="fab fa-chrome"></i>
+                    </div>
+                    <div style="margin: auto 0px auto 20px; text-align: center; font-size: 24px; color: #FFFFFF;"><a style="color: #FFFFFF;" target="_blank" href="https://www.lexpro.co.za">www.lexpro.co.za</a></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- COVID 19 -->
+        <!-- <div style="box-sizing: border-box; width: 100%; text-align: center; margin: 0px 0px 0px 0px; padding: 20px; background-color: #646464;"> -->
+            <!-- <a style="color: #FFFFFF; font-size: 16px;" href="https://sacoronavirus.co.za/" target="_blank">CORONAVIRUS (COVID-19) EVERYTHING YOU NEED TO KNOW - CLICK HERE</a> -->
+        <!-- </div> -->
+        
+    </div>
+</body>
+
+</html>

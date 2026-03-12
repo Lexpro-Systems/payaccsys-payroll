@@ -1,0 +1,424 @@
+SPRINT 2020-04-29
+=================
+
+- Change Password <DONE>
+
+  Allow users to change their password from the 'user menu'.  When the option is selected show a screen where the user can enter
+  a new password.  After the user has changed their password an email must be sent to notify them of the action.
+
+- Session Refresh Tokens <DONE>
+
+  Update the session system to make use of refresh tokens.
+
+- Invalidate Session on Password Change <DONE>
+
+  When a user changes his password either by useing the 'Reset Password' or 'Change Password' options, all sessions must be
+  invalidated to ensure they can no longer be used.
+
+- Reset Password Messaging <DONE>
+
+  Improve the information displayed to the user when resetting their password to better inform them of the process and its results.
+
+  Example Mesage: Verification Panel
+
+      We sent a verification code to <user email address>.  Please enter it to continue.
+
+- Store Company Access Details <DONE>
+
+  Update the system to no longer delete rows from the user_company_access table so that it is possible to see who had access to
+  a company and when.  This should be done by marking the row as 'revoked'.  It is important to store the date that the access was
+  revoked so that it is possible to tell from which date to which date the user had access to the company.  Update login and session
+  refresh functions to take this revoked flag into account.
+
+- Caps Lock Notification <DONE>
+
+  Improve the password component to show a message when the caps lock is on.
+
+- Hide Dismissed Employees <DONE>
+
+  Hide dismissed employees on the list employees panel.  The user must have a filter that allow them to show all employees,
+  dismissed employees only, or employed employees only.  Defualt should be employed employees only.
+
+- Per KM On Payslip Items <DONE>
+
+  When showing payslip items on the 'Income / Deductions' panel show 'per km' if the item is of a type that uses that unit.
+
+- Use Alias To Refer to Employees <DONE>
+
+  Use alias instead of first and last name where appropriate
+
+
+SPRINT 2020-05-11
+=================
+
+- <DONE> Empty Leave Rules
+
+  Allow empty leave rules to be created to make provisions for manual only leave types such as study leave.
+
+- <DONE> General Deductions
+
+  Add item for General Deductions such as parking, social clubs etc.
+
+- <DONE> Sort Payslip Items
+
+  When displaying a payslip sort the items by type and then by description.
+
+- <DONE> Delete Leave Types
+
+  Allow leave types to be deleted.  The leave type should not be deleted but marked as 'deleted' to keep a rekord of all leave for that type.  
+  A warning should be given if there are any employees with a balance other than 0 for that leave type.
+
+- <DONE> Earnings / Cost Analysis
+
+  Add earnings / cost analysis report.  This report should have the following columns:
+
+  - Employee Code
+  - Employee Alias
+  - Earnings
+  - Allowances
+  - Gross Earnings (Earnings + Allowances)
+  - Deductions
+  - Company Contributions
+  - Fringe Benefits
+  - Nett Earnings (Earnings + Allowances - Deductions)
+
+  The user should be provided with the option to export a detailed report with all employees details or a summary with totals
+  only.
+
+- <DONE> EMP 201 Report
+
+  Add SARS EMP 201 report with all company responsibilities towards SARS.  The report should have the following columns
+
+  - Employee Code
+  - Employee Alias
+  - Gross Salary
+  - PAYE
+  - UIF
+  - SDL
+  - ETI
+
+  The user should be provided with the option to export a detailed report with all employees details or a summary with totals
+  only.
+
+- <DONE> Net Pay Report
+
+  Add a Net Pay report showing the nett pay for each employee for a given payrun.  The report should have the following
+  columns:
+
+  - Employee Code
+  - Employee Alias
+  - Payment Method
+  - Bank Institution
+  - Bank Account Type
+  - Bank Account Number
+  - Branch Code
+  - Nett Pay
+
+
+SPRINT 2020-05-30
+=================
+
+- <DONE> Attendance Register
+
+  Create an attendance register to store a users arival and departure times.  Data to store:
+
+  - Date
+  - Employee
+  - Time In
+  - Time Out
+  - User that logged the employee in
+  - User that logged the employee out
+
+- <DONE> Copy Postal Address
+
+  When entering an address allow the user to copy the address from phyiscal to postal.
+
+- <DONE> Employee Payslips
+
+  Add a payslips section to the employees panel.
+
+- <DONE> View Password
+
+  Add functionality to view password as plain text in the password component.
+
+- <DONE> Payrun Search
+
+  Add functionality to the payrun to search for employee payslips.
+
+- <DONE> Employees List Refresh
+
+  When dismissing or re-employing an employee the Employees List on the List Employees Panel is not refreshed.
+
+- <DONE> Email Payslips
+
+  Add functionality to send employee payslips via email.  The employee's email address must be displayed by default but the
+  user must be allowed to change the destination address.
+
+- <DONE> Invite URL's
+
+  Show the invite URL on the 'view invite' panel on both the admin and the payroll portals.  Users should be able to easily copy
+  and paste them in order to manually send them to the user.
+
+- <DONE> Users and Invites Sections in Admin
+
+  Add sections to view users and invites to admin portal.
+
+- <DONE> UIF Maximum
+
+  Change UIF calculation to use a table for UIF earnings ceiling and not a hardcoded value.
+
+- <DONE> Department Filter: List Employees Panel
+
+  Add a department filter on the list employees panel.  Also add a department column to the grid.
+
+
+SPRINT 2020-07-17
+=================
+
+- <DONE> Providend Fund
+
+  Make provision to add providend fund details to an employees 'Income / Expenses'.
+
+- <DONE> Add Banking Details
+
+  Add bank details to employees.  The bank details should be saved in a separate bank_details table linked to the employee.
+  Bank details table should have the folowing columns:
+
+  1. ID
+  2. Employee ID
+  3. Institution - Foreign key to bank_institutions table
+  4. Account Type - Foreign key to bank_account_types table.
+  5. Account Number
+  6. Branch Code
+
+- <DONE> Payslip Logo
+
+  Add functionality to upload a logo to display on the payslip.
+
+- <DONE> Leave Report
+
+  Add a leave report.
+
+- <DONE> Restore Payrun Payslips
+
+  Restore previously delete or new payslips on a payrun.
+
+
+SPRINT 2020-08-05
+=================
+
+- <DONE> Add Resend Payslip Option
+
+  Add option to resend payslips.
+
+- <DONE> Exceptions Report
+
+  Add a report to show exceptions such as employees that do not have UIF and UIF company contributions set up.
+
+- <DONE> Improve Adding Payslip Items
+
+  Improve the 'Add Recurring Item' and 'Add Once-off Item' panels by removing the 'Item Category' selectbox and adding all the
+  available payslip item types to the 'Item Type' selectbox.  Also add the capability to search for the item type.
+
+- <DONE> Nett Pay Report Bank Details
+
+  Add banking details to nett pay report.
+  
+  
+SPRINT 2020-08-28
+=================
+
+- <DONE> Online Registration
+
+  Create an online registration form to allow new clients to submit their information.  This information must then be used to create a new company on the system.
+
+- <DONE> Improve 'Add Employee' Panel
+
+  Change 'Add Employee' panel to make it easier to add new employees.  It must be possible to add the following information
+  on the add employee panel:
+
+  - Personale Details
+  - Contact Details
+  - Address Details
+  - Bank Details
+  - Employment Details
+  - Work Schedule
+  - Income Tax Details
+  - Recurring Earnings and Deductions
+  - Leave
+
+  Recurring items must be added in a similar way as adding leave rules.
+  
+- <DONE> Retreive Accounting Accounts
+
+  Expand API config to retrieve a list of available accounts from the Lexpro API and showing them in a selectbox for the user to select.
+  
+- <DONE> Lexpro Accounting Integration
+
+  Integrate the payroll with lexpro accounting.
+
+- <DONE> Expand Exceptions Report
+
+  Add the following exceptions:
+  
+  - Check if employee should get payslip when one was deleted.
+  - Check if PAYE is invalid.
+
+- <DONE> API Setup Details.
+
+  Show to which company and as which user you are connected on the Accounting Setup Panel.
+
+- <DONE> EMP501 Report.
+
+  Add EMP501 report.
+
+- <DONE> Change Payment Day Setting
+
+  Payment day setting is confusing.  To limit confusion payment day must be changed to 'Payment Period End Day' and a new setting 'Payment Day' must be added.
+  The new setting will be the day that the payment is made whereas the new 'Payment Period End Day' must be used to calculate payslips.  This change must be
+  sufficiently communicated to users.
+
+
+SPRINT 2020-09-07
+=================
+
+- <DONE> Expand Provident Fund Functions
+
+  Add functionality to allow auto calculation of provident fund items.
+
+
+SPRINT 2020-09-22
+=================
+
+- <DONE> Employee Report
+
+  Add an Employee Report.  This report should have the following filters:
+
+  - Employed / Dismissed
+  - Employed From Date
+  - Employed To Date
+
+- <DONE> Improve Select Component
+
+  Improve select component to better handle keyboard input.  When you type while the select is focussed it must automatically open
+  the search if it is enabled and start searching.  If search is disabled it must select the item in the list that matches the
+  words typed.
+
+- <DONE> IRP 5
+
+  Add functionality to print and email employee IRP 5s.
+
+- <DONE> Change Add employee to Wizard
+
+  Change the Add Employee panel to display as a wizard with next buttons and then add.
+
+- <DONE> Expand payslip to add columns for acrued, taken, balance with headings.
+
+- <DONE> Edit Payrun: Phase 1
+
+  Allow the user to edit a payrun's description.
+
+
+SPRINT 2020-11-05
+=================
+
+- <DONE> ACB Payments
+
+  Allow exporting of ACB Payment information to be uploaded to the banking
+
+- <DONE> Document Upload
+
+  Allow users to upload documents for the employee for example a sick note or contract.
+
+- <DONE> Consultant Company Login
+
+  Allow consultants to 'quick login' to a company without having a user connected to the company.  A 'quick login request' should be created for the consultant and the consultant
+  should then be redirected to the 'quick sign in' page.  The consultant must then log in with their own username and password.  When a quick sign in is successful an email
+  must be sent to the user that signed in to let them know that a successful sign in was done with their credentials.  It should also include the company that was signed in
+  to.
+
+- <DONE> SARS Integration
+
+  Integrate with SARS.
+
+
+PRINT 2020-12-10
+================
+
+- <DONE> Loans
+
+  Add functionality to handle employee loans.  Include ability to download.
+
+- <DONE> Admin Quick Login
+
+  Fix error in quick login function where the user receives a "You do not have access to this company" error when quick logging in on a company that
+  they do have access to.
+
+
+SPRINT 2021-01-05
+=================
+
+- <DONE> Add Employee: Work Schedule
+
+  Add work schedule section to add employee panel.
+
+- <DONE> Birthday Report
+
+  Add a report to show all employees and their birthdays.
+
+- <DONE> Birthday Reminder
+
+  Add an option to send birthday reminders to all employees in a company.
+
+- <DONE> Payroll Periods
+
+  Allow payruns with periods that overlap.  It should not be allowed to add paysips to the period if an employee already has a payslip that overlaps the period.
+
+
+CURRENT SPRINT
+==============
+
+- Retirement Fund Message
+
+  When viewing an employees retirement fund details and there are no retirement funds set up show a message to notify the user of this.  The message should
+  clearly indicate that there are not retirement funds set up and provide instructions on where to set up a retirement fund.
+
+
+
+FUTURE DEVELOPMENT
+==================
+
+- Employee Portal
+
+  Add a portal for employees to access their details such as payslips.
+
+  Include Full names, surname, or alias.
+
+- Loan Contracts
+
+  Expand the loan funtionality to allow users to print a loan contract.
+
+- Help Icon
+
+  Add help icon to items that are confusing for example payment_period_end date.
+
+- Template Documents
+
+  Add template forms for leave, employee contract, loan agreements
+  
+- Add setting for name to export to accounting.
+
+- Edit Payrun: Phase 2
+
+  Allow the user to edit a payrun's description and dates.
+
+- Store Payslip Totals
+
+  Some values on a payslip are resource intensive to calculate.  The details should be calculated when the payslip is
+  updated and processed and stored in the payslip table.  Details to store are:
+
+  - Taxable Income
+
+- Undo
+
+  Allow users to undo actions.

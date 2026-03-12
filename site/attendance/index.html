@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <title>Payaccsys Payroll: Attendance Register</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- APP FAVICON -->
+    <link rel="shortcut icon" href="gfx/favicon.ico" />
+    
+    <!-- GOOGLE FONTS -->    
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    
+    <!-- LOAD FONT AWESOME -->
+    <link rel="stylesheet" href="font/fontawesome_5_13_0/css/all.css">
+    
+    <!-- LOAD CSS -->
+    <link rel="stylesheet" href="css/common.css" />
+    
+    <!-- INCLUDE ZXCVBN LIBRARY -->
+    <script src="https://www.lexproonline.co.za/zxcvbn/zxcvbn.js"></script>
+
+    <!-- INCLUDE LEXPRO LIBRARY -->
+    <script src="https://www.lexproonline.co.za/liblx/v0_0_2/lx.js"></script>
+    
+    <!-- INCLUDE PROJECT FILES -->
+    <script src="js/app.js"></script>
+    <script src="js/commonSelectOptions.js"></script>
+    <script src="js/panel/main_panel.js"></script>
+    <script src="js/panel/template_panel.js"></script>
+    <script src="js/panel/template_modal_panel.js"></script>
+    <script src="js/panel/login_panel.js"></script>
+    <script src="js/panel/change_password_panel.js"></script>
+    <script src="js/panel/switch_company_panel.js"></script>
+    <script src="js/panel/user_profile_panel.js"></script>
+    
+    <script src="js/panel/reset_password_panel.js"></script>
+    
+    <script src="js/panel/add_sort_item_panel.js"></script>
+    
+    <script src="js/panel/attendance_panel.js"></script>
+    <script src="js/panel/list_attendance_history_panel.js"></script>
+    <script src="js/panel/sign_in_visitor_panel.js"></script>
+    <script src="js/panel/sign_in_employee_panel.js"></script>
+    <script src="js/panel/edit_visitor_panel.js"></script>
+    <script src="js/panel/view_attendance_panel.js"></script>
+    <script src="js/panel/sign_out_visitor_panel.js"></script>
+    <script src="js/panel/export_attendance_history_panel.js"></script>
+    <script src="js/panel/invitation_main_panel.js"></script>
+    
+    
+    <script>
+        // Start all Javascript after the document has loaded.
+        window.bodyLoadEventHandler = function() {
+            // Create the library config object
+            let lxConfig = {
+                components: [
+                    'SortBar',
+                    'Panel',
+                    'Button',
+                    'Tooltip',
+                    'Label',
+                    'Heading',
+                    'Loader',
+                    'Textbox',
+                    'RadioButtonGroup',
+                    'RadioGroup',
+                    'Selectbox',
+                    'Password',
+                    'Checkbox',
+                    'Messagebox',
+                    'DropdownButton',
+                    'ScrollContainer',
+                    'Toolbar',
+                    'Container',
+                    'ShowMoreButton',
+                    'AddRemoveList',
+                    'ProgressBar',
+                    'ColumnLayout',
+                    'ModalWindow',
+                    'Display',
+                    'Grid',
+                    'DatePicker',
+                    'DateSelect',
+                    'Searchbox'
+                ],
+                
+                style: {
+                    global: { 
+                        highlightColor: '#EF4E45'
+                    },
+                    button: {
+                        defaultStyleColor: '#FFFFFF',
+                        textStyleColor: '#EF4E45',
+                        disabledBackgroundColor: '#C0C0C0' // '#D69E75'
+                    }
+                }
+            };
+            
+            // Initialize lx library
+            lx.init(lxConfig, function() {
+                // Initialize the App
+                app.init();
+            });
+        }
+    </script>
+
+    <style>
+        html {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+        }
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 14px;
+            color: #2C333E;
+            background: #F8F8F8;
+        }
+    </style>
+</head>
+
+<body onload="bodyLoadEventHandler();">
+    <div style="display: flex; flex-direction: column; width: 100%; height: 100%;">
+        <div style="display: block; flex: 1 1 100%;"></div>
+        <div style="display: block; width: 100%; text-align: center; color: #DFDFDF;">Payaccsys Payroll is loading...</div>
+        <div style="display: block; flex: 1 1 100%;"></div>
+    </div>
+</body>
+
+</html>

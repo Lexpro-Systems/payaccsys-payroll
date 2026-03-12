@@ -1,0 +1,18 @@
+UIF CALCULATIONS
+================
+
+- Caclulated on gross remuneration of the employee with the following exclusions:
+
+    - Non employment related remuneration. Eg: Pensions, annuities and payments to a labour broker in possession of an exemption certificate.
+    - Any amount paid for loss of employment, such as retrenchment pay and payment for commutation of office.
+    - Once off payments such as Lump Sum Payments from pension, provident and retirement annuity funds.
+    - Restraint of trade payments.
+    - Commission
+    
+- The amount is split into two equal parts between the employee and the employer.
+- Current amount is 2% of employee gross remuneration with above exclusions taken into account.
+- There is a maximum amount of income that attract UIF.  The maximums are as follows
+    - R178 464 per year
+    - R 14 872 per month
+    - R  3 432 per week
+    - R  6 864 fortnightly

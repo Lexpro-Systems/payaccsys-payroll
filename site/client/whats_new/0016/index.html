@@ -1,0 +1,187 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>What's New</title>
+    
+    <!-- GOOGLE FONTS -->    
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    
+    <!-- LOAD FONT AWESOME -->
+    <link rel="stylesheet" href="https://www.lexproonline.co.za/cdn/font_awesome_5_13_0/css/all.min.css">
+        
+    <style type="text/css">
+        html, body {
+            margin: 0px;
+            padding: 0px;
+        }
+        
+        body {
+            margin: 0px;
+            padding: 10px 40px 20px 40px;
+            background-color: #FFFFFF;
+            font-family: 'Roboto', sans-serif;
+            color: #2C333E;
+        }
+        
+        h1 {
+            font-size: 18px;
+        }
+        
+        h2 {
+            font-size: 14px;
+            margin: 30px 0px 0px 0px;
+        }
+        
+        p {
+            font-size: 14px;
+            margin: 20px 0px;
+            text-align: justify;
+        }
+        
+        ul {
+            font-size: 14px;
+        }
+        ul > li {
+            margin: 5px 0px 0px 0px;
+        }
+        
+        .overview-section {
+            margin: 0px 0px 20px 0px;
+            padding: 10px 0px;
+            width: 280px;
+            background-color: #F3F3F3;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .overview-section > ul  {
+            color: #2C333E;
+        }
+        .overview-section > ul > li > a {
+            font-size: 14px;
+            margin: 5px 0px 0px 0px;
+            color: #FC8C3A;
+        }
+        
+        .accounting-configuration-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .accounting-configuration-img > div {
+            background-image: url(accounting_configuration.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 658px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .accounting-configuration-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .roe-report-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .roe-report-img > div {
+            background-image: url(roe_report.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 270px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .roe-report-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .refresh-payrun-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .refresh-payrun-img > div {
+            background-image: url(refresh_payrun.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 270px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .refresh-payrun-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+    </style>
+  
+</head>
+
+<body>
+    <h1>Overview</h1>
+    <div class="overview-section">
+        <ul>
+            <li><a href="#accountingConfiguration">Post Salaries to Employee Specific Lexpro Accounts</a></li>
+            <li><a href="#roeReport">Return of Earnings (Workmen&apos;s Compensation) Report</a></li>
+            <li><a href="#refreshPayrun">Refresh Payrun</a></li>
+        </ul>
+    </div>
+    
+    <a name="accountingConfiguration"></a>
+    <h1>Post Salaries to Employee Specific Lexpro Accounts</h1>
+    
+    <p>When posting payrun transactions to Lexpro Accounting users now have the option to post employee salaries to a single account or to specify a dedicated account for each employee.</p>
+    
+    <p>To use this feature please update your Lexpro Accounting configuration as follows:</p>
+    
+    <ul>
+        <li>Select the &quot;Setup&quot; option from the main menu and go to the &quot;Accounting Setup&quot; section.</li>
+        <li>Edit the configuration by clicking on the &quot;Configuration&quot; button or selecting the &quot;Configuration&quot; option from the drop-down menu.</li>
+        <li>Select &quot;No&quot; for the &quot;Use single account for salaries?&quot; option.</li>
+        <li>Select the appropriate Lexpro account for each listed employee.</li>
+    </ul>
+    
+    <p></p>
+    
+    <div class="accounting-configuration-img">
+        <div></div>
+        <p>Select &quot;No&quot; for the &quot;Use single account for salaries?&quot; option.</p>
+    </div>
+    
+    <a name="roeReport"></a>
+    <h1>Return of Earnings (Workmen&apos;s Compensation) Report</h1>
+    
+    <p>A report has been added to display the details required for completing the Return of Earnings (ROE) submission required by the The Compensation for Occupational Injuries and Diseases Act 130 of 1993.</p>
+    
+    <div class="roe-report-img">
+        <div></div>
+        <p>The return of earnings (workmen&apos;s compensation) report.</p>
+    </div>
+    
+    <a name="refreshPayrun"></a>
+    <h1>Refresh Payrun</h1>
+    
+    <p>A button has been added to allow users to refresh payrun calculations. Refreshing payrun calculations will re-calculate all auto-calculated values based on the latest available tax rates and tax calculation method.</p>
+    
+    <div class="refresh-payrun-img">
+        <div></div>
+        <p>The refresh payrun button.</p>
+    </div>
+    
+</body>
+</html>

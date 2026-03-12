@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <title>Payaccsys Payroll</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- APP FAVICON -->
+    <link rel="shortcut icon" href="gfx/favicon.ico" />
+    
+    <!-- GOOGLE FONTS -->    
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    
+    <!-- LOAD FONT AWESOME -->
+    <link rel="stylesheet" href="font/fontawesome_5_13_0/css/all.css">
+    
+    <!-- LOAD CSS -->
+    <link rel="stylesheet" href="css/common.css" />
+    
+    <!-- INCLUDE ZXCVBN LIBRARY -->
+    <script src="https://www.lexproonline.co.za/zxcvbn/zxcvbn.js"></script>
+    
+    <!-- INCLUDE LX LIBRARY -->
+    <script src="https://www.lexproonline.co.za/liblx/v0_0_2/lx.js"></script>
+    <!-- <script src="../../../LibLx/src/lx.js"></script> -->
+    
+    <!-- INCLUDE PROJECT FILES -->
+    <script src="js/app.js"></script>
+    
+    <script src="js/upload_manager.js"></script>
+    <script src="js/commonSelectOptions.js"></script>
+    <script src="js/panel/main_panel.js"></script>
+    <script src="js/panel/template_panel.js"></script>
+    <script src="js/panel/template_modal_panel.js"></script>
+    <script src="js/panel/login_panel.js"></script>
+    <script src="js/panel/change_password_panel.js"></script>
+    <script src="js/panel/switch_company_panel.js"></script>
+    <script src="js/panel/user_profile_panel.js"></script>
+    <script src="js/panel/view_company_panel.js"></script>
+    <script src="js/panel/edit_company_details_panel.js"></script>
+    <script src="js/panel/edit_company_address_details_panel.js"></script>
+    <script src="js/panel/edit_company_contact_details_panel.js"></script>
+    <script src="js/panel/edit_company_tax_details_panel.js"></script>
+    <script src="js/panel/edit_company_sars_contact_details_panel.js"></script>
+    <script src="js/panel/edit_company_uif_contact_details_panel.js"></script>
+    
+    <script src="js/panel/add_sort_item_panel.js"></script>
+    
+    <script src="js/panel/invite_user_panel.js"></script>
+    <script src="js/panel/list_employees_panel.js"></script>
+    <script src="js/panel/view_employee_panel.js"></script>
+    <script src="js/panel/view_employee_details_panel.js"></script>
+    <script src="js/panel/view_employee_work_schedule_panel.js"></script>
+    <script src="js/panel/edit_employee_work_schedule_panel.js"></script>
+    <script src="js/panel/add_employee_wizard_panel.js"></script>
+    <script src="js/panel/import_employees_panel.js"></script>
+    <script src="js/panel/allocate_leave_panel.js"></script>
+    <script src="js/panel/self_service_invite_panel.js"></script>
+    
+    <script src="js/panel/view_employee_earnings_panel.js"></script>
+    <script src="js/panel/add_once_off_payslip_config_item.js"></script>
+    <script src="js/panel/add_recurring_payslip_config_item.js"></script>
+    <script src="js/panel/edit_once_off_payslip_config_item.js"></script>
+    <script src="js/panel/edit_recurring_payslip_config_item.js"></script>
+    
+    <script src="js/panel/edit_employee_address_details_panel.js"></script>
+    <script src="js/panel/edit_employee_contact_details_panel.js"></script>
+    <script src="js/panel/edit_employee_bank_details_panel.js"></script>
+    <script src="js/panel/edit_employee_employment_details_panel.js"></script>
+    <script src="js/panel/edit_employee_personal_details_panel.js"></script>
+    <script src="js/panel/edit_employee_tax_details_panel.js"></script>
+    
+    <script src="js/panel/invitation_main_panel.js"></script>
+    <script src="js/panel/edit_user_panel.js"></script>
+    <script src="js/panel/view_invitation_panel.js"></script>
+    <script src="js/panel/edit_invitation_panel.js"></script>
+    
+    <script src="js/panel/list_payruns_panel.js"></script>
+    <script src="js/panel/edit_payrun_panel.js"></script>
+    <script src="js/panel/add_payrun_panel.js"></script>
+    <script src="js/panel/edit_payslip_panel.js"></script>
+    <script src="js/panel/add_payslip_item_panel.js"></script>
+    <script src="js/panel/add_payslips_panel.js"></script>
+    <script src="js/panel/edit_payrun_description_panel.js"></script>
+    
+    <script src="js/panel/attendance_panel.js"></script>
+    <script src="js/panel/list_attendance_history_panel.js"></script>
+    <script src="js/panel/sign_in_visitor_panel.js"></script>
+    <script src="js/panel/edit_visitor_panel.js"></script>
+    <script src="js/panel/view_attendance_panel.js"></script>
+    <script src="js/panel/sign_in_employee_panel.js"></script>
+    <script src="js/panel/sign_out_visitor_panel.js"></script>
+    <script src="js/panel/edit_attendance_panel.js"></script>
+    <script src="js/panel/export_attendance_history_panel.js"></script>
+    <script src="js/panel/allocate_attendance_panel.js"></script>
+    <script src="js/panel/list_employee_attendance_panel.js"></script>
+    <script src="js/panel/export_employee_attendance_panel.js"></script>
+    
+    <script src="js/panel/add_department_panel.js"></script>
+    <script src="js/panel/list_departments_panel.js"></script>
+    <script src="js/panel/edit_department_panel.js"></script>
+
+    <script src="js/panel/add_tags_panel.js"></script>
+    <script src="js/panel/list_tags_panel.js"></script>
+    <script src="js/panel/edit_tags_panel.js"></script>
+    
+    <script src="js/panel/view_leave_setup_panel.js"></script>
+    <script src="js/panel/edit_leave_type_panel.js"></script>
+    <script src="js/panel/add_leave_type_panel.js"></script>
+    
+    <script src="js/panel/view_employee_leave_panel.js"></script>
+    <script src="js/panel/allocate_employee_leave_panel.js"></script>
+    
+    <script src="js/panel/reset_password_panel.js"></script>
+    
+    <script src="js/panel/dismiss_employee_panel.js"></script>
+    <script src="js/panel/employ_employee_panel.js"></script>
+    
+    <script src="js/panel/reports_panel.js"></script>
+    <script src="js/panel/essential_reports_panel.js"></script>
+    <script src="js/panel/payrun_reports_panel.js"></script>
+    <script src="js/panel/employee_reports_panel.js"></script>
+    <script src="js/panel/leave_reports_panel.js"></script>
+    <script src="js/panel/run_payrun_report_panel.js"></script>
+    <script src="js/panel/earnings_cost_analysis_report_panel.js"></script>
+    <script src="js/panel/emp201_report_panel.js"></script>
+    <script src="js/panel/emp501_report_panel.js"></script>
+    <script src="js/panel/nett_pay_report.js"></script>
+    <script src="js/panel/employee_details_report_panel.js"></script>
+    <script src="js/panel/birthday_report_panel.js"></script>
+    <script src="js/panel/leave_summary_report_panel.js"></script>
+    <script src="js/panel/employee_leave_report_panel.js"></script>
+    <script src="js/panel/uif_report_panel.js"></script>
+    <script src="js/panel/export_uif_declaration_panel.js"></script>
+    <script src="js/panel/payslip_items_report_panel.js"></script>
+    <!-- <script src="js/panel/return_of_earnings_report_panel.js"></script> -->
+    <script src="js/panel/coida_report_panel.js"></script>
+    <script src="js/panel/overtime_report_panel.js"></script>
+    <script src="js/panel/payslip_items_specified_report_panel.js"></script>
+    
+    <script src="js/panel/view_setup_panel.js"></script>
+    <script src="js/panel/miscellaneous_setup_panel.js"></script>
+    
+    <script src="js/panel/list_users_panel.js"></script>
+    <script src="js/panel/list_payslips_panel.js"></script>
+    <script src="js/panel/view_payslip_panel.js"></script>
+    <script src="js/panel/mail_to_panel.js"></script>
+    
+    <script src="js/panel/whatsnew_panel.js"></script>
+    <script src="js/panel/view_document_setup_panel.js"></script>
+    <script src="js/panel/edit_payslip_setup_panel.js"></script>
+    <script src="js/panel/edit_loan_agreement_setup_panel.js"></script>
+    <script src="js/panel/view_lexpro_accounting_setup_panel.js"></script>
+    <script src="js/panel/lexpro_accounting_login_panel.js"></script>
+    <script src="js/panel/edit_lexpro_accounting_config_details_panel.js"></script>
+    
+    <script src="js/panel/new_company_request_panel.js"></script>
+    <script src="js/panel/email_payslips_panel.js"></script>
+    <script src="js/panel/process_payrun_panel.js"></script>
+    
+    <script src="js/panel/post_to_lexpro_panel.js"></script>
+    <script src="js/panel/edit_posting_date_panel.js"></script>
+
+    <script src="js/panel/payslips_paye_over_deductions_credit_panel.js"></script>
+    
+    <script src="js/panel/view_retirement_fund_setup_panel.js"></script>
+    <script src="js/panel/view_employee_retirement_funds_panel.js"></script>
+    <script src="js/panel/add_retirement_fund_panel.js"></script>
+    <script src="js/panel/edit_retirement_fund_panel.js"></script>
+    
+    <script src="js/panel/email_tax_certificates_panel.js"></script>
+    <script src="js/panel/export_reconciliation_panel.js"></script>
+    
+    <script src="js/panel/export_bank_payments_panel.js"></script>
+    <script src="js/panel/export_bank_payments_options_panel.js"></script>
+    <script src="js/panel/export_bank_payments_details_panel.js"></script>
+    
+    <script src="js/panel/add_company_bank_account_panel.js"></script>
+    <script src="js/panel/edit_company_bank_account_panel.js"></script>
+    <script src="js/panel/edit_document_panel.js"></script>
+    <script src="js/panel/list_employee_documents_panel.js"></script>
+    <script src="js/panel/export_exceptions_panel.js"></script>
+    
+    <script src="js/panel/list_tax_reconciliations_panel.js"></script>
+    <script src="js/panel/view_tax_reconciliation_panel.js"></script>
+    <script src="js/panel/view_tax_reconciliation_details_panel.js"></script>
+    <script src="js/panel/list_tax_reconciliation_certificates_panel.js"></script>
+    
+    <script src="js/panel/generate_tax_reconciliation_panel.js"></script>
+    <script src="js/panel/generate_tax_reconciliation_options_panel.js"></script>
+    <script src="js/panel/generate_tax_reconciliation_exceptions_panel.js"></script>
+    <script src="js/panel/export_reconciliation_exceptions_panel.js"></script>
+    <script src="js/panel/list_employee_tax_certificate_panel.js"></script>
+    <script src="js/panel/view_employee_tax_certificate_panel.js"></script>
+    <script src="js/panel/tax_certificate_self_service_access_panel.js"></script>
+    
+    <script src="js/panel/list_loans_panel.js"></script>
+    <script src="js/panel/add_loan_panel.js"></script>
+    <script src="js/panel/view_loan_panel.js"></script>
+    
+    <script src="js/panel/edit_loan_panel.js"></script>
+    <script src="js/panel/add_loan_payment_panel.js"></script>
+    <script src="js/panel/list_employee_loans_panel.js"></script>
+    
+    <script src="js/panel/list_leave_requests_panel.js"></script>
+    <script src="js/panel/add_leave_request_panel.js"></script>
+    <script src="js/panel/edit_leave_request_panel.js"></script>
+    <script src="js/panel/view_leave_request_panel.js"></script>
+    <script src="js/panel/edit_leave_request_admin_details_panel.js"></script>
+    <script src="js/panel/update_leave_request_status_panel.js"></script>
+    <script src="js/panel/resubmit_leave_request_panel.js"></script>
+    <script src="js/panel/list_employee_leave_requests_panel.js"></script>
+    
+    <script src="js/panel/trial_panel.js"></script>
+    
+    <script src="js/panel/setup_wizard_panel.js"></script>
+    
+    <script>
+        // Start all Javascript after the document has loaded.
+        window.bodyLoadEventHandler = function() {
+            // Create the library config object
+            let lxConfig = {
+                components: [
+                    'SortBar',
+                    'Panel',
+                    'Button',
+                    'Tooltip',
+                    'Label',
+                    'Heading',
+                    'Loader',
+                    'Textbox',
+                    'RadioButtonGroup',
+                    'RadioGroup',
+                    'Selectbox',
+                    'Password',
+                    'Checkbox',
+                    'Messagebox',
+                    'DropdownButton',
+                    'ScrollContainer',
+                    'Toolbar',
+                    'Container',
+                    'ShowMoreButton',
+                    'AddRemoveList',
+                    'ProgressBar',
+                    'ColumnLayout',
+                    'ModalWindow',
+                    'Display',
+                    'Grid',
+                    'DatePicker',
+                    'DateSelect',
+                    'Searchbox'
+                ],
+                
+                style: {
+                    global: { 
+                        highlightColor: '#EF4E45'
+                    },
+                    button: {
+                        defaultStyleColor: '#FFFFFF',
+                        textStyleColor: '#EF4E45',
+                        disabledBackgroundColor: '#C0C0C0' // '#D69E75'
+                    }
+                }
+            };
+            
+            // Initialize lx library
+            lx.init(lxConfig, function() {
+                // Initialize the App
+                app.init();
+            });
+        }
+    </script>
+    
+    <style>
+        html {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+        }
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 14px;
+            color: #2C333E;
+            background: #F8F8F8;
+        }
+    </style>
+    
+    <!-- Facebook Pixel Code -->
+    <script>
+        !function(f,b,e,v,n,t,s)
+        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)}(window, document,'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', '679920823427970');
+        // fbq('track', 'PageView');
+    </script>
+    <noscript>
+      <img height="1" width="1" style="display:none" 
+           src="https://www.facebook.com/tr?id=679920823427970&ev=PageView&noscript=1"/>
+    </noscript>
+    <!-- End Facebook Pixel Code -->
+</head>
+
+<body onload="bodyLoadEventHandler();">
+    <div style="display: flex; flex-direction: column; width: 100%; height: 100%;">
+        <div style="display: block; flex: 1 1 100%;"></div>
+        <div style="display: block; width: 100%; text-align: center; color: #DFDFDF;">Payaccsys Payroll is loading...</div>
+        <div style="display: block; flex: 1 1 100%;"></div>
+    </div>
+</body>
+
+</html>

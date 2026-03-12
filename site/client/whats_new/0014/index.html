@@ -1,0 +1,384 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>What's New</title>
+    
+    <!-- GOOGLE FONTS -->    
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    
+    <!-- LOAD FONT AWESOME -->
+    <link rel="stylesheet" href="https://www.lexproonline.co.za/cdn/font_awesome_5_13_0/css/all.min.css">
+        
+    <style type="text/css">
+        html, body {
+            margin: 0px;
+            padding: 0px;
+        }
+        
+        body {
+            margin: 0px;
+            padding: 10px 40px 20px 40px;
+            background-color: #FFFFFF;
+            font-family: 'Roboto', sans-serif;
+            color: #2C333E;
+        }
+        
+        h1 {
+            font-size: 18px;
+            margin: 30px 0px 0px 0px;
+        }
+        
+        h2 {
+            font-size: 14px;
+            margin: 30px 0px 0px 0px;
+        }
+        
+        p {
+            font-size: 14px;
+            margin: 20px 0px;
+            text-align: justify;
+        }
+        
+        ul {
+            font-size: 14px;
+        }
+        ul > li {
+            margin: 5px 0px 0px 0px;
+        }
+        
+        .overview-section {
+            margin: 5px 0px 20px 0px;
+            padding: 10px 0px;
+            width: 280px;
+            background-color: #F3F3F3;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .overview-section > ul  {
+            color: #2C333E;
+        }
+        .overview-section > ul > li > a {
+            font-size: 14px;
+            margin: 5px 0px 0px 0px;
+            color: #FC8C3A;
+        }
+        
+        .year-end-paye-correction-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .year-end-paye-correction-img > div {
+            background-image: url(year_end_paye_correction.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 400px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .year-end-paye-correction-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .payrun-departments-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .payrun-departments-img > div {
+            background-image: url(payrun_departments.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 520px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .payrun-departments-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .attendance-by-department-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .attendance-by-department-img > div {
+            background-image: url(attendance_departments.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 364px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .attendance-by-department-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .tax-certificate-access-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .tax-certificate-access-img > div {
+            background-image: url(tax_certificate_access.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 276px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .tax-certificate-access-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .tax-certificate-select-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .tax-certificate-select-img > div {
+            background-image: url(tax_certificate_select.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 402px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .tax-certificate-select-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .tax-certificate-view-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .tax-certificate-view-img > div {
+            background-image: url(tax_certificate_view.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 308px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .tax-certificate-view-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .employee-leave-filters-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .employee-leave-filters-img > div {
+            background-image: url(employee_leave_filters.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 296px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .employee-leave-filters-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .payslip-item-report-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .payslip-item-report-img > div {
+            background-image: url(payslip_item_report.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 296px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .payslip-item-report-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+        
+        .report-period-filter-img {
+            width: 100%;
+            max-width: 605px;
+        }
+        .report-period-filter-img > div {
+            background-image: url(report_period_filter.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 298px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+        .report-period-filter-img > p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+    </style>
+  
+</head>
+
+<body>
+    <h1>Overview</h1>
+    <div class="overview-section">
+        <ul>
+            <li><a href="#yearEndTaxCorrections">Year-End PAYE Corrections</a></li>
+            <li><a href="#payrunsByDepartment">Add Payruns By Department</a></li>
+            <li><a href="#attendanceByDepartment">View Attendance By Department</a></li>
+            <li><a href="#taxCertificateEmployeeAccess">Employee Tax Certificate Access</a></li>
+            <li><a href="#employeeLeaveDateFilters">Employee Leave Date Filters</a></li>
+            <li><a href="#payslipItemsReport">Payslip Items Report</a></li>
+            <li><a href="#reportPeriodFilters">Report Period Filters</a></li>
+        </ul>
+    </div>
+    
+    <a name="yearEndTaxCorrections"></a>
+    <h1>Year-End PAYE Corrections</h1>
+    
+    <p>We&apos;ve added functionality for year-end PAYE corrections. On the last month of the financial year (February) the total amount of 
+        PAYE will be calculated for each employee. If the total PAYE for the employee is greater than the prescribed amount the difference 
+        will be deducted from the final month&apos;s PAYE.</p>
+    
+    <p>This feature may be enabled/disabled per employee. Please note that the feature will be enabled by default for new employees (see the
+        screenshot below) but will NOT be enabled for current employees. To enable the feature for current employees, please edit the employee
+        income tax details accordingly.
+    </p>
+    
+    <div class="year-end-paye-correction-img">
+        <div></div>
+        <p>Enable year-end PAYE correction when adding an employee.</p>
+    </div>
+    
+    <a name="payrunsByDepartment"></a>
+    <h1>Add Payruns By Department</h1>
+    
+    <p>Payruns can now be created by department. Simply select the department from the dropdown list when adding a payrun to create a payrun  
+        for all the employees in the specified department. Please note that creating a payrun for <q>All Departments</q> will include only
+        those employees who have not already been included in another payrun for the same period (e.g., when creating a payrun for the <q>Sales and 
+        Marketing</q> department for a given period and then creating another payrun for <q>All Departments</q> for the same period, the 
+        <q>All Departments</q> payrun will only include those employees not already in the <q>Sales and Marketing</q> payrun).
+    </p>
+    
+    <div class="payrun-departments-img">
+        <div></div>
+        <p>Add payruns by department.</p>
+    </div>
+    
+    <a name="attendanceByDepartment"></a>
+    <h1>View Attendance By Department</h1>
+    
+    <p>Display the attendance (or attendance history) by department by selecting the department from the dropdown list in the title bar.</p>
+    
+    <div class="attendance-by-department-img">
+        <div></div>
+        <p>Filter attendance by department.</p>
+    </div>
+    
+    <a name="taxCertificateEmployeeAccess"></a>
+    <h1>Employee Tax Certificate Access</h1>
+    
+    <p>Employees will now be able to view or download tax certificates at the employer&apos;s discretion. Follow these simple steps to give employees access to their tax certificates:</p>
+    
+    <p>Step 1:</p>
+    
+    <p>Click on the <q>Self Service Access</q> button when viewing the Tax Certificates for a given Tax Reconciliation.</p>
+    
+    <div class="tax-certificate-access-img">
+        <div></div>
+        <p>Give employee access to tax certificates.</p>
+    </div>
+    
+    <p>Step 2:</p>
+    
+    <p>Select the tax certificates you wish to make available by checking them (click on the orange check button in the heading bar to select/unselect all) and click on the <q>Apply</q> button.</p>
+    
+    <div class="tax-certificate-select-img">
+        <div></div>
+        <p>Select certificates to give access to.</p>
+    </div>
+    
+    <p>The employee will now be able to view or download the tax certificates by clicking on the <q>Tax Certificates</q> item in the main menu of the employee portal.</p>
+    
+    <div class="tax-certificate-view-img">
+        <div></div>
+        <p>View tax certificates in the employee portal.</p>
+    </div>
+    
+    <a name="employeeLeaveDateFilters"></a>
+    <h1>Employee Leave Date Filters</h1>
+    
+    <p>View the employee leave for a given period by specifying a start and end date.</p>
+    
+    <div class="employee-leave-filters-img">
+        <div></div>
+        <p>Employee leave date filters.</p>
+    </div>
+    
+    <a name="payslipItemsReport"></a>
+    <h1>Payslip Items Report</h1>
+    
+    <p>A report has been added to display all payslip item totals for each employee for a given payrun or over a given period.</p>
+    
+    <div class="payslip-item-report-img">
+        <div></div>
+        <p>Open the payslip items report.</p>
+    </div>
+    
+    <a name="reportPeriodFilters"></a>
+    <h1>Report Period Filters</h1>
+    
+    <p>Filters have been added to the Cost Analysis, Nett Pay, and UIF reports so that they may be displayed either for a given payrun or over a given period.</p>
+    
+    <div class="report-period-filter-img">
+        <div></div>
+        <p>Period filters on reports.</p>
+    </div>
+    
+    <!-- div class="work-schedule-img">
+        <div></div>
+        <p>&apos;Work Schedule&apos; section.</p>
+    </div -->
+    
+</body>
+</html>

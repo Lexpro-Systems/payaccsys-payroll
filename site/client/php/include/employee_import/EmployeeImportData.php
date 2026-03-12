@@ -1,0 +1,77 @@
+<?php
+System::denyDirectAccess();
+// Data from csv is automatically injected into this class 
+// The attributes should be in order  according to the csv headings 
+class EmployeeImportData {
+
+    public string $code;
+    public string $titleCode;
+    public string $initials;
+    public string $fullName;
+    public string $lastName;
+    public string $alias;
+    public string $idNumber;
+    public string $passportNumber;
+    public   $passportCountry;
+    public  $dateOfBirth;
+    public        $isAsylumSeeker;
+    public        $isRefugee;
+    public        $isRetired;
+    public string $physicalAddressUnit ;
+    public string $physicalAddressComplex;
+    public string $physicalAddressStreet;
+    public string $physicalAddressSuburb;
+    public string $physicalAddressCity;
+    public string $physicalAddressPostalCode;
+    public  $physicalAddressCountry;
+    public  $postalAddressSameAsPhysical;
+    public string $postalAddressLine1;
+    public string $postalAddressLine2;
+    public string $postalAddressLine3;
+    public string $postalAddressCode;
+    public   $postalAddressCountry;
+    public $workAddressSameAsCompanyAddress;
+    public string $workAddressUnit;
+    public string $workAddressComplex;
+    public string $workAddressStreet;
+    public string $workAddressSuburb;
+    public string $workAddressCity;
+    public  $workAddressPostalCode;
+    public   $workAddressCountry;
+    public string $homeNumber;
+    public string $workNumber;
+    public string $cellNumber;
+    public string $faxNumber;
+    public string $emailAddress;
+    public string $emergencyContactPerson;
+    public string $emergencyContactNumber;
+    public  $employmentStartDate;
+    public  $employmentEndDate;
+    public string $employmentPosition;
+    public string $employmentStatus;
+    public string $department;
+    public string $paymentMethod;
+    public string $paymentPeriod;
+    public   $paymentDay;
+    public  $paymentPeriodEndDay;
+    public string $financialInstitution;
+    public string $bankAccountType;
+    public string $accountNumber;
+    public string $branchCode;
+    public string $incomeTaxNumber;
+    public string $sicCode;
+    public        $sendPaySlipByEmail;
+    public string $incomeTaxDirective1;
+    public  $incomeTaxDirective1IssuedDate;
+    public string $incomeTaxDirective1SourceCode;
+    public  $incomeTaxDirective1Amount;
+    public string $incomeTaxDirective2;
+    public  $incomeTaxDirective2IssuedDate;
+    public string $incomeTaxDirective2SourceCode;
+    public  $incomeTaxDirective2Amount;
+    public string $incomeTaxDirective3;
+    public  $incomeTaxDirective3IssuedDate;
+    public string $incomeTaxDirective3SourceCode;
+    public  $incomeTaxDirective3Amount;
+    public        $enablePayeCorrection;
+}

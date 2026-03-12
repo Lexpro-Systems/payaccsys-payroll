@@ -1,0 +1,72 @@
+PENSION FUND CODES
+==================
+
+4472 - Employer's Pension Fund Contributions
+
+    - This is the amount paid by the employee towards his/her pension fund.
+    - Deduction
+    - Is NOT part of taxable income.
+    - This code's value must exclude the value from code 4585
+    - This code is only applicable from 2017 onwards
+    - If this code is completed code 3817 and 4001 must also be completed.
+    - Payslip Item Type Code = 2005
+
+3817 - Employer Pension Fund Contributions
+
+    - This is the amount paid by the employer towards the pension fund on the employee's behalf.
+    - Fringe Benefit
+    - Is part of taxable income
+    - Payslip Item Type Code = 4001
+    
+4001 - Provident Fund Contributions Paid and 'Deemed Paid' by Employee
+
+    - The amounts of code 4472 and 3817 combined.
+
+
+PROVIDENT FUND CODES
+====================
+
+4473 - Employer's Provident Fund Contributions
+
+    - This is the amount paid by the employee towards his/her provident fund.
+    - Deduction
+    - Is NOT part of taxable income.
+    - This code's value must exclude the value from code 4586
+    - This code is only applicable from 2017 onwards
+    - If this code is completed code 3825 and 4003 must also be completed.
+    - Payslip Item Type Code = 2006
+
+3825 - Employer Provident Fund Contributions
+
+    - This is the amount paid by the employer towards the provident fund on the employee's behalf.
+    - Fringe Benefit
+    - Is part of taxable income
+    - Payslip Item Type Code = 4002
+    
+4003 - Provident Fund Contributions Paid and 'Deemed Paid' by Employee
+
+    - The amounts of code 4473 and 3825 combined.
+    
+    
+RETIREMENT ANNUITY FUND CODES
+=============================
+
+4475 - Employer's Retirement Annuity Fund Contributions
+
+    - This is the amount paid by the employee towards his/her retirement annuity fund.
+    - Deduction
+    - Is NOT part of taxable income.
+    - This code is only applicable from 2017 onwards
+    - If this code is completed code 3828 and 4006 must also be completed.
+    - Payslip Item Type Code = 2007
+
+3828 - Employer Retirement Annuity Fund Contributions
+
+    - This is the amount paid by the employer towards the retirement annuity fund on the employee's behalf.
+    - Fringe Benefit
+    - Is part of taxable income
+    - Payslip Item Type Code = 4003
+    
+4006 - Retirement Annuity Fund Contributions Paid and 'Deemed Paid' by Employee
+
+    - The amounts of code 4475 and 3828 combined.

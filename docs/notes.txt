@@ -1,0 +1,91 @@
+Payroll
+=======
+
+Integration
+
+    - Sars
+    - Accounting
+    - Payment system
+    
+Reports
+
+    - Customizable reports.
+    
+Employee
+
+    - Loans
+    - Savings
+    - Garnishees
+    
+    - Ask if empoloyee is director / member of the cc - Should reflect on IRP5
+    - Ask if employee is independent Contractor - Should reflect on IRP5
+    
+    - Once off deductions
+    - Once off earnings
+    
+Deductions
+
+    - UIF
+    - SDL
+    
+Company Details
+
+    - Company Name
+    - Company Logo
+    - Company registration Number
+    - PAYE reference number
+    - Trade Classification
+    - SDL Payment Reference Number
+    - UIF Payment Reference Number
+    - UIF Registration Number (Department of labour)
+    - Standrd Industry Classification (SIC Code)
+        https://www.sars.gov.za/TaxTypes/PAYE/ETI/Pages/SIC-Codes.aspx
+    - Not eligible for employment tax incentive
+        - Disqualified
+        - Employer SIC code not eligible
+        - Government
+        - Municipality
+        - Not registered for PAYE
+        - Public Entity
+    - Special Economic Zone
+        - COE - Coega
+        - DTP - Dube Trade Port
+        - EAL - East London
+        - MAP - Maluti-a-Phofung
+        - RIB - Richards Bay
+        - SLB - Saldanha Bay
+    - Diplomatic Indemnity
+    - Physical Address
+        - Unit Number
+        - Complex Name
+        - Street Number
+        - Street / Farm
+        - Suburb / District
+        - City
+        - Postal Code
+        - Country
+    - Postal Address
+        - Line 1
+        - Line 2
+        - Line 3
+        - Postal Code
+    - Sars Contact Person
+        - Name
+        - Email Address
+        - Contact Number
+    - UIF Contact Person
+        - Name
+        - Email Address
+        - Contact Number
+        
+Requirements for IRP5 Validation
+
+    - PAYE reference number
+    - UIF Payment Reference Numberr (SARS)
+    - Standard Industry Classification
+    - Physical Address Street
+    - Physical Address Suburb
+    - Physical Address Postal Code
+    - Country
+    - Sars Contact Person
+    - Sars Contact Telephone Number
