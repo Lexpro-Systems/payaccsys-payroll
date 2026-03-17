@@ -7,17 +7,17 @@
 /client_data/
 /Dev docs/
 /site/temp/
-/site/admin/font
+#/site/admin/font
 /site/admin/php/config/config_database.php
 /site/admin/php/config/config_system.php
-/site/attendance/font
+#/site/attendance/font
 /site/attendance/php/config/config_database.php
 /site/attendance/php/config/config_system.php
-/site/client/font/
+#/site/client/font/
 /site/client/client_data/
 /site/client/php/config/config_database.php
 /site/client/php/config/config_system.php
-/site/employee/font
+#/site/employee/font
 /site/employee/php/config/config_database.php
 /site/employee/php/config/config_system.php
 /site/employee/download/
