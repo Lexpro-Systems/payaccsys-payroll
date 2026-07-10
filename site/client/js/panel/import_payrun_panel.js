@@ -86,11 +86,11 @@ app.panel.ImportPayrun = function (config) {
     // lx.component.Panel.call(this, config);
 
 
-    //
-    // PRIVATE FUNCTIONS
-    //
+    /**********************
+     * PRIVATE FUNCTIONS
+     **********************/
 
-    // Function to load departments
+    //Retrieves and loads all of the departments from the database.
     function loadDepartments() {
         lx.sendJSON({
             url: 'exec.php?c=Department&fn=getList',
@@ -166,10 +166,9 @@ app.panel.ImportPayrun = function (config) {
         }
     }
 
-
-    //
-    // PUBLIC FUNCTIONS
-    //
+    /**********************
+     * PUBLIC FUNCTIONS
+     **********************/
 
     me.init = function (config) {
         // Initialize component config
@@ -209,9 +208,9 @@ app.panel.ImportPayrun = function (config) {
         });
 
 
-        //
-        // TITLE SECTION
-        //
+        /**********************
+         * TITLE SECTION
+         **********************/
 
         titleContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -259,9 +258,9 @@ app.panel.ImportPayrun = function (config) {
         });
 
 
-        //
-        // CONTENT SECTION
-        //
+        /**********************
+         * CONTENT SECTION
+         **********************/
 
         // Create loaderContainerEl
         loaderContainerEl = lx.createElement('DIV', {
@@ -296,10 +295,9 @@ app.panel.ImportPayrun = function (config) {
             }
         });
 
-
-        //
-        // WIZARD SECTION
-        //
+        /**********************
+         * WIZARD SECTION
+         **********************/
 
         // Create the wizardSectionEl
         wizardSectionEl = lx.createElement('DIV', {
@@ -395,9 +393,9 @@ app.panel.ImportPayrun = function (config) {
         });
 
 
-        //
-        // WIZARD PAGE 1
-        //
+        /**********************
+         * WIZARD PAGE 1
+         **********************/
 
         wizardPage1ContainerEl = lx.createElement('DIV', {
             parent: wizardPageContainerEl,
@@ -479,9 +477,9 @@ app.panel.ImportPayrun = function (config) {
         });
 
 
-        //
-        // WIZARD PAGE 2
-        //
+        /**********************
+         * WIZARD PAGE 2
+         **********************/
 
         wizardPage2ContainerEl = lx.createElement('DIV', {
             parent: wizardPageContainerEl,
@@ -1378,7 +1376,7 @@ app.panel.ImportPayrun = function (config) {
 
             // Get execptions, if any
             lx.sendJSON({
-                url: 'exec.php?c=Employee&fn=getImportExceptionList',
+                url: 'exec.php?c=Payrun&fn=getImportExceptionList',
                 data: {
                     departmentId: departmentSelect.getValue(),
                     startDate: fromDate.getValue(),
