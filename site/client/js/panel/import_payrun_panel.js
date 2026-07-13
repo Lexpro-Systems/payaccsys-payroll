@@ -614,7 +614,7 @@ app.panel.ImportPayrun = function (config) {
         });
         downloadCsvTemplateEl.addEventListener('click', function () {
             lx.sendForm({
-                url: 'exec.php?c=Employee&fn=downloadImportTemplate',
+                url: 'exec.php?c=Payrun&fn=downloadImportTemplate',
                 data: {
                     format: 'CSVX'
                 },
@@ -664,7 +664,7 @@ app.panel.ImportPayrun = function (config) {
                     app.route.enableNavigation();
                     if (event.button === 'download') {
                         lx.sendForm({
-                            url: 'exec.php?c=Employee&fn=downloadImportTemplate',
+                            url: 'exec.php?c=Payrun&fn=downloadImportTemplate',
                             data: {
                                 format: 'XLSX'
                             },
@@ -1415,7 +1415,7 @@ app.panel.ImportPayrun = function (config) {
 
                     // Are there no exeptions?
                     if (response.exceptions.length <= 0) {
-                        exceptionsMessageEl.innerHTML = '<div style="font-size: 14px;">No exceptions found. Click the \'Finish\' button to import the employees.</div>';
+                        exceptionsMessageEl.innerHTML = '<div style="font-size: 14px;">No exceptions found. Click the \'Finish\' button to import the payrun.</div>';
                         exceptionDetailsContainerEl.style.display = 'none';
                     }
                     else {
@@ -1425,7 +1425,7 @@ app.panel.ImportPayrun = function (config) {
                             '<i class="fa fa-exclamation-circle" style="color:' + lx.style.global.highlightColor + ';"></i> ' +
                             'icon) to verify that you are aware of them (you can check or uncheck all the exceptions ' +
                             'at once by clicking on the check mark in the heading of the check column).<br><br>' +
-                            'IMPORTANT: You will not be able to import employees if ' +
+                            'IMPORTANT: You will not be able to import the payrun if ' +
                             'there are any critical exceptions (indicated by the ' +
                             '<i class="fa fa-exclamation-triangle" style="color:#E74C3C;"></i> ' +
                             'icon).' +
@@ -1481,7 +1481,7 @@ app.panel.ImportPayrun = function (config) {
             // Are there critical exceptions?
             if (hasCriticalExceptions) {
                 wizardNextBtn.showWarning(
-                    'Unable to import employees. Critical exceptions found.'
+                    'Unable to import payrun. Critical exceptions found.'
                 );
                 return;
             }
@@ -1489,7 +1489,7 @@ app.panel.ImportPayrun = function (config) {
             // Are there critical exceptions?
             if (exceptionsGrid.getSelectedRowCount() !== exceptionsGrid.getRowCount()) {
                 wizardNextBtn.showWarning(
-                    'Unable to import employees. One or more exceptions have not been checked.'
+                    'Unable to import payrun. One or more exceptions have not been checked.'
                 );
                 return;
             }
@@ -1525,7 +1525,7 @@ app.panel.ImportPayrun = function (config) {
 
             // Get execptions, if any
             lx.sendJSON({
-                url: 'exec.php?c=Employee&fn=import',
+                url: 'exec.php?c=Payrun&fn=import',
                 data: {
                     updateEmployees: updateEmployeesRadio.getValue(),
                     departmentId: departmentSelect.getValue(),
@@ -1548,7 +1548,7 @@ app.panel.ImportPayrun = function (config) {
 
                     if (response.ok !== true) {
                         new lx.component.Messagebox({
-                            title: 'Importing Employees Failed',
+                            title: 'Importing Payrun Failed',
                             message: response.error
                         });
                         return;

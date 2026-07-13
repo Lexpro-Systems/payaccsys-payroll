@@ -8494,8 +8494,7 @@ class Payrun extends Controller
         // Return the result
         return ['ok' => true, 'payment' => ($taxLiability)];
     }
-
-    public function getImportExceptionList($data, $user, $db)
+    public function downloadImportTemplate($data, $user, $db)
     {
         // Set content type header
         header('Content-Type: application/json');
@@ -8507,11 +8506,56 @@ class Payrun extends Controller
         // Validate data.
         $validationResult = Json::validate($data, [
             // Required parameters
-            // ...
-
-            // Optional parameters
-            // ...
+            'format' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false]
         ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        // Set csv by default
+        $filename = 'payroll_import_template.csv';
+        $realFileName =  'payroll_import_template.csv';
+        $mimeType = 'text/csv';
+
+        // Set xlsx format if specified
+        if ($data['format'] === 'XLSX') {
+            $filename = 'payroll_import_template.xlsx';
+            $realFileName =  'payroll_import_template.xlsx';
+            $mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        }
+
+        // Check if media data folder exists
+        if (!file_exists(CONF_MEDIA_DIR)) {
+            echo (json_encode(['ok' => false, 'error' => 'No media directory found. Please contact support.']));
+            return false;
+        }
+
+        // Check if templates folder exists
+        if (!file_exists(CONF_CLIENT_DOWNLOAD_DIR)) {
+            echo (json_encode(['ok' => false, 'error' => 'File does not exist. Please contact support']));
+            return false;
+        }
+
+        $resourcePath = realpath(CONF_CLIENT_DOWNLOAD_DIR . $realFileName);
+        header('Content-Length: ' . filesize($resourcePath));
+        header('Content-Type: ' . $mimeType);
+        header('Cache-Control: cache, max-age=31536000');
+        header('Content-Disposition: attachment; filename="' . $filename . '";');
+        ob_clean();   // discard any data in the output buffer (if possible)
+        flush();      // flush headers (if possible)
+        readfile($resourcePath);
+        return true;
+    }
+    public function getImportExceptionList($data, $user, $db)
+    {
+        // Set content type header
+        header('Content-Type: application/json');
+
+        // Set default parameter values and performs validation
+        $defaults = [];
+        Json::copy($defaults, $data);
+        $validationResult = Json::validate($data, []);
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
             return false;
