@@ -8547,12 +8547,16 @@ class Payrun extends Controller
         readfile($resourcePath);
         return true;
     }
+
     public function getImportExceptionList($data, $user, $db)
     {
-        // Set content type header
+        # Set content type header
         header('Content-Type: application/json');
 
-        // Set default parameter values and performs validation
+        /***********************
+        Default values and filter
+         ***********************/
+
         $defaults = [];
         Json::copy($defaults, $data);
         $validationResult = Json::validate($data, []);
@@ -8561,19 +8565,23 @@ class Payrun extends Controller
             return false;
         }
 
-        // Have we not received a file?
+        /***********************
+        CSV/XLSX file validation
+         ***********************/
+
+        # Checks if the csv or xlsx file has been uploaded.
         if (!isset($_FILES['document'])) {
             die(json_encode(['ok' => false, 'error' => 'No import file received']));
         }
 
-        // Get the file extension
+        # Checks the file extension: .csv or .xlsx
         $extensionCheck = strtolower(pathinfo($_FILES['document']['name'], PATHINFO_EXTENSION));
         if ($extensionCheck !== 'csv' && $extensionCheck !== 'xlsx') {
             echo (json_encode(['ok' => false, 'error' => 'Files of this type (' . pathinfo($_FILES['document']['name'], PATHINFO_EXTENSION) . ') cannot be imported.']));
             return false;
         }
 
-        // Do various checks to ensure the file integrity
+        # Validating the upload file against requirements.
         if ($_FILES['document']['error'] === 1) {
             echo (json_encode(['ok' => false, 'error' => 'The uploaded file exceeds the maximum upload file size.']));
             return false;
@@ -8597,7 +8605,7 @@ class Payrun extends Controller
             return false;
         }
 
-        // Set the headings for csv file
+        # Stores the headings of the csv/xlsx file. 
         $headings = array(
             'Employee Number',
             'Employee Name',
@@ -8626,22 +8634,22 @@ class Payrun extends Controller
             'Total Deductions',
             'Net Pay'
         );
-        // Create a random folder in the temp directory
+
+        # Creates a temporary directory.
         $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $charactersLength = strlen($characters);
-
         $destDir = '';
         for ($i = 0; $i < 32; $i++) {
             $destDir = $destDir . $characters[rand(0, $charactersLength - 1)];
         }
         $destDir = CONF_TEMP_DIR . $destDir;
 
-        // Does the destination folder not exist?
+        # Checks if the directory was created.
         if (!file_exists($destDir)) {
             mkdir($destDir, 0777, true);
         }
 
-        // Save file to disk
+        # Stores the uploaded file in the temp directory.
         $localFile = $destDir . '/import_payrun.' . $extensionCheck;
         $result = move_uploaded_file($_FILES['document']['tmp_name'], $localFile);
         if ($result !== true) {
@@ -8649,19 +8657,18 @@ class Payrun extends Controller
             return false;
         }
         error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE);
+
+        # Now we open and read the file, counting the headings to see if it mathes the header array.
         $exceptions = [];
         $importCount = 0;
         $updateCount = 0;
         $handler = fopen($localFile, "r");
         $line = fgets($handler, 2048);
-        // Detect line seperator
         $lineSperator = ";";
         if (str_contains($line, ",")) {
             $lineSperator = ",";
         }
-
         $maxColNum = count(explode($lineSperator, $line));
-        // Is there a different amount of columns than the expected amount?
         if ($maxColNum !== count($headings)) {
             // Add an exception
             $exceptions[] = [
@@ -8677,24 +8684,23 @@ class Payrun extends Controller
             ];
         }
         rewind($handler);
+
+        # The headdings are extracted from the file, we the loop through the headings, clean them, and check of it matches
+        # the headdings in the header array.
         $headingColumns = explode($lineSperator, fgets($handler, 2048));
-        // For every column in the spreadsheet
         for ($col = 0; $col <= $maxColNum - 1; $col++) {
-            // Don't check more headings than there should be
+
             if ($col > count($headings)) {
                 break;
             }
-            // Get the heading of the specified column                
-            // Is the column 
             $headingColumn = $headingColumns[$col];
-            // This is remove uncessary utf chars and replacing quotation marks on the heading
+
             if (isset($headingColumn)) {
                 $headingColumn = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $headingColumn);
                 $headingColumn = str_replace("\"", "", $headingColumn);
             }
 
             if ($headingColumn !== $headings[$col]) {
-                // Add an exception
                 $exceptions[] = [
                     'isCritical' => true,
                     'column' => ($col +  1),
@@ -8708,30 +8714,35 @@ class Payrun extends Controller
                 ];
             }
         }
+
+        # Here we extract the rows from the file, loop through them and validate them.
         $row = 0;
         rewind($handler);
-        $payslips = [];
-        // $countCriticalWarnings = 0;
         while (($rowData = fgetcsv($handler, 2048, $lineSperator, '"', '\\')) !== FALSE) {
-            // skip headers
+            # Step1 - skip the header row
             if ($row == 0) {
                 $row++;
                 continue;
             }
             $row++;
+
+            # Step2 - Create a new payrun import data object and store the headings in an array.
             $payrunImportData = new PayrunImportData();
             $payruns[] = $payrunImportData;
+            # Step3 - Insert the file row data into the payrun import data object
             AssignPayrunImportData::load($payrunImportData, $rowData);
+            # Step4 - Validate the payrun import data object
             $payrunImportValidator = new PayrunImportValidator($db, $payrunImportData, $user);
             $payrunImportValidator->validate($row, $exceptions);
             $payrunImportValidator->checkDuplicates($row, $payruns, $exceptions);
+            # Checks if the imported payslips belong to existing employees.
             if ($payrunImportValidator->doesEmployeeExist()) {
                 $importCount += 1;
             } else {
                 $skippedCount += 1;
             }
         }
-        fclose($handler); // close file handler
+        fclose($handler);
         array_multisort(
             array_column($exceptions, 'isCritical'),
             SORT_DESC,
@@ -8744,9 +8755,9 @@ class Payrun extends Controller
             SORT_NUMERIC,
             $exceptions
         );
-        // Remove the file used for importing spend
+        # Remove the file used for importing spend
         unlink($localFile);
-        // Delete the temp folder
+        # Delete the temp folder
         rmdir($destDir);
         unset($employees);
         echo (json_encode(['ok' => true, 'exceptions' => $exceptions, 'updateCount' => $skippedCount, 'importCount' => $importCount]));
