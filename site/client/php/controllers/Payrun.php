@@ -9265,9 +9265,9 @@ class Payrun extends Controller
         # Set content type header
         header('Content-Type: application/json');
 
-        /***********************
-        Default values and filter
-         ***********************/
+        /*******************************
+          Default values and validation
+         *******************************/
 
         $defaults = [];
         Json::copy($defaults, $data);
@@ -9277,9 +9277,9 @@ class Payrun extends Controller
             return false;
         }
 
-        /***********************
-        CSV/XLSX file validation
-         ***********************/
+        /*******************************
+          CSV/XLSX file validation
+         *******************************/
 
         # Checks if the csv or xlsx file has been uploaded.
         if (!isset($_FILES['document'])) {
@@ -9347,6 +9347,10 @@ class Payrun extends Controller
             'Net Pay'
         );
 
+        /*****************************************
+           Temp folder creation and storing file
+         ******************************************/
+
         # Creates a temporary directory.
         $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $charactersLength = strlen($characters);
@@ -9369,6 +9373,11 @@ class Payrun extends Controller
             return false;
         }
         error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE);
+
+        /*******************************
+            file headers validations
+         *******************************/
+
 
         # Now we open and read the file, counting the headings to see if it mathes the header array.
         $exceptions = [];

@@ -26,16 +26,13 @@ app.panel.ImportPayrun = function (config) {
 
     var me = this;
     var confirmDestroy = null;
-
     var el = null;
 
     var titleContainerEl = null;
     var titleTextEl = null;
-
     var loaderContainerEl = null;
     var contentContainerEl = null;
     var loader = null;
-
     var importInfoSectionEl = null;
 
     var wizardSectionEl = null;
@@ -79,16 +76,15 @@ app.panel.ImportPayrun = function (config) {
     var exceptions = null;
 
 
-    //
-    // OBJECT EXTENSIONS
-    //
+    /*******************************
+         OBJECT EXTENSIONS
+    *******************************/
+
     lx.EventEmitter.call(this);
-    // lx.component.Panel.call(this, config);
 
-
-    /**********************
-     * PRIVATE FUNCTIONS
-     **********************/
+    /*******************************
+         PRIVATE FUNCTIONS
+    *******************************/
 
     //Retrieves and loads all of the departments from the database.
     function loadDepartments() {
@@ -109,8 +105,6 @@ app.panel.ImportPayrun = function (config) {
                         message: response.error
                     });
                 }
-
-                // Populate departments select box
                 var departments = [];
                 for (var i = 0; i < response.departments.length; i++) {
 
@@ -125,7 +119,7 @@ app.panel.ImportPayrun = function (config) {
         });
     }
 
-    // Function to get available default dates
+    //Function to get available default dates
     function getDefaultDates() {
         loader.show(false);
 
@@ -154,46 +148,43 @@ app.panel.ImportPayrun = function (config) {
         });
     }
 
-    // Date control change event handler
+    //Date control change event handler
     function dateChangeEventHandler() {
-        // Have both dates been completed
         if (fromDate.getValue() !== '' && toDate.getValue() !== '') {
-            // Was no description specified?
             if (descriptionTxt.getValue() === '') {
-                // Set the description
                 descriptionTxt.setValue(fromDate.getValue() + ' to ' + toDate.getValue());
             }
         }
     }
 
-    /**********************
-     * PUBLIC FUNCTIONS
-     **********************/
+    /*******************************
+         PUBLIC FUNCTIONS
+    *******************************/
 
     me.init = function (config) {
-        // Initialize component config
+
+        //Initialize component config
         var compConfig = {
             certificateFileId: null
         };
 
-        // Parse user config
+        //Parse user config
         if (typeof config !== 'undefined' && config !== null) {
             for (var property in config) {
                 if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
 
-        // Attach external event handlers
+        //Attach external event handlers
         if (compConfig.hasOwnProperty('onCancel')) me.addEventListener('cancel', compConfig.onCancel);
         if (compConfig.hasOwnProperty('onImport')) me.addEventListener('import', compConfig.onImport);
         if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
 
-        // Initialize state
+        //Initialize state
         confirmDestroy = false;
 
-        // Create root element
+        //Create root element
         el = lx.createElement('DIV', {
-            // parent: me.getContainer(),
             parent: compConfig.renderTo,
             style: {
                 display: 'flex',
@@ -208,9 +199,9 @@ app.panel.ImportPayrun = function (config) {
         });
 
 
-        /**********************
-         * TITLE SECTION
-         **********************/
+        /*******************************
+                 TITLE SECTION
+        *******************************/
 
         titleContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -224,13 +215,10 @@ app.panel.ImportPayrun = function (config) {
                 height: '50px',
                 color: lx.style.global.backgroundColor,
                 backgroundColor: lx.style.global.highlightColor,
-                // borderStyle: 'solid',
-                // borderColor: '#DFDFDF',
-                // borderWidth: '0px 0px 1px 0px'
             }
         });
 
-        // Create the title text element
+        //Create the title text element
         titleTextEl = lx.createElement('DIV', {
             parent: titleContainerEl,
             style: {
@@ -241,8 +229,6 @@ app.panel.ImportPayrun = function (config) {
             innerHTML: '<i class="fa fa-fw fa-file-import" style="margin: 0px 15px 0px 0px;"></i>Import Payrun'
         });
 
-
-        // Create importInfoSectionEl
         importInfoSectionEl = lx.createElement('DIV', {
             parent: titleContainerEl,
             style: {
@@ -258,11 +244,10 @@ app.panel.ImportPayrun = function (config) {
         });
 
 
-        /**********************
-         * CONTENT SECTION
-         **********************/
+        /***********************************
+                  CONTENT SECTION
+        ***********************************/
 
-        // Create loaderContainerEl
         loaderContainerEl = lx.createElement('DIV', {
             parent: el,
             style: {
@@ -273,12 +258,10 @@ app.panel.ImportPayrun = function (config) {
             }
         });
 
-        // Create our loader
         loader = new lx.component.Loader({
             renderTo: loaderContainerEl
         });
 
-        // Create the content container
         contentContainerEl = lx.createElement('DIV', {
             parent: loaderContainerEl,
             style: {
@@ -295,11 +278,10 @@ app.panel.ImportPayrun = function (config) {
             }
         });
 
-        /**********************
-         * WIZARD SECTION
-         **********************/
+        /**********************************     
+                  WIZARD SECTION
+        ***********************************/
 
-        // Create the wizardSectionEl
         wizardSectionEl = lx.createElement('DIV', {
             parent: contentContainerEl,
             style: {
@@ -315,8 +297,7 @@ app.panel.ImportPayrun = function (config) {
             }
         });
 
-
-        // Create the wizardHeadingContainerEl
+        // This container will contain page 1-3 and it navigation.
         wizardHeadingContainerEl = lx.createElement('DIV', {
             parent: wizardSectionEl,
             style: {
@@ -334,7 +315,7 @@ app.panel.ImportPayrun = function (config) {
             }
         });
 
-        // Create the wizardHeadingEl
+        //The page headings
         wizardHeadingEl = lx.createElement('DIV', {
             parent: wizardHeadingContainerEl,
             style: {
@@ -359,7 +340,6 @@ app.panel.ImportPayrun = function (config) {
                 'Items marked with * are required'
         });
 
-        // Create the wizardContentContainerEl
         wizardContentContainerEl = lx.createElement('DIV', {
             parent: wizardSectionEl,
             style: {
@@ -370,12 +350,11 @@ app.panel.ImportPayrun = function (config) {
                 flexDirection: 'column',
                 alignItems: 'center',
                 color: lx.style.global.color,
-                backgroundColor: '#F5F6F7', // lx.style.global.backgroundColor,
+                backgroundColor: '#F5F6F7',
                 overflow: 'auto',
             }
         });
 
-        // Create the wizardPageContainerEl
         wizardPageContainerEl = lx.createElement('DIV', {
             parent: wizardContentContainerEl,
             style: {
@@ -393,10 +372,11 @@ app.panel.ImportPayrun = function (config) {
         });
 
 
-        /**********************
-         * WIZARD PAGE 1
-         **********************/
+        /**********************************
+                  WIZARD PAGE 1
+        **********************************/
 
+        // Page 1 is where the user creates the Payrun where the data will be imported to.
         wizardPage1ContainerEl = lx.createElement('DIV', {
             parent: wizardPageContainerEl,
             style: {
@@ -414,7 +394,6 @@ app.panel.ImportPayrun = function (config) {
             }
         });
 
-        // Create company details section
         payrunDetailsSectionEl = lx.createElement('DIV', {
             parent: wizardPage1ContainerEl,
             style: {
@@ -427,7 +406,7 @@ app.panel.ImportPayrun = function (config) {
             }
         });
 
-        // Create department select
+        // This component allows the user to selecte a department.
         departmentSelect = new lx.component.Selectbox({
             renderTo: payrunDetailsSectionEl,
             labelAlignment: 'top',
@@ -446,12 +425,10 @@ app.panel.ImportPayrun = function (config) {
                 loadDepartments();
             }
         });
-
-        // Set department select data
         departmentSelect.addItems([{ value: null, text: 'All Departments' }]);
         departmentSelect.setValue(null, 'All Departments');
 
-        // Create the fromDate component
+        // This component allows the user to selecte a  start date range for the payrun.
         fromDate = new lx.component.DatePicker({
             renderTo: payrunDetailsSectionEl,
             label: 'From Date',
@@ -460,7 +437,7 @@ app.panel.ImportPayrun = function (config) {
             onBlur: dateChangeEventHandler
         });
 
-        // Create the toDate component
+        // This component allows the user to selecte an end date range for the payrun.
         toDate = new lx.component.DatePicker({
             renderTo: payrunDetailsSectionEl,
             label: 'To Date',
@@ -469,7 +446,7 @@ app.panel.ImportPayrun = function (config) {
             onBlur: dateChangeEventHandler
         });
 
-        // Create the descriptionTxt component
+        // This component allows the user to enter a description for the payrun.
         descriptionTxt = new lx.component.Textbox({
             renderTo: payrunDetailsSectionEl,
             margin: '15px 0px 0px 0px',
@@ -477,10 +454,11 @@ app.panel.ImportPayrun = function (config) {
         });
 
 
-        /**********************
-         * WIZARD PAGE 2
-         **********************/
+        /**********************************
+                 WIZARD PAGE 2
+        **********************************/
 
+        // Page 2 is where the user uploads the file containing the data to be imported
         wizardPage2ContainerEl = lx.createElement('DIV', {
             parent: wizardPageContainerEl,
             style: {
@@ -543,7 +521,6 @@ app.panel.ImportPayrun = function (config) {
             margin: '0px 0px 0px 0px'
         });
         documentNameDisplay.setValue('...');
-        // documentNameDisplay.disable();
 
         browseDocumentBtnEl = lx.createElement('DIV', {
             parent: documentUploadContainerEl,
@@ -612,6 +589,7 @@ app.panel.ImportPayrun = function (config) {
             },
             innerHTML: 'CSV'
         });
+
         downloadCsvTemplateEl.addEventListener('click', function () {
             lx.sendForm({
                 url: 'exec.php?c=Payrun&fn=downloadImportTemplate',
@@ -648,6 +626,7 @@ app.panel.ImportPayrun = function (config) {
             },
             innerHTML: 'XLSX'
         });
+
         downloadXlsxTemplateEl.addEventListener('click', function () {
             new lx.component.Messagebox({
                 title: 'Please note',
