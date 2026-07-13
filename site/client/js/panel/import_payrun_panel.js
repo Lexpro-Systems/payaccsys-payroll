@@ -731,240 +731,46 @@ app.panel.ImportPayrun = function (config) {
             }
         });
 
-        let fields = [];
-        let fieldNumber = 0;
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Employee Number</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">01610</span>',
-            description: '<span style="font-size: 12px">The employee\'s unique employee number.</span>',
-        });
+        const fieldData = [
+            { fieldName: 'Employee Number', compulsory: 'Yes', acceptedValue: '01610', description: 'The employee\'s unique employee number.' },
+            { fieldName: 'Employee Name', compulsory: 'Yes', acceptedValue: 'Lungile Lungile', description: 'The employee\'s full name.' },
+            { fieldName: 'ID Number', compulsory: 'Conditional', acceptedValue: '(empty)', description: 'The employee\'s ID number. Leave blank if not available.' },
+            { fieldName: 'Job Title', compulsory: 'Yes', acceptedValue: 'Picker', description: 'The employee\'s job title.' },
+            { fieldName: 'Department', compulsory: 'Yes', acceptedValue: 'Muzana Team', description: 'The employee\'s department.' },
+            { fieldName: 'Payment Period From', compulsory: 'Yes', acceptedValue: '2026-06-15', description: 'The start date of the payment period.' },
+            { fieldName: 'Payment Period To', compulsory: 'Yes', acceptedValue: '2026-06-26', description: 'The end date of the payment period.' },
+            { fieldName: 'Bank Account', compulsory: 'Yes', acceptedValue: '1695700536', description: 'The employee\'s bank account number.' },
+            { fieldName: 'Hourly Rate', compulsory: 'Yes', acceptedValue: '30.23', description: 'The employee\'s hourly pay rate.' },
+            { fieldName: 'Basic Salary', compulsory: 'Yes', acceptedValue: '2448.9', description: 'The employee\'s basic salary.' },
+            { fieldName: 'Normal Hours Worked', compulsory: 'Yes', acceptedValue: '0', description: 'The number of normal hours worked.' },
+            { fieldName: 'Overtime 1.5 Hours', compulsory: 'No', acceptedValue: '0', description: 'The overtime hours worked at 1.5 times the normal rate.' },
+            { fieldName: 'Overtime 2.0 Hours', compulsory: 'No', acceptedValue: '0', description: 'The overtime hours worked at double the normal rate.' },
+            { fieldName: 'Paid Leave', compulsory: 'No', acceptedValue: '0', description: 'The amount paid for annual leave.' },
+            { fieldName: 'Sick Leave', compulsory: 'No', acceptedValue: '0', description: 'The amount paid for sick leave.' },
+            { fieldName: 'Leave Paid Out', compulsory: 'No', acceptedValue: '2050.98', description: 'The amount paid out for leave.' },
+            { fieldName: 'Advance Deductions', compulsory: 'No', acceptedValue: '0', description: 'The total advance deductions.' },
+            { fieldName: 'Other Deductions', compulsory: 'No', acceptedValue: '0', description: 'The total of other deductions.' },
+            { fieldName: 'Equipment', compulsory: 'No', acceptedValue: '0', description: 'Equipment-related deductions.' },
+            { fieldName: 'Transport', compulsory: 'No', acceptedValue: '0', description: 'Transport-related deductions.' },
+            { fieldName: 'Admin Fee', compulsory: 'No', acceptedValue: '0', description: 'Administrative fees deducted.' },
+            { fieldName: 'PAYE', compulsory: 'Yes', acceptedValue: '0', description: 'The employee\'s PAYE deduction.' },
+            { fieldName: 'UIF Contributions', compulsory: 'Yes', acceptedValue: '45', description: 'The employee\'s UIF contribution.' },
+            { fieldName: 'Total Earnings', compulsory: 'Yes', acceptedValue: '4499.88', description: 'The employee\'s total earnings.' },
+            { fieldName: 'Total Deductions', compulsory: 'Yes', acceptedValue: '45', description: 'The employee\'s total deductions.' },
+            { fieldName: 'Net Pay', compulsory: 'Yes', acceptedValue: '4454.88', description: 'The employee\'s net pay after all deductions.' }
+        ];
 
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Employee Name</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">Lungile Lungile</span>',
-            description: '<span style="font-size: 12px">The employee\'s full name.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">ID Number</span>',
-            compulsory: '<span style="font-size: 12px">Conditional</span>',
-            acceptedValue: '<span style="font-size: 12px">(empty)</span>',
-            description: '<span style="font-size: 12px">The employee\'s ID number. Leave blank if not available.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Job Title</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">Picker</span>',
-            description: '<span style="font-size: 12px">The employee\'s job title.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Department</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">Muzana Team</span>',
-            description: '<span style="font-size: 12px">The employee\'s department.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Payment Period From</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">2026-06-15</span>',
-            description: '<span style="font-size: 12px">The start date of the payment period.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Payment Period To</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">2026-06-26</span>',
-            description: '<span style="font-size: 12px">The end date of the payment period.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Bank Account</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">1695700536</span>',
-            description: '<span style="font-size: 12px">The employee\'s bank account number.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Hourly Rate</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">30.23</span>',
-            description: '<span style="font-size: 12px">The employee\'s hourly pay rate.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Basic Salary</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">2448.9</span>',
-            description: '<span style="font-size: 12px">The employee\'s basic salary.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Normal Hours Worked</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">The number of normal hours worked.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Overtime 1.5 Hours</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">The overtime hours worked at 1.5 times the normal rate.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Overtime 2.0 Hours</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">The overtime hours worked at double the normal rate.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Paid Leave</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">The amount paid for annual leave.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Sick Leave</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">The amount paid for sick leave.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Leave Paid Out</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">2050.98</span>',
-            description: '<span style="font-size: 12px">The amount paid out for leave.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Advance Deductions</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">The total advance deductions.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Other Deductions</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">The total of other deductions.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Equipment</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">Equipment-related deductions.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Transport</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">Transport-related deductions.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Admin Fee</span>',
-            compulsory: '<span style="font-size: 12px">No</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">Administrative fees deducted.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">PAYE</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">0</span>',
-            description: '<span style="font-size: 12px">The employee\'s PAYE deduction.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">UIF Contributions</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">45</span>',
-            description: '<span style="font-size: 12px">The employee\'s UIF contribution.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Total Earnings</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">4499.88</span>',
-            description: '<span style="font-size: 12px">The employee\'s total earnings.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Total Deductions</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">45</span>',
-            description: '<span style="font-size: 12px">The employee\'s total deductions.</span>',
-        });
-
-        fields.push({
-            fieldNumber: (++fieldNumber),
-            column: '<span style="font-size: 12px">' + fieldNumber + '</span>',
-            fieldName: '<span style="font-size: 12px">Net Pay</span>',
-            compulsory: '<span style="font-size: 12px">Yes</span>',
-            acceptedValue: '<span style="font-size: 12px">4454.88</span>',
-            description: '<span style="font-size: 12px">The employee\'s net pay after all deductions.</span>',
+        const fields = [];
+        fieldData.forEach((field, index) => {
+            const fieldNumber = index + 1;
+            fields.push({
+                fieldNumber,
+                column: `<span style="font-size: 12px">${fieldNumber}</span>`,
+                fieldName: `<span style="font-size: 12px">${field.fieldName}</span>`,
+                compulsory: `<span style="font-size: 12px">${field.compulsory}</span>`,
+                acceptedValue: `<span style="font-size: 12px">${field.acceptedValue}</span>`,
+                description: `<span style="font-size: 12px">${field.description}</span>`
+            });
         });
 
         // Add the data to the grid
