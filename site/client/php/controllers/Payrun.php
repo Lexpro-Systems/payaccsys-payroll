@@ -8550,10 +8550,14 @@ class Payrun extends Controller
 
     public function import($data, $user, $db)
     {
-        // Set content type header
+        /****************************************
+                Default parameter Validation
+         ****************************************/
+
+        # Sets the content type that will be returned by the function.
         header('Content-Type: application/json');
 
-        // Set default parameter values
+        # Validates the parameters passed to this function.
         $defaults = [];
         Json::copy($defaults, $data);
         $validationResult = Json::validate($data, [
@@ -8563,24 +8567,25 @@ class Payrun extends Controller
             'endDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => false],
             'description' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false]
         ]);
+
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
             return false;
         }
 
-        // Have we not received a file?
+        # Checks if the file has been uploaded
         if (!isset($_FILES['document'])) {
             die(json_encode(['ok' => false, 'error' => 'No import file received']));
         }
 
-        // Get the file extension
+        # Checks the file's extenstion: .csv or .xlsx
         $extensionCheck = strtolower(pathinfo($_FILES['document']['name'], PATHINFO_EXTENSION));
         if ($extensionCheck !== 'csv' && $extensionCheck !== 'xlsx') {
             echo (json_encode(['ok' => false, 'error' => 'Files of this type (' . pathinfo($_FILES['document']['name'], PATHINFO_EXTENSION) . ') cannot be imported.']));
             return false;
         }
 
-        // Do various checks to ensure the file integrity
+        # Checks if the file meets all the requirements.
         if ($_FILES['document']['error'] === 1) {
             echo (json_encode(['ok' => false, 'error' => 'The uploaded file exceeds the maximum upload file size.']));
             return false;
@@ -8604,7 +8609,38 @@ class Payrun extends Controller
             return false;
         }
 
-        // Set the headings for csv file
+        /****************************************
+                Temp folder creation
+         ****************************************/
+
+        # Create a random folder in the temp directory
+        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $charactersLength = strlen($characters);
+        $destDir = '';
+        for ($i = 0; $i < 32; $i++) {
+            $destDir = $destDir . $characters[rand(0, $charactersLength - 1)];
+        }
+        $destDir = CONF_TEMP_DIR . $destDir;
+
+        # Checks if the temp folder was succesfully created.
+        if (!file_exists($destDir)) {
+            mkdir($destDir, 0777, true);
+        }
+
+        # Save the uploaded file to the temp folder.
+        $localFile = $destDir . '/import_employees.' . $extensionCheck;
+        $result = move_uploaded_file($_FILES['document']['tmp_name'], $localFile);
+        if ($result !== true) {
+            echo (json_encode(['ok' => false, 'error' => 'Unable to move uploaded file.']));
+            return false;
+        }
+        error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE);
+
+        /****************************************
+                File heading validation
+         ****************************************/
+
+        # Set the headings for csv file
         $headings = array(
             'Employee Number',
             'Employee Name',
@@ -8634,62 +8670,39 @@ class Payrun extends Controller
             'Net Pay'
         );
 
-        // Create a random folder in the temp directory
-        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $charactersLength = strlen($characters);
-
-        $destDir = '';
-        for ($i = 0; $i < 32; $i++) {
-            $destDir = $destDir . $characters[rand(0, $charactersLength - 1)];
-        }
-        $destDir = CONF_TEMP_DIR . $destDir;
-
-        // Does the destination folder not exist?
-        if (!file_exists($destDir)) {
-            mkdir($destDir, 0777, true);
-        }
-
-        // Save file to disk
-        $localFile = $destDir . '/import_employees.' . $extensionCheck;
-        $result = move_uploaded_file($_FILES['document']['tmp_name'], $localFile);
-        if ($result !== true) {
-            echo (json_encode(['ok' => false, 'error' => 'Unable to move uploaded file.']));
-            return false;
-        }
-
-        error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE);
         $exceptions = [];
 
+        # Open the file and read the first line to detect the line separator
         $handler = fopen($localFile, "r");
         $line = fgets($handler, 2048);
-
-        // Detect line seperator
         $lineSperator = ";";
         if (str_contains($line, ",")) {
             $lineSperator = ",";
         }
+
+        # Checks if the columns mathces the array header count.
         $maxColNum = count(explode($lineSperator, $line));
-        // Is there a different amount of columns than the expected amount?
         if ($maxColNum !== count($headings)) {
             echo (json_encode(['ok' => false, 'error' => 'Invalid number of columns in import file.']));
             return false;
         }
-        // Start SQL transaction
+
+        /****************************************
+                Payrun Import section
+         ****************************************/
+
+        # We start the transaction and set all of the tables involved to exclusive mode.
         $db->startTransaction();
-        // Lock the relevant table(s)
-        // $db->query('LOCK TABLE employees IN EXCLUSIVE MODE;');
-        // $db->query('LOCK TABLE departments IN EXCLUSIVE MODE;');
-        // $db->paramQuery('LOCK TABLE loan_payments IN ACCESS EXCLUSIVE MODE', []);
         $db->paramQuery('LOCK TABLE payruns IN ACCESS EXCLUSIVE MODE', []);
-        // $db->paramQuery('LOCK TABLE payslip_items IN ACCESS EXCLUSIVE MODE', []);
-        // $db->paramQuery('LOCK TABLE payslips IN ACCESS EXCLUSIVE MODE', []);
+        $db->paramQuery('LOCK TABLE payslip_items IN ACCESS EXCLUSIVE MODE', []);
+        $db->paramQuery('LOCK TABLE payslips IN ACCESS EXCLUSIVE MODE', []);
+
+        # Loads the data from the import file into the PayrunImportData objects.
+        # We start at row 0 and rewind to the top of the page. Then we loop through each row of data where is is cleaned and transformed.
         $row = 0;
-        $employees = [];
         rewind($handler);
-        // For every entry in the import file
         while (($rowData = fgetcsv($handler, 2048, $lineSperator, '"', '\\')) !== FALSE) {
             Util::checkCompanyEmployeeLimit($db);
-            // skip headers
             if ($row == 0) {
                 $row++;
                 continue;
@@ -8752,6 +8765,7 @@ class Payrun extends Controller
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                 return false;
             }
+
             //$departmentId = null;
             // Check if deparment exists if not create new one 
             // $sqlQuery = 'SELECT id FROM departments WHERE name = $1;';
