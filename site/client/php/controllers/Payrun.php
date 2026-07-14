@@ -8557,11 +8557,11 @@ class Payrun extends Controller
         $defaults = [];
         Json::copy($defaults, $data);
         $validationResult = Json::validate($data, [
-            // Required parameters
             'updateEmployees' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false],
-
-            // Optional parameters
-            // ...
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'startDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => false],
+            'endDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => false],
+            'description' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false]
         ]);
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
@@ -8606,76 +8606,32 @@ class Payrun extends Controller
 
         // Set the headings for csv file
         $headings = array(
-            'CODE',
-            'TITLE',
-            'INITIALS',
-            'FULL NAME',
-            'LAST NAME',
-            'ALIAS',
-            'ID NUMBER',
-            'PASSPORT NUMBER',
-            'PASSPORT COUNTRY',
-            'DATE OF BIRTH',
-            'IS ASYLUM SEEKER',
-            'IS REFUGEE',
-            'IS RETIRED',
-            'PHYSICAL ADDRESS UNIT',
-            'PHYSICAL ADDRESS COMPLEX',
-            'PHYSICAL ADDRESS STREET',
-            'PHYSICAL ADDRESS SUBURB',
-            'PHYSICAL ADDRESS CITY',
-            'PHYSICAL ADDRESS POSTAL CODE',
-            'PHYSICAL ADDRESS COUNTRY',
-            'POSTAL SAME AS PHYSICAL ADDRESS',
-            'POSTAL ADDRESS LINE 1',
-            'POSTAL ADDRESS LINE 2',
-            'POSTAL ADDRESS LINE 3',
-            'POSTAL ADDRESS CODE',
-            'POSTAL ADDRESS COUNTRY',
-            'WORK SAME AS COMPANY ADDRESS',
-            'WORK ADDRESS UNIT',
-            'WORK ADDRESS COMPLEX',
-            'WORK ADDRESS STREET',
-            'WORK ADDRESS SUBURB',
-            'WORK ADDRESS CITY',
-            'WORK ADDRESS POSTAL CODE',
-            'WORK ADDRESS COUNTRY',
-            'HOME NUMBER',
-            'WORK NUMBER',
-            'CELL NUMBER',
-            'FAX NUMBER',
-            'EMAIL ADDRESS',
-            'EMERGENCY CONTACT PERSON',
-            'EMERGENCY CONTACT NUMBER',
-            'EMPLOYMENT START DATE',
-            'EMPLOYMENT END DATE',
-            'EMPLOYMENT POSITION',
-            'EMPLOYMENT STATUS',
-            'DEPARTMENT NAME',
-            'PAYMENT METHOD',
-            'PAYMENT PERIOD',
-            'PAYMENT DAY',
-            'PAYMENT PERIOD END DAY',
-            'FINANCIAL INSTITUTION',
-            'BANK ACCOUNT TYPE',
-            'ACCOUNT NUMBER',
-            'BRANCH CODE',
-            'INCOME TAX NUMBER',
-            'SIC CODE',
-            'SEND PAYSLIP BY EMAIL',
-            'INCOME TAX DIRECTIVE 1',
-            'INCOME TAX DIRECTIVE 1 ISSUED DATE',
-            'INCOME TAX DIRECTIVE 1 SOURCE CODE',
-            'INCOME TAX DIRECTIVE 1 AMOUNT',
-            'INCOME TAX DIRECTIVE 2',
-            'INCOME TAX DIRECTIVE 2 ISSUED DATE',
-            'INCOME TAX DIRECTIVE 2 SOURCE CODE',
-            'INCOME TAX DIRECTIVE 2 AMOUNT',
-            'INCOME TAX DIRECTIVE 3',
-            'INCOME TAX DIRECTIVE 3 ISSUED DATE',
-            'INCOME TAX DIRECTIVE 3 SOURCE CODE',
-            'INCOME TAX DIRECTIVE 3 AMOUNT',
-            'ENABLE PAYE CORRECTION'
+            'Employee Number',
+            'Employee Name',
+            'ID Number',
+            'Job Title',
+            'Department',
+            'Payment Period From',
+            'Payment Period To',
+            'Bank Account',
+            'Hourly Rate',
+            'Basic Salary',
+            'Normal Hours Worked',
+            'Overtime 1.5 Hours',
+            'Overtime 2.0 Hours',
+            'Paid Leave',
+            'Sick Leave',
+            'Leave Paid Out',
+            'Advance Deductions',
+            'Other Deductions',
+            'Equipment',
+            'Transport',
+            'Admin Fee',
+            'PAYE',
+            'UIF Contributions',
+            'Total Earnings',
+            'Total Deductions',
+            'Net Pay'
         );
 
         // Create a random folder in the temp directory
@@ -8721,13 +8677,17 @@ class Payrun extends Controller
         // Start SQL transaction
         $db->startTransaction();
         // Lock the relevant table(s)
-        $db->query('LOCK TABLE employees IN EXCLUSIVE MODE;');
-        $db->query('LOCK TABLE departments IN EXCLUSIVE MODE;');
+        // $db->query('LOCK TABLE employees IN EXCLUSIVE MODE;');
+        // $db->query('LOCK TABLE departments IN EXCLUSIVE MODE;');
+        // $db->paramQuery('LOCK TABLE loan_payments IN ACCESS EXCLUSIVE MODE', []);
+        $db->paramQuery('LOCK TABLE payruns IN ACCESS EXCLUSIVE MODE', []);
+        // $db->paramQuery('LOCK TABLE payslip_items IN ACCESS EXCLUSIVE MODE', []);
+        // $db->paramQuery('LOCK TABLE payslips IN ACCESS EXCLUSIVE MODE', []);
         $row = 0;
         $employees = [];
         rewind($handler);
         // For every entry in the import file
-        while (($rowData = fgetcsv($handler, 2048, $lineSperator)) !== FALSE) {
+        while (($rowData = fgetcsv($handler, 2048, $lineSperator, '"', '\\')) !== FALSE) {
             Util::checkCompanyEmployeeLimit($db);
             // skip headers
             if ($row == 0) {
@@ -8736,516 +8696,560 @@ class Payrun extends Controller
             }
             $row++;
             set_time_limit(600);
-            $employeeImportData = new EmployeeImportData();
-            $employees[] = $employeeImportData;
-            AssignEmployeeImportData::load($employeeImportData, $rowData);
-            $employeeImportValidator = new EmployeeImportValidator($db, $employeeImportData, $user);
-            $employeeImportValidator->validate($row, $exceptions);
-            $employeeImportValidator->checkDuplicates($row, $employees, $exceptions);
+            $payrunImportData = new PayrunImportData();
+            $payruns[] = $payrunImportData;
+            AssignPayrunImportData::load($payrunImportData, $rowData);
+            $payrunImportValidator = new PayrunImportValidator($db, $payrunImportData, $user);
+            $payrunImportValidator->validate($row, $exceptions);
+            $payrunImportValidator->checkDuplicates($row, $payruns, $exceptions);
             if ((count($exceptions) > 0) && ($exceptions['0']['isCritical'] == true)) {
                 echo (json_encode(['ok' => false, 'error' => $exceptions[0]['description'] . ' Row ' . $exceptions[0]['row'] . ', Column  ' . $exceptions[0]['column']]));
                 return false;
             }
             // Clean the data before persisting to the database 
-            $transformData = new TransformEmployeeImportData($employeeImportData, $db);
+            $transformData = new TransformPayrunImportData($payrunImportData, $db);
             $transformData->apply();
-            $departmentId = null;
-            // Check if deparment exists if not create new one 
-            $sqlQuery = 'SELECT id FROM departments WHERE name = $1;';
-            $sqlResult = $db->paramQuery($sqlQuery, [$employeeImportData->department]);
+
+            $departmentId = $data['departmentId'];
+            $startDate = new DateTime($data['startDate']);
+            $endDate = new DateTime($data['endDate']);
+
+            // Check that the start date is before the end date
+            if ($endDate < $startDate) {
+                echo (json_encode(['ok' => false, 'error' => 'The payrun\'s end date can\'t be before it\'s start date.']));
+                return false;
+            }
+
+            $userData = System::getUserData();
+
+            // Add the payrun to the database
+            $sqlQuery =
+                'INSERT INTO ' .
+                'payruns ( ' .
+                'description, ' .
+                'from_date, ' .
+                'to_date, ' .
+                'department_id, ' .
+                'created_on, ' .
+                'processed_on, ' .
+                'created_by_user_id ' .
+                ') ' .
+                'VALUES ( ' .
+                '$1, $2, $3, $4, $5, $6, $7 ' .
+                ') ' .
+                'RETURNING id;';
+            $sqlResult = $db->paramQuery($sqlQuery, [
+                $data['description'],   // description
+                $data['startDate'],     // from_date
+                $data['endDate'],       // to_date
+                $data['departmentId'],  // department_id
+                date('Y-m-d', time()),  // created_on
+                null,                   // processed_on
+                $userData['id']         // created_by_user_id
+            ]);
+
             if (!$sqlResult->isValid()) {
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                 return false;
             }
-            if ($sqlResult->getRowCount() >= 1) {
-                $sqlRow = $sqlResult->fetchAssociative();
-                $departmentId = $sqlRow['id'];
-            } else if ($employeeImportData->department != '' && $departmentId == null) {
-                // Build the query to insert the item.
-                $sqlQuery =
-                    'INSERT INTO ' .
-                    'departments ( ' .
-                    'name ' .
-                    ') ' .
-                    'VALUES ( ' .
-                    ' $1 ' .
-                    ') ' .
-                    'RETURNING id;';
-                $sqlResult = $db->paramQuery($sqlQuery, [$employeeImportData->department]);
-                if (!$sqlResult->isValid()) {
-                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                    return false;
-                } else {
-                    $sqlRow = $sqlResult->fetchAssociative();
-                    $departmentId = $sqlRow['id'];
-                }
-            }
-            // Only Update if employee exists or insert if employee is new 
-            if (($data['updateEmployees']  && $employeeImportValidator->doesEmployeeExists())) {
-                $updateQuery = 'UPDATE employees SET ' .
-                    'initials = $1,' .
-                    'title_code = $2,' .
-                    'full_names = $3,' .
-                    'last_name = $4,' .
-                    'alias = $5,' .
-                    'id_number = $6,' .
-                    'passport_number = $7,' .
-                    'passport_country = $8,' .
-                    'date_of_birth = $9,' .
-                    'is_asylum_seeker = $10,' .
-                    'is_refugee = $11 ,' .
-                    'is_retired = $12,' .
-                    'physical_address_unit = $13,' .
-                    'physical_address_complex = $14,' .
-                    'physical_address_street = $15,' .
-                    'physical_address_suburb = $16,' .
-                    'physical_address_city = $17,' .
-                    'physical_address_postal_code = $18,' .
-                    'physical_address_country_code = $19,' .
-                    'postal_same_as_physical_address = $20,' .
-                    'postal_address_line_1 = $21,' .
-                    'postal_address_line_2 = $22,' .
-                    'postal_address_line_3 = $23,' .
-                    'postal_address_code = $24,' .
-                    'postal_address_country_code = $25,' .
-                    'work_same_as_company_address = $26,' .
-                    'work_address_unit = $27 ,' .
-                    'work_address_complex = $28,' .
-                    'work_address_street = $29,' .
-                    'work_address_suburb = $30,' .
-                    'work_address_city = $31,' .
-                    'work_address_postal_code = $32,' .
-                    'work_address_country_code = $33,' .
-                    'home_number = $34,' .
-                    'work_number = $35,' .
-                    'cell_number = $36,' .
-                    'fax_number =  $37,' .
-                    'email_address = $38,' .
-                    'emergency_contact_person = $39,' .
-                    'emergency_contact_number = $40,' .
-                    'employment_start_date = $41,' .
-                    'employment_end_date = $42,' .
-                    'employment_position = $43,' .
-                    'department_id = $44,' .
-                    'payment_method_code = $45 ,' .
-                    'payment_period_code = $46,' .
-                    'payment_day = $47 ,' .
-                    'payment_period_end_day = $48, ' .
-                    'send_payslip_by_email = $49,' .
-                    'income_tax_number = $50 ,' .
-                    'income_tax_directive_1 = $51 ,' .
-                    'income_tax_directive_2 = $52 ,' .
-                    'income_tax_directive_3 = $53,' .
-                    'income_tax_directive_1_issued_date = $54,' .
-                    'income_tax_directive_1_source_code = $55,' .
-                    'income_tax_directive_1_amount =  $56,' .
-                    'income_tax_directive_2_issued_date = $57,' .
-                    'income_tax_directive_2_source_code = $58,' .
-                    'income_tax_directive_2_amount = $59,' .
-                    'income_tax_directive_3_issued_date = $60,' .
-                    'income_tax_directive_3_source_code = $61,' .
-                    'income_tax_directive_3_amount = $62, ' .
-                    'enable_paye_correction = $63 ,' .
-                    'sic_code = $64  ' .
-                    'WHERE code =  $65  RETURNING  id ';
+            //$departmentId = null;
+            // Check if deparment exists if not create new one 
+            // $sqlQuery = 'SELECT id FROM departments WHERE name = $1;';
+            // $sqlResult = $db->paramQuery($sqlQuery, [$payrunImportData->department]);
+            // if (!$sqlResult->isValid()) {
+            //     echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            //     return false;
+            // }
+            // if ($sqlResult->getRowCount() >= 1) {
+            //     $sqlRow = $sqlResult->fetchAssociative();
+            //     $departmentId = $sqlRow['id'];
+            // } else if ($payrunImportData->department != '' && $departmentId == null) {
+            //     // Build the query to insert the item.
+            //     $sqlQuery =
+            //         'INSERT INTO ' .
+            //         'departments ( ' .
+            //         'name ' .
+            //         ') ' .
+            //         'VALUES ( ' .
+            //         ' $1 ' .
+            //         ') ' .
+            //         'RETURNING id;';
+            //     $sqlResult = $db->paramQuery($sqlQuery, [$employeeImportData->department]);
+            //     if (!$sqlResult->isValid()) {
+            //         echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            //         return false;
+            //     } else {
+            //         $sqlRow = $sqlResult->fetchAssociative();
+            //         $departmentId = $sqlRow['id'];
+            //     }
+            // }
 
-                $sqlResult = $db->paramQuery($updateQuery, [
-                    $employeeImportData->initials,              // initials
-                    $employeeImportData->titleCode,               // title_code
-                    $employeeImportData->fullName,              // full_names
-                    $employeeImportData->lastName,                // last_name
-                    $employeeImportData->alias,                   // alias
-                    $employeeImportData->idNumber,                // id_number
-                    $employeeImportData->passportNumber,      // passport_number
-                    $employeeImportData->passportCountry,   // passport_country
-                    $employeeImportData->dateOfBirth,       // date_of_birth
-                    $employeeImportData->isAsylumSeeker,    // is_asylum_seeker
-                    $employeeImportData->isRefugee,            // is_refugee
-                    $employeeImportData->isRetired,                              // is_retired
-                    $employeeImportData->physicalAddressUnit,        // physical_address_unit
-                    $employeeImportData->physicalAddressComplex,      // physical_address_complex
-                    $employeeImportData->physicalAddressStreet,       // physical_address_street
-                    $employeeImportData->physicalAddressSuburb,         // physical_address_suburb
-                    $employeeImportData->physicalAddressCity,           // physical_address_city
-                    $employeeImportData->physicalAddressPostalCode,     // physical_address_postal_code
-                    $employeeImportData->physicalAddressCountry,    // physical_address_country_code
-                    $employeeImportData->postalAddressSameAsPhysical,                      // postal_same_as_physical_address
-                    $employeeImportData->postalAddressLine1,            // postal_address_line_1
-                    $employeeImportData->postalAddressLine2,            // postal_address_line_2
-                    $employeeImportData->postalAddressLine3,            // postal_address_line_3
-                    $employeeImportData->postalAddressCode,             // postal_address_code
-                    $employeeImportData->postalAddressCountry,      // postal_address_country_code
-                    $employeeImportData->workAddressSameAsCompanyAddress,                   // work_same_as_company_address
-                    $employeeImportData->workAddressUnit,                                   // work_address_unit
-                    $employeeImportData->workAddressComplex,                                // work_address_complex
-                    $employeeImportData->workAddressStreet,                                 // work_address_street
-                    $employeeImportData->workAddressSuburb,                                  // work_address_suburb
-                    $employeeImportData->workAddressCity,                                    // work_address_city
-                    $employeeImportData->workAddressPostalCode,                              // work_address_postal_code
-                    $employeeImportData->workAddressCountry,                             // work_address_country_code
-                    $employeeImportData->homeNumber,                     // home_number
-                    $employeeImportData->workNumber,                    // work_number
-                    $employeeImportData->cellNumber,                    // cell_number
-                    $employeeImportData->faxNumber,                     // fax_number
-                    $employeeImportData->emailAddress,                  // email_address
-                    $employeeImportData->emergencyContactPerson,        // emergency_contact_person
-                    $employeeImportData->emergencyContactNumber,        // emergency_contact_number
-                    $employeeImportData->employmentStartDate,           // employment_start_date
-                    $employeeImportData->employmentEndDate,             // employment_end_date
-                    $employeeImportData->employmentPosition,            // employment_position
-                    $departmentId,                                     // department_id
-                    $employeeImportData->paymentMethod,       // payment_method_code
-                    $employeeImportData->paymentPeriod,         // payment_period_code
-                    $employeeImportData->paymentDay,                    // payment_day
-                    $employeeImportData->paymentPeriodEndDay,           // payment_period_end_day
-                    true,                                               // send_payslip_by_email
-                    $employeeImportData->incomeTaxNumber,               // income_tax_number
-                    $employeeImportData->incomeTaxDirective1,           // income_tax_directive_1
-                    $employeeImportData->incomeTaxDirective2,           // income_tax_directive_2
-                    $employeeImportData->incomeTaxDirective3,           // income_tax_directive_3
-                    $employeeImportData->incomeTaxDirective1IssuedDate,   // income_tax_directive_1_issued_date
-                    $employeeImportData->incomeTaxDirective1SourceCode, // income_tax_directive_1_source_code
-                    $employeeImportData->incomeTaxDirective1Amount,     // income_tax_directive_1_amount
-                    $employeeImportData->incomeTaxDirective2IssuedDate,   //  income_tax_directive_2_issued_date
-                    $employeeImportData->incomeTaxDirective2SourceCode, // income_tax_directive_2_source_code
-                    $employeeImportData->incomeTaxDirective2Amount,     // income_tax_directive_2_amount
-                    $employeeImportData->incomeTaxDirective3IssuedDate,   // income_tax_directive_3_issued_date
-                    $employeeImportData->incomeTaxDirective3SourceCode, // income_tax_directive_3_source_code
-                    $employeeImportData->incomeTaxDirective3Amount,     // income_tax_directive_3_amount
-                    $employeeImportData->enablePayeCorrection,    // enable_paye_correction
-                    $employeeImportData->sicCode,                       // sic_code
-                    $employeeImportData->code,
+            // // Only Update if employee exists or insert if employee is new 
+            // if (($data['updateEmployees']  && $employeeImportValidator->doesEmployeeExists())) {
+            //     $updateQuery = 'UPDATE employees SET ' .
+            //         'initials = $1,' .
+            //         'title_code = $2,' .
+            //         'full_names = $3,' .
+            //         'last_name = $4,' .
+            //         'alias = $5,' .
+            //         'id_number = $6,' .
+            //         'passport_number = $7,' .
+            //         'passport_country = $8,' .
+            //         'date_of_birth = $9,' .
+            //         'is_asylum_seeker = $10,' .
+            //         'is_refugee = $11 ,' .
+            //         'is_retired = $12,' .
+            //         'physical_address_unit = $13,' .
+            //         'physical_address_complex = $14,' .
+            //         'physical_address_street = $15,' .
+            //         'physical_address_suburb = $16,' .
+            //         'physical_address_city = $17,' .
+            //         'physical_address_postal_code = $18,' .
+            //         'physical_address_country_code = $19,' .
+            //         'postal_same_as_physical_address = $20,' .
+            //         'postal_address_line_1 = $21,' .
+            //         'postal_address_line_2 = $22,' .
+            //         'postal_address_line_3 = $23,' .
+            //         'postal_address_code = $24,' .
+            //         'postal_address_country_code = $25,' .
+            //         'work_same_as_company_address = $26,' .
+            //         'work_address_unit = $27 ,' .
+            //         'work_address_complex = $28,' .
+            //         'work_address_street = $29,' .
+            //         'work_address_suburb = $30,' .
+            //         'work_address_city = $31,' .
+            //         'work_address_postal_code = $32,' .
+            //         'work_address_country_code = $33,' .
+            //         'home_number = $34,' .
+            //         'work_number = $35,' .
+            //         'cell_number = $36,' .
+            //         'fax_number =  $37,' .
+            //         'email_address = $38,' .
+            //         'emergency_contact_person = $39,' .
+            //         'emergency_contact_number = $40,' .
+            //         'employment_start_date = $41,' .
+            //         'employment_end_date = $42,' .
+            //         'employment_position = $43,' .
+            //         'department_id = $44,' .
+            //         'payment_method_code = $45 ,' .
+            //         'payment_period_code = $46,' .
+            //         'payment_day = $47 ,' .
+            //         'payment_period_end_day = $48, ' .
+            //         'send_payslip_by_email = $49,' .
+            //         'income_tax_number = $50 ,' .
+            //         'income_tax_directive_1 = $51 ,' .
+            //         'income_tax_directive_2 = $52 ,' .
+            //         'income_tax_directive_3 = $53,' .
+            //         'income_tax_directive_1_issued_date = $54,' .
+            //         'income_tax_directive_1_source_code = $55,' .
+            //         'income_tax_directive_1_amount =  $56,' .
+            //         'income_tax_directive_2_issued_date = $57,' .
+            //         'income_tax_directive_2_source_code = $58,' .
+            //         'income_tax_directive_2_amount = $59,' .
+            //         'income_tax_directive_3_issued_date = $60,' .
+            //         'income_tax_directive_3_source_code = $61,' .
+            //         'income_tax_directive_3_amount = $62, ' .
+            //         'enable_paye_correction = $63 ,' .
+            //         'sic_code = $64  ' .
+            //         'WHERE code =  $65  RETURNING  id ';
 
-                ]);
-                if (!$sqlResult->isValid()) {
-                    echo (json_encode(['ok' => false, 'error' => 'Database error']));
-                    return false;
-                }
-                $sqlRow = $sqlResult->fetchAssociative();
-                $employeeId = $sqlRow['id'];
-                $bankDetailsId = null;
-                $sqlResult = $db->paramQuery('SELECT id FROM employee_bank_details WHERE employee_id = $1 ;', [$employeeId]);
-                if (!$sqlResult->isValid()) {
-                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                    return false;
-                }
-                if ($sqlResult->getRowCount() === 1) {
-                    $sqlRow = $sqlResult->fetchAssociative();
-                    $bankDetailsId = $sqlRow['id'];
-                }
-                if (($bankDetailsId == null) && ($employeeImportData->financialInstitution != '') && ($employeeImportData->bankAccountType != '')) {
-                    $sqlQuery =
-                        'INSERT INTO ' .
-                        'employee_bank_details (employee_id, financial_institution_code, bank_account_type_code, ' .
-                        'account_number, branch_code) ' .
-                        'VALUES ' .
-                        '($1, $2, $3, $4, $5);';
-                    $sqlResult = $db->paramQuery($sqlQuery, [
-                        $employeeId,        // employee_id
-                        $employeeImportData->financialInstitution,           // financial_institution_code
-                        $employeeImportData->bankAccountType,               // bank_account_type_code
-                        $employeeImportData->accountNumber,             // account_number
-                        $employeeImportData->branchCode                 // branch_code
-                    ]);
-                    if (!$sqlResult->isValid()) {
-                        echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                        return false;
-                    }
-                } else if (($bankDetailsId !== null) && ($employeeImportData->financialInstitution != '') && ($employeeImportData->bankAccountType != '')) {
-                    $updateQuery = 'UPDATE employee_bank_details SET ' .
-                        'financial_institution_code = $1 ,bank_account_type_code = $2, ' .
-                        ' account_number = $3, branch_code = $4 ' .
-                        'WHERE ' .
-                        ' employee_id = $5 AND id = $6 ';
-                    $sqlResult = $db->paramQuery($updateQuery, [
-                        $employeeImportData->financialInstitution,
-                        $employeeImportData->bankAccountType,
-                        $employeeImportData->accountNumber,
-                        $employeeImportData->branchCode,
-                        $employeeId,
-                        $bankDetailsId
+            //     $sqlResult = $db->paramQuery($updateQuery, [
+            //         $employeeImportData->initials,              // initials
+            //         $employeeImportData->titleCode,               // title_code
+            //         $employeeImportData->fullName,              // full_names
+            //         $employeeImportData->lastName,                // last_name
+            //         $employeeImportData->alias,                   // alias
+            //         $employeeImportData->idNumber,                // id_number
+            //         $employeeImportData->passportNumber,      // passport_number
+            //         $employeeImportData->passportCountry,   // passport_country
+            //         $employeeImportData->dateOfBirth,       // date_of_birth
+            //         $employeeImportData->isAsylumSeeker,    // is_asylum_seeker
+            //         $employeeImportData->isRefugee,            // is_refugee
+            //         $employeeImportData->isRetired,                              // is_retired
+            //         $employeeImportData->physicalAddressUnit,        // physical_address_unit
+            //         $employeeImportData->physicalAddressComplex,      // physical_address_complex
+            //         $employeeImportData->physicalAddressStreet,       // physical_address_street
+            //         $employeeImportData->physicalAddressSuburb,         // physical_address_suburb
+            //         $employeeImportData->physicalAddressCity,           // physical_address_city
+            //         $employeeImportData->physicalAddressPostalCode,     // physical_address_postal_code
+            //         $employeeImportData->physicalAddressCountry,    // physical_address_country_code
+            //         $employeeImportData->postalAddressSameAsPhysical,                      // postal_same_as_physical_address
+            //         $employeeImportData->postalAddressLine1,            // postal_address_line_1
+            //         $employeeImportData->postalAddressLine2,            // postal_address_line_2
+            //         $employeeImportData->postalAddressLine3,            // postal_address_line_3
+            //         $employeeImportData->postalAddressCode,             // postal_address_code
+            //         $employeeImportData->postalAddressCountry,      // postal_address_country_code
+            //         $employeeImportData->workAddressSameAsCompanyAddress,                   // work_same_as_company_address
+            //         $employeeImportData->workAddressUnit,                                   // work_address_unit
+            //         $employeeImportData->workAddressComplex,                                // work_address_complex
+            //         $employeeImportData->workAddressStreet,                                 // work_address_street
+            //         $employeeImportData->workAddressSuburb,                                  // work_address_suburb
+            //         $employeeImportData->workAddressCity,                                    // work_address_city
+            //         $employeeImportData->workAddressPostalCode,                              // work_address_postal_code
+            //         $employeeImportData->workAddressCountry,                             // work_address_country_code
+            //         $employeeImportData->homeNumber,                     // home_number
+            //         $employeeImportData->workNumber,                    // work_number
+            //         $employeeImportData->cellNumber,                    // cell_number
+            //         $employeeImportData->faxNumber,                     // fax_number
+            //         $employeeImportData->emailAddress,                  // email_address
+            //         $employeeImportData->emergencyContactPerson,        // emergency_contact_person
+            //         $employeeImportData->emergencyContactNumber,        // emergency_contact_number
+            //         $employeeImportData->employmentStartDate,           // employment_start_date
+            //         $employeeImportData->employmentEndDate,             // employment_end_date
+            //         $employeeImportData->employmentPosition,            // employment_position
+            //         $departmentId,                                     // department_id
+            //         $employeeImportData->paymentMethod,       // payment_method_code
+            //         $employeeImportData->paymentPeriod,         // payment_period_code
+            //         $employeeImportData->paymentDay,                    // payment_day
+            //         $employeeImportData->paymentPeriodEndDay,           // payment_period_end_day
+            //         true,                                               // send_payslip_by_email
+            //         $employeeImportData->incomeTaxNumber,               // income_tax_number
+            //         $employeeImportData->incomeTaxDirective1,           // income_tax_directive_1
+            //         $employeeImportData->incomeTaxDirective2,           // income_tax_directive_2
+            //         $employeeImportData->incomeTaxDirective3,           // income_tax_directive_3
+            //         $employeeImportData->incomeTaxDirective1IssuedDate,   // income_tax_directive_1_issued_date
+            //         $employeeImportData->incomeTaxDirective1SourceCode, // income_tax_directive_1_source_code
+            //         $employeeImportData->incomeTaxDirective1Amount,     // income_tax_directive_1_amount
+            //         $employeeImportData->incomeTaxDirective2IssuedDate,   //  income_tax_directive_2_issued_date
+            //         $employeeImportData->incomeTaxDirective2SourceCode, // income_tax_directive_2_source_code
+            //         $employeeImportData->incomeTaxDirective2Amount,     // income_tax_directive_2_amount
+            //         $employeeImportData->incomeTaxDirective3IssuedDate,   // income_tax_directive_3_issued_date
+            //         $employeeImportData->incomeTaxDirective3SourceCode, // income_tax_directive_3_source_code
+            //         $employeeImportData->incomeTaxDirective3Amount,     // income_tax_directive_3_amount
+            //         $employeeImportData->enablePayeCorrection,    // enable_paye_correction
+            //         $employeeImportData->sicCode,                       // sic_code
+            //         $employeeImportData->code,
 
-                    ]);
-                    if (!$sqlResult->isValid()) {
-                        echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                        return false;
-                    }
-                }
-                // Set search path to system
-                $sqlResult = $db->paramQuery('SET search_path TO system;', []);
-                if (!$sqlResult->isValid()) {
-                    echo (json_encode(['ok' => false, 'error' => 'Failed to connect to set search path to system.']));
-                    return false;
-                }
-                // Update the employee profile with the new information
-                $profileUpdateSqlQuery =
-                    'UPDATE employee_profiles SET ' .
-                    'alias = COALESCE($1, alias), ' .
-                    'id_number = COALESCE($2, id_number), ' .
-                    'passport_number = COALESCE($3, passport_number), ' .
-                    'email_address = COALESCE($4, email_address) ' .
-                    'WHERE ' .
-                    'company_id = $5 AND ' .
-                    'employee_id = $6;';
-                $profileUpdateSqlResult = $db->paramQuery($profileUpdateSqlQuery, [
-                    $employeeImportData->alias,                                 // alias
-                    $employeeImportData->idNumber,                              // id_number
-                    $employeeImportData->passportNumber,                        // passport_number
-                    $employeeImportData->emailAddress,                          // email_address
-                    $_SESSION['userData']['companyId'],     // company_id
-                    $employeeId                     // employee_id
-                ]);
-                if (!$profileUpdateSqlResult->isValid()) {
-                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                    return false;
-                }
-            } else if (!$employeeImportValidator->doesEmployeeExists()) {
-                $insertQuery =
-                    'INSERT INTO employees ( ' .
-                    'code,' .
-                    'title_code,' .
-                    'initials,' .
-                    'full_names,' .
-                    'first_name,' .
-                    'last_name,' .
-                    'alias,' .
-                    'id_number,' .
-                    'passport_number,' .
-                    'passport_country,' .
-                    'date_of_birth,' .
-                    'is_asylum_seeker,' .
-                    'is_refugee,' .
-                    'is_retired,' .
-                    'physical_address_unit,' .
-                    'physical_address_complex,' .
-                    'physical_address_street,' .
-                    'physical_address_suburb,' .
-                    'physical_address_city,' .
-                    'physical_address_postal_code,' .
-                    'physical_address_country_code,' .
-                    'postal_same_as_physical_address,' .
-                    'postal_address_line_1,' .
-                    'postal_address_line_2,' .
-                    'postal_address_line_3,' .
-                    'postal_address_code,' .
-                    'postal_address_country_code,' .
-                    'work_same_as_company_address,' .
-                    'work_address_unit,' .
-                    'work_address_complex,' .
-                    'work_address_street,' .
-                    'work_address_suburb,' .
-                    'work_address_city,' .
-                    'work_address_postal_code,' .
-                    'work_address_country_code,' .
-                    'home_number,' .
-                    'work_number,' .
-                    'cell_number,' .
-                    'fax_number,' .
-                    'email_address,' .
-                    'emergency_contact_person,' .
-                    'emergency_contact_number,' .
-                    'employment_start_date,' .
-                    'employment_end_date,' .
-                    'employment_position,' .
-                    'department_id,' .
-                    'payment_method_code,' .
-                    'payment_period_code,' .
-                    'payment_day,' .
-                    'payment_period_end_day,' .
-                    'send_payslip_by_email,' .
-                    'income_tax_number,' .
-                    'enable_paye_correction,' .
-                    'income_tax_directive_1,' .
-                    'income_tax_directive_2,' .
-                    'income_tax_directive_3,' .
-                    'income_tax_directive_1_issued_date,' .
-                    'income_tax_directive_1_source_code,' .
-                    'income_tax_directive_1_amount,' .
-                    'income_tax_directive_2_issued_date,' .
-                    'income_tax_directive_2_source_code,' .
-                    'income_tax_directive_2_amount,' .
-                    'income_tax_directive_3_issued_date,' .
-                    'income_tax_directive_3_source_code,' .
-                    'income_tax_directive_3_amount,' .
-                    'sic_code,' .
-                    'created_by_user_id, ' .
-                    'created_on ' .
-                    ') ' .
-                    'VALUES ( ' .
-                    '$1,  $2,  $3,  $4,  $5,  $6,  $7,  $8,  $9, $10, ' .
-                    '$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, ' .
-                    '$21, $22, $23, $24, $25, $26, $27, $28, $29, $30, ' .
-                    '$31, $32, $33, $34, $35, $36, $37, $38, $39, $40, ' .
-                    '$41, $42, $43, $44, $45, $46, $47, $48, $49, $50, ' .
-                    '$51, $52, $53, $54, $55, $56, $57, $58, $59, $60, ' .
-                    '$61, $62, $63, $64, $65, $66, $67, NOW()) RETURNING id  ';
+            //     ]);
+            //     if (!$sqlResult->isValid()) {
+            //         echo (json_encode(['ok' => false, 'error' => 'Database error']));
+            //         return false;
+            //     }
+            //     $sqlRow = $sqlResult->fetchAssociative();
+            //     $employeeId = $sqlRow['id'];
+            //     $bankDetailsId = null;
+            //     $sqlResult = $db->paramQuery('SELECT id FROM employee_bank_details WHERE employee_id = $1 ;', [$employeeId]);
+            //     if (!$sqlResult->isValid()) {
+            //         echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            //         return false;
+            //     }
+            //     if ($sqlResult->getRowCount() === 1) {
+            //         $sqlRow = $sqlResult->fetchAssociative();
+            //         $bankDetailsId = $sqlRow['id'];
+            //     }
+            //     if (($bankDetailsId == null) && ($employeeImportData->financialInstitution != '') && ($employeeImportData->bankAccountType != '')) {
+            //         $sqlQuery =
+            //             'INSERT INTO ' .
+            //             'employee_bank_details (employee_id, financial_institution_code, bank_account_type_code, ' .
+            //             'account_number, branch_code) ' .
+            //             'VALUES ' .
+            //             '($1, $2, $3, $4, $5);';
+            //         $sqlResult = $db->paramQuery($sqlQuery, [
+            //             $employeeId,        // employee_id
+            //             $employeeImportData->financialInstitution,           // financial_institution_code
+            //             $employeeImportData->bankAccountType,               // bank_account_type_code
+            //             $employeeImportData->accountNumber,             // account_number
+            //             $employeeImportData->branchCode                 // branch_code
+            //         ]);
+            //         if (!$sqlResult->isValid()) {
+            //             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            //             return false;
+            //         }
+            //     } else if (($bankDetailsId !== null) && ($employeeImportData->financialInstitution != '') && ($employeeImportData->bankAccountType != '')) {
+            //         $updateQuery = 'UPDATE employee_bank_details SET ' .
+            //             'financial_institution_code = $1 ,bank_account_type_code = $2, ' .
+            //             ' account_number = $3, branch_code = $4 ' .
+            //             'WHERE ' .
+            //             ' employee_id = $5 AND id = $6 ';
+            //         $sqlResult = $db->paramQuery($updateQuery, [
+            //             $employeeImportData->financialInstitution,
+            //             $employeeImportData->bankAccountType,
+            //             $employeeImportData->accountNumber,
+            //             $employeeImportData->branchCode,
+            //             $employeeId,
+            //             $bankDetailsId
 
-                $sqlResult = $db->paramQuery($insertQuery, [
-                    $employeeImportData->code,                    // code
-                    $employeeImportData->titleCode,               // title_code
-                    $employeeImportData->initials,              // initials
-                    $employeeImportData->fullName,              // full_names
-                    '',                                           // first_name
-                    $employeeImportData->lastName,                // last_name
-                    $employeeImportData->alias,                   // alias
-                    $employeeImportData->idNumber,                // id_number
-                    $employeeImportData->passportNumber,      // passport_number
-                    $employeeImportData->passportCountry,   // passport_country
-                    $employeeImportData->dateOfBirth,       // date_of_birth
-                    $employeeImportData->isAsylumSeeker,    // is_asylum_seeker
-                    $employeeImportData->isRefugee,            // is_refugee
-                    $employeeImportData->isRetired,                              // is_retired
-                    $employeeImportData->physicalAddressUnit,        // physical_address_unit
-                    $employeeImportData->physicalAddressComplex,      // physical_address_complex
-                    $employeeImportData->physicalAddressStreet,       // physical_address_street
-                    $employeeImportData->physicalAddressSuburb,         // physical_address_suburb
-                    $employeeImportData->physicalAddressCity,           // physical_address_city
-                    $employeeImportData->physicalAddressPostalCode,     // physical_address_postal_code
-                    $employeeImportData->physicalAddressCountry,    // physical_address_country_code
-                    $employeeImportData->postalAddressSameAsPhysical,                      // postal_same_as_physical_address
-                    $employeeImportData->postalAddressLine1,            // postal_address_line_1
-                    $employeeImportData->postalAddressLine2,            // postal_address_line_2
-                    $employeeImportData->postalAddressLine3,            // postal_address_line_3
-                    $employeeImportData->postalAddressCode,             // postal_address_code
-                    $employeeImportData->postalAddressCountry,      // postal_address_country_code
-                    $employeeImportData->workAddressSameAsCompanyAddress,                   // work_same_as_company_address
-                    $employeeImportData->workAddressUnit,                                   // work_address_unit
-                    $employeeImportData->workAddressComplex,                                // work_address_complex
-                    $employeeImportData->workAddressStreet,                                 // work_address_street
-                    $employeeImportData->workAddressSuburb,                                  // work_address_suburb
-                    $employeeImportData->workAddressCity,                                    // work_address_city
-                    $employeeImportData->workAddressPostalCode,                              // work_address_postal_code
-                    $employeeImportData->workAddressCountry,                             // work_address_country_code
-                    $employeeImportData->homeNumber,                     // home_number
-                    $employeeImportData->workNumber,                    // work_number
-                    $employeeImportData->cellNumber,                    // cell_number
-                    $employeeImportData->faxNumber,                     // fax_number
-                    $employeeImportData->emailAddress,                  // email_address
-                    $employeeImportData->emergencyContactPerson,        // emergency_contact_person
-                    $employeeImportData->emergencyContactNumber,        // emergency_contact_number
-                    $employeeImportData->employmentStartDate,           // employment_start_date
-                    $employeeImportData->employmentEndDate,             // employment_end_date
-                    $employeeImportData->employmentPosition,            // employment_position
-                    $departmentId,                                     // department_id
-                    $employeeImportData->paymentMethod,       // payment_method_code
-                    $employeeImportData->paymentPeriod,         // payment_period_code
-                    $employeeImportData->paymentDay,                    // payment_day
-                    $employeeImportData->paymentPeriodEndDay,           // payment_period_end_day
-                    true,                                               // send_payslip_by_email
-                    $employeeImportData->incomeTaxNumber,               // income_tax_number
-                    $employeeImportData->enablePayeCorrection,    // enable_paye_correction
-                    $employeeImportData->incomeTaxDirective1,           // income_tax_directive_1
-                    $employeeImportData->incomeTaxDirective2,           // income_tax_directive_2
-                    $employeeImportData->incomeTaxDirective3,           // income_tax_directive_3
-                    $employeeImportData->incomeTaxDirective1IssuedDate,   // income_tax_directive_1_issued_date
-                    $employeeImportData->incomeTaxDirective1SourceCode, // income_tax_directive_1_source_code
-                    $employeeImportData->incomeTaxDirective1Amount,     // income_tax_directive_1_amount
-                    $employeeImportData->incomeTaxDirective2IssuedDate,   //  income_tax_directive_2_issued_date
-                    $employeeImportData->incomeTaxDirective2SourceCode, // income_tax_directive_2_source_code
-                    $employeeImportData->incomeTaxDirective2Amount,     // income_tax_directive_2_amount
-                    $employeeImportData->incomeTaxDirective3IssuedDate,   // income_tax_directive_3_issued_date
-                    $employeeImportData->incomeTaxDirective3SourceCode, // income_tax_directive_3_source_code
-                    $employeeImportData->incomeTaxDirective3Amount,     // income_tax_directive_3_amount
-                    $employeeImportData->sicCode,                       // sic_code
-                    $user['id']
-                ]);
+            //         ]);
+            //         if (!$sqlResult->isValid()) {
+            //             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            //             return false;
+            //         }
+            //     }
+            //     // Set search path to system
+            //     $sqlResult = $db->paramQuery('SET search_path TO system;', []);
+            //     if (!$sqlResult->isValid()) {
+            //         echo (json_encode(['ok' => false, 'error' => 'Failed to connect to set search path to system.']));
+            //         return false;
+            //     }
+            //     // Update the employee profile with the new information
+            //     $profileUpdateSqlQuery =
+            //         'UPDATE employee_profiles SET ' .
+            //         'alias = COALESCE($1, alias), ' .
+            //         'id_number = COALESCE($2, id_number), ' .
+            //         'passport_number = COALESCE($3, passport_number), ' .
+            //         'email_address = COALESCE($4, email_address) ' .
+            //         'WHERE ' .
+            //         'company_id = $5 AND ' .
+            //         'employee_id = $6;';
+            //     $profileUpdateSqlResult = $db->paramQuery($profileUpdateSqlQuery, [
+            //         $employeeImportData->alias,                                 // alias
+            //         $employeeImportData->idNumber,                              // id_number
+            //         $employeeImportData->passportNumber,                        // passport_number
+            //         $employeeImportData->emailAddress,                          // email_address
+            //         $_SESSION['userData']['companyId'],     // company_id
+            //         $employeeId                     // employee_id
+            //     ]);
+            //     if (!$profileUpdateSqlResult->isValid()) {
+            //         echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            //         return false;
+            //     }
+            // } else if (!$employeeImportValidator->doesEmployeeExists()) {
+            //     $insertQuery =
+            //         'INSERT INTO employees ( ' .
+            //         'code,' .
+            //         'title_code,' .
+            //         'initials,' .
+            //         'full_names,' .
+            //         'first_name,' .
+            //         'last_name,' .
+            //         'alias,' .
+            //         'id_number,' .
+            //         'passport_number,' .
+            //         'passport_country,' .
+            //         'date_of_birth,' .
+            //         'is_asylum_seeker,' .
+            //         'is_refugee,' .
+            //         'is_retired,' .
+            //         'physical_address_unit,' .
+            //         'physical_address_complex,' .
+            //         'physical_address_street,' .
+            //         'physical_address_suburb,' .
+            //         'physical_address_city,' .
+            //         'physical_address_postal_code,' .
+            //         'physical_address_country_code,' .
+            //         'postal_same_as_physical_address,' .
+            //         'postal_address_line_1,' .
+            //         'postal_address_line_2,' .
+            //         'postal_address_line_3,' .
+            //         'postal_address_code,' .
+            //         'postal_address_country_code,' .
+            //         'work_same_as_company_address,' .
+            //         'work_address_unit,' .
+            //         'work_address_complex,' .
+            //         'work_address_street,' .
+            //         'work_address_suburb,' .
+            //         'work_address_city,' .
+            //         'work_address_postal_code,' .
+            //         'work_address_country_code,' .
+            //         'home_number,' .
+            //         'work_number,' .
+            //         'cell_number,' .
+            //         'fax_number,' .
+            //         'email_address,' .
+            //         'emergency_contact_person,' .
+            //         'emergency_contact_number,' .
+            //         'employment_start_date,' .
+            //         'employment_end_date,' .
+            //         'employment_position,' .
+            //         'department_id,' .
+            //         'payment_method_code,' .
+            //         'payment_period_code,' .
+            //         'payment_day,' .
+            //         'payment_period_end_day,' .
+            //         'send_payslip_by_email,' .
+            //         'income_tax_number,' .
+            //         'enable_paye_correction,' .
+            //         'income_tax_directive_1,' .
+            //         'income_tax_directive_2,' .
+            //         'income_tax_directive_3,' .
+            //         'income_tax_directive_1_issued_date,' .
+            //         'income_tax_directive_1_source_code,' .
+            //         'income_tax_directive_1_amount,' .
+            //         'income_tax_directive_2_issued_date,' .
+            //         'income_tax_directive_2_source_code,' .
+            //         'income_tax_directive_2_amount,' .
+            //         'income_tax_directive_3_issued_date,' .
+            //         'income_tax_directive_3_source_code,' .
+            //         'income_tax_directive_3_amount,' .
+            //         'sic_code,' .
+            //         'created_by_user_id, ' .
+            //         'created_on ' .
+            //         ') ' .
+            //         'VALUES ( ' .
+            //         '$1,  $2,  $3,  $4,  $5,  $6,  $7,  $8,  $9, $10, ' .
+            //         '$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, ' .
+            //         '$21, $22, $23, $24, $25, $26, $27, $28, $29, $30, ' .
+            //         '$31, $32, $33, $34, $35, $36, $37, $38, $39, $40, ' .
+            //         '$41, $42, $43, $44, $45, $46, $47, $48, $49, $50, ' .
+            //         '$51, $52, $53, $54, $55, $56, $57, $58, $59, $60, ' .
+            //         '$61, $62, $63, $64, $65, $66, $67, NOW()) RETURNING id  ';
 
-                if (!$sqlResult->isValid()) {
-                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                    return false;
-                }
-                $sqlRow = $sqlResult->fetchAssociative();
-                $employeeId = $sqlRow['id'];
-                // Build the query to insert the item.
-                $sqlQuery =
-                    'INSERT INTO ' .
-                    'employment_history ( ' .
-                    'employee_id, ' .
-                    'employed_by_user_id, ' .
-                    'employed_on, ' .
-                    'employment_position, ' .
-                    'employment_date, ' .
-                    'dismissed_by_user_id, ' .
-                    'dismissed_on, ' .
-                    'dismissal_position, ' .
-                    'dismissal_date ' .
-                    ') ' .
-                    'VALUES ( ' .
-                    ' $1,  $2,  $3,  $4,  $5,  $6, $7, $8, $9 ' .
-                    ') ' .
-                    'RETURNING id;';
-                $sqlResult = $db->paramQuery($sqlQuery, [
-                    $employeeId,             // employee_id
-                    $user['id'],             // employed_by_user_id
-                    date("Y-m-d H:i:s"),     // employed_on
-                    $employeeImportData->employmentPosition,     // employment_position
-                    $employeeImportData->employmentStartDate,    // employment_date
-                    null,                    // dismissed_by_user_id
-                    null,                    // dismissed_on
-                    null,                    // dismissal_position
-                    null                     // dismissal_date
-                ]);
+            //     $sqlResult = $db->paramQuery($insertQuery, [
+            //         $employeeImportData->code,                    // code
+            //         $employeeImportData->titleCode,               // title_code
+            //         $employeeImportData->initials,              // initials
+            //         $employeeImportData->fullName,              // full_names
+            //         '',                                           // first_name
+            //         $employeeImportData->lastName,                // last_name
+            //         $employeeImportData->alias,                   // alias
+            //         $employeeImportData->idNumber,                // id_number
+            //         $employeeImportData->passportNumber,      // passport_number
+            //         $employeeImportData->passportCountry,   // passport_country
+            //         $employeeImportData->dateOfBirth,       // date_of_birth
+            //         $employeeImportData->isAsylumSeeker,    // is_asylum_seeker
+            //         $employeeImportData->isRefugee,            // is_refugee
+            //         $employeeImportData->isRetired,                              // is_retired
+            //         $employeeImportData->physicalAddressUnit,        // physical_address_unit
+            //         $employeeImportData->physicalAddressComplex,      // physical_address_complex
+            //         $employeeImportData->physicalAddressStreet,       // physical_address_street
+            //         $employeeImportData->physicalAddressSuburb,         // physical_address_suburb
+            //         $employeeImportData->physicalAddressCity,           // physical_address_city
+            //         $employeeImportData->physicalAddressPostalCode,     // physical_address_postal_code
+            //         $employeeImportData->physicalAddressCountry,    // physical_address_country_code
+            //         $employeeImportData->postalAddressSameAsPhysical,                      // postal_same_as_physical_address
+            //         $employeeImportData->postalAddressLine1,            // postal_address_line_1
+            //         $employeeImportData->postalAddressLine2,            // postal_address_line_2
+            //         $employeeImportData->postalAddressLine3,            // postal_address_line_3
+            //         $employeeImportData->postalAddressCode,             // postal_address_code
+            //         $employeeImportData->postalAddressCountry,      // postal_address_country_code
+            //         $employeeImportData->workAddressSameAsCompanyAddress,                   // work_same_as_company_address
+            //         $employeeImportData->workAddressUnit,                                   // work_address_unit
+            //         $employeeImportData->workAddressComplex,                                // work_address_complex
+            //         $employeeImportData->workAddressStreet,                                 // work_address_street
+            //         $employeeImportData->workAddressSuburb,                                  // work_address_suburb
+            //         $employeeImportData->workAddressCity,                                    // work_address_city
+            //         $employeeImportData->workAddressPostalCode,                              // work_address_postal_code
+            //         $employeeImportData->workAddressCountry,                             // work_address_country_code
+            //         $employeeImportData->homeNumber,                     // home_number
+            //         $employeeImportData->workNumber,                    // work_number
+            //         $employeeImportData->cellNumber,                    // cell_number
+            //         $employeeImportData->faxNumber,                     // fax_number
+            //         $employeeImportData->emailAddress,                  // email_address
+            //         $employeeImportData->emergencyContactPerson,        // emergency_contact_person
+            //         $employeeImportData->emergencyContactNumber,        // emergency_contact_number
+            //         $employeeImportData->employmentStartDate,           // employment_start_date
+            //         $employeeImportData->employmentEndDate,             // employment_end_date
+            //         $employeeImportData->employmentPosition,            // employment_position
+            //         $departmentId,                                     // department_id
+            //         $employeeImportData->paymentMethod,       // payment_method_code
+            //         $employeeImportData->paymentPeriod,         // payment_period_code
+            //         $employeeImportData->paymentDay,                    // payment_day
+            //         $employeeImportData->paymentPeriodEndDay,           // payment_period_end_day
+            //         true,                                               // send_payslip_by_email
+            //         $employeeImportData->incomeTaxNumber,               // income_tax_number
+            //         $employeeImportData->enablePayeCorrection,    // enable_paye_correction
+            //         $employeeImportData->incomeTaxDirective1,           // income_tax_directive_1
+            //         $employeeImportData->incomeTaxDirective2,           // income_tax_directive_2
+            //         $employeeImportData->incomeTaxDirective3,           // income_tax_directive_3
+            //         $employeeImportData->incomeTaxDirective1IssuedDate,   // income_tax_directive_1_issued_date
+            //         $employeeImportData->incomeTaxDirective1SourceCode, // income_tax_directive_1_source_code
+            //         $employeeImportData->incomeTaxDirective1Amount,     // income_tax_directive_1_amount
+            //         $employeeImportData->incomeTaxDirective2IssuedDate,   //  income_tax_directive_2_issued_date
+            //         $employeeImportData->incomeTaxDirective2SourceCode, // income_tax_directive_2_source_code
+            //         $employeeImportData->incomeTaxDirective2Amount,     // income_tax_directive_2_amount
+            //         $employeeImportData->incomeTaxDirective3IssuedDate,   // income_tax_directive_3_issued_date
+            //         $employeeImportData->incomeTaxDirective3SourceCode, // income_tax_directive_3_source_code
+            //         $employeeImportData->incomeTaxDirective3Amount,     // income_tax_directive_3_amount
+            //         $employeeImportData->sicCode,                       // sic_code
+            //         $user['id']
+            //     ]);
 
-                if (!$sqlResult->isValid()) {
-                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                    return false;
-                }
+            //     if (!$sqlResult->isValid()) {
+            //         echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            //         return false;
+            //     }
+            //     $sqlRow = $sqlResult->fetchAssociative();
+            //     $employeeId = $sqlRow['id'];
+            //     // Build the query to insert the item.
+            //     $sqlQuery =
+            //         'INSERT INTO ' .
+            //         'employment_history ( ' .
+            //         'employee_id, ' .
+            //         'employed_by_user_id, ' .
+            //         'employed_on, ' .
+            //         'employment_position, ' .
+            //         'employment_date, ' .
+            //         'dismissed_by_user_id, ' .
+            //         'dismissed_on, ' .
+            //         'dismissal_position, ' .
+            //         'dismissal_date ' .
+            //         ') ' .
+            //         'VALUES ( ' .
+            //         ' $1,  $2,  $3,  $4,  $5,  $6, $7, $8, $9 ' .
+            //         ') ' .
+            //         'RETURNING id;';
+            //     $sqlResult = $db->paramQuery($sqlQuery, [
+            //         $employeeId,             // employee_id
+            //         $user['id'],             // employed_by_user_id
+            //         date("Y-m-d H:i:s"),     // employed_on
+            //         $employeeImportData->employmentPosition,     // employment_position
+            //         $employeeImportData->employmentStartDate,    // employment_date
+            //         null,                    // dismissed_by_user_id
+            //         null,                    // dismissed_on
+            //         null,                    // dismissal_position
+            //         null                     // dismissal_date
+            //     ]);
 
-                // Add Banking details
-                // Only add an entry if the banking details are not empty.
-                if ($employeeImportData->financialInstitution !== '' && $employeeImportData->bankAccountType !==  '') {
-                    $sqlQuery =
-                        'INSERT INTO ' .
-                        'employee_bank_details (employee_id, financial_institution_code, bank_account_type_code, ' .
-                        'account_number, branch_code) ' .
-                        'VALUES ' .
-                        '($1, $2, $3, $4, $5);';
-                    $sqlResult = $db->paramQuery($sqlQuery, [
-                        $employeeId,                // employee_id
-                        $employeeImportData->financialInstitution,           // financial_institution_code
-                        $employeeImportData->bankAccountType,               // bank_account_type_code
-                        $employeeImportData->accountNumber,             // account_number
-                        $employeeImportData->branchCode                 // branch_code
-                    ]);
+            //     if (!$sqlResult->isValid()) {
+            //         echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            //         return false;
+            //     }
 
-                    if (!$sqlResult->isValid()) {
-                        echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                        return false;
-                    }
-                }
-                // Set search path to system
-                $sqlResult = $db->paramQuery('SET search_path TO system;', []);
-                if (!$sqlResult->isValid()) {
-                    echo (json_encode(['ok' => false, 'error' => 'Failed to connect to set search path to system.']));
-                    return false;
-                }
+            //     // Add Banking details
+            //     // Only add an entry if the banking details are not empty.
+            //     if ($employeeImportData->financialInstitution !== '' && $employeeImportData->bankAccountType !==  '') {
+            //         $sqlQuery =
+            //             'INSERT INTO ' .
+            //             'employee_bank_details (employee_id, financial_institution_code, bank_account_type_code, ' .
+            //             'account_number, branch_code) ' .
+            //             'VALUES ' .
+            //             '($1, $2, $3, $4, $5);';
+            //         $sqlResult = $db->paramQuery($sqlQuery, [
+            //             $employeeId,                // employee_id
+            //             $employeeImportData->financialInstitution,           // financial_institution_code
+            //             $employeeImportData->bankAccountType,               // bank_account_type_code
+            //             $employeeImportData->accountNumber,             // account_number
+            //             $employeeImportData->branchCode                 // branch_code
+            //         ]);
 
-                // Add the employee profile to the system database
-                $profileInsertSqlQuery =
-                    'INSERT INTO employee_profiles ( ' .
-                    'company_id, ' .
-                    'employee_id, ' .
-                    'alias, ' .
-                    'id_number, ' .
-                    'passport_number, ' .
-                    'email_address ' .
-                    ') ' .
-                    'VALUES ( ' .
-                    '$1, $2, $3, $4, $5, $6 ' .
-                    ');';
-                $profileInsertSqlResult = $db->paramQuery($profileInsertSqlQuery, [
-                    $_SESSION['userData']['companyId'],     // company_id
-                    $employeeId,                            // employee_id
-                    $employeeImportData->alias,                         // alias
-                    $employeeImportData->idNumber,                      // id_number
-                    $employeeImportData->passportNumber,                // passport_number
-                    $employeeImportData->emailAddress                   // email_address
-                ]);
-                if (!$profileInsertSqlResult->isValid()) {
-                    echo (json_encode(['ok' => false, 'error' => 'Unable to insert employee profile.']));
-                    return false;
-                }
-            }
+            //         if (!$sqlResult->isValid()) {
+            //             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            //             return false;
+            //         }
+            //     }
+            //     // Set search path to system
+            //     $sqlResult = $db->paramQuery('SET search_path TO system;', []);
+            //     if (!$sqlResult->isValid()) {
+            //         echo (json_encode(['ok' => false, 'error' => 'Failed to connect to set search path to system.']));
+            //         return false;
+            //     }
+
+            //     // Add the employee profile to the system database
+            //     $profileInsertSqlQuery =
+            //         'INSERT INTO employee_profiles ( ' .
+            //         'company_id, ' .
+            //         'employee_id, ' .
+            //         'alias, ' .
+            //         'id_number, ' .
+            //         'passport_number, ' .
+            //         'email_address ' .
+            //         ') ' .
+            //         'VALUES ( ' .
+            //         '$1, $2, $3, $4, $5, $6 ' .
+            //         ');';
+            //     $profileInsertSqlResult = $db->paramQuery($profileInsertSqlQuery, [
+            //         $_SESSION['userData']['companyId'],     // company_id
+            //         $employeeId,                            // employee_id
+            //         $employeeImportData->alias,                         // alias
+            //         $employeeImportData->idNumber,                      // id_number
+            //         $employeeImportData->passportNumber,                // passport_number
+            //         $employeeImportData->emailAddress                   // email_address
+            //     ]);
+            //     if (!$profileInsertSqlResult->isValid()) {
+            //         echo (json_encode(['ok' => false, 'error' => 'Unable to insert employee profile.']));
+            //         return false;
+            //     }
+            //}
         }
         // Commit SQL transaction
         $db->commitTransaction();

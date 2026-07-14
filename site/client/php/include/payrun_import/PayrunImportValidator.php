@@ -178,6 +178,9 @@ class PayrunImportValidator
      */
     private function validatePaymentPeriod(int $row, array &$errors): void
     {
+
+        $this->payrun->paymentPeriodFrom = $this->normalizeDate($this->payrun->paymentPeriodFrom);
+        $this->payrun->paymentPeriodTo = $this->normalizeDate($this->payrun->paymentPeriodTo);
         $fromValid = Util::isDateValid($this->payrun->paymentPeriodFrom);
         if (!$fromValid) {
             $errors[] = [
@@ -215,6 +218,53 @@ class PayrunImportValidator
                 'fullDescription' => 'Payment period "to" date cannot be before the "from" date'
             ];
         }
+    }
+
+    private function normalizeDate(?string $date): ?string
+    {
+        if (empty($date)) {
+            return null;
+        }
+
+        $date = trim($date);
+
+        // Already in Y-m-d format
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return $date;
+        }
+
+        // Try common formats
+        $formats = [
+            'd/m/Y',
+            'd-m-Y',
+            'd.m.Y',
+            'Y/m/d',
+            'Y-m-d',
+            'Y.m.d',
+            'm/d/Y',
+            'm-d-Y',
+            'j/n/Y',
+            'j-n-Y',
+            'd/m/y',
+            'd-m-y',
+        ];
+
+        foreach ($formats as $format) {
+            $dateTime = DateTime::createFromFormat($format, $date);
+
+            if ($dateTime && $dateTime->format($format) === $date) {
+                return $dateTime->format('Y-m-d');
+            }
+        }
+
+        // Last attempt
+        $timestamp = strtotime($date);
+
+        if ($timestamp !== false) {
+            return date('Y-m-d', $timestamp);
+        }
+
+        return null;
     }
 
     /**
