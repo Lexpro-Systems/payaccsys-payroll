@@ -7094,7 +7094,7 @@ class Payrun extends Controller
         return (['ok' => true, 'payslips' => $payslips]);
     }
 
-    private function createImportedPayslip($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $config)
+    private function createImportedPayslip($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $departmentId, $payrunImportData)
     {
 
         $payslips = [];
@@ -7110,9 +7110,9 @@ class Payrun extends Controller
                 employment_start_date,
                 employment_end_date
             FROM employees
-            WHERE id = $1;
+            WHERE code = $1;
         ';
-        $sqlResult = $db->paramQuery($sqlQuery, [$config['employeeId']]);
+        $sqlResult = $db->paramQuery($sqlQuery, [$payrunImportData->employeeNumber]);
         if (!$sqlResult->isValid()) {
             return ['ok' => false, 'error' => 'Database error.'];
         }
@@ -7128,8 +7128,8 @@ class Payrun extends Controller
         $employmentEnd = $employee['employment_end_date'] ? new DateTime($employee['employment_end_date']) : null;
 
         # Gets the payslips from and to date and validates it.
-        $fromDate = new DateTime($config['payslipFromDate']);
-        $toDate   = new DateTime($config['payslipToDate']);
+        $fromDate = new DateTime($payrunImportData->paymentPeriodFrom);
+        $toDate   = new DateTime($payrunImportData->paymentPeriodTo);
 
         if ($fromDate > $toDate) {
             return ['ok' => false, 'error' => 'Payslip start date is after the end date.'];
@@ -7222,7 +7222,8 @@ class Payrun extends Controller
             ]
         ];
 
-        $items = $this->generatePayslipItems($db, $payslip, $payeBonusCalculationTypeCode);
+        // $items = $this->generatePayslipItems($db, $payslip, $payeBonusCalculationTypeCode);
+        $items = $this->createImportPayslipItems($db, $payslip, $payeBonusCalculationTypeCode, $payrunImportData);
 
         if ($items['ok'] !== true) {
             return $items;
@@ -7859,6 +7860,125 @@ class Payrun extends Controller
     //      'amount'                // The payslip item amount
     //      'includeInNettPay'      // Whether the amount should be included in nett pay
     //  ]
+    private function createImportPayslipItems($db, $payslip, $payeBonusCalculationTypeCode, $payrunImportData)
+    {
+        // Clear the payslip items
+        $payslip['items'] = [];
+
+        // Basic Salary
+        if ($payrunImportData->basicSalary !== null) {
+            $config = $this->getPayslipConfigItem($db, $payslip['employee']['id'], '1000');
+            if ($config !== null) {
+                $this->addImportedPayslipItem($payslip, $config, $payrunImportData->basicSalary);
+            }
+        }
+
+        // Other Deductions
+        if ($payrunImportData->otherDeductions !== null) {
+            $config = $this->getPayslipConfigItem($db, $payslip['employee']['id'], '2002');
+            if ($config !== null) {
+                $this->addImportedPayslipItem($payslip, $config, $payrunImportData->otherDeductions);
+            }
+        }
+
+        // UIF
+        if ($payrunImportData->uifContribution !== null) {
+            $config = $this->getPayslipConfigItem($db, $payslip['employee']['id'], '2003');
+            if ($config !== null) {
+                $this->addImportedPayslipItem($payslip, $config, $payrunImportData->uifContribution);
+            }
+        }
+
+        // PAYE
+        if ($payrunImportData->paye !== null) {
+            $config = $this->getPayslipConfigItem($db, $payslip['employee']['id'], '2001');
+            if ($config !== null) {
+                $this->addImportedPayslipItem($payslip, $config, $payrunImportData->paye);
+            }
+        }
+
+        $payslip['payeBonusCalculationTypeCode'] = $payeBonusCalculationTypeCode;
+
+        \PayslipUtil\calculatePayslipItems($payslip);
+
+        return [
+            'ok' => true,
+            'payslipItems' => $payslip['items']
+        ];
+    }
+
+    private function getPayslipConfigItem($db, $employeeId, $typeCode)
+    {
+        $sql =
+            'SELECT ' .
+            'payslip_item_type_code, ' .
+            'payslip_category_code, ' .
+            'payslip_item_unit_code, ' .
+            'description, ' .
+            'payslip_config_items.auto_calculate, ' .
+            'payslip_config_items.include_in_nett_pay ' .
+            'FROM payslip_config_items ' .
+            'LEFT JOIN payslip_item_types ' .
+            'ON payslip_config_items.payslip_item_type_code = payslip_item_types.code ' .
+            'WHERE employee_id = $1 ' .
+            'AND payslip_item_type_code = $2 ' .
+            'LIMIT 1;';
+
+        $result = $db->paramQuery($sql, [
+            $employeeId,
+            $typeCode
+        ]);
+
+        if (!$result->isValid()) {
+            return null;
+        }
+
+        if ($result->getRowCount() == 0) {
+            return null;
+        }
+
+        return $result->fetchAssociative();
+    }
+
+    private function addImportedPayslipItem(&$payslip, $config, $amount)
+    {
+        $payslip['items'][] = [
+            'id' => null,
+
+            'type' => [
+                'code' => $config['payslip_item_type_code'],
+                'unitCode' => $config['payslip_item_unit_code']
+            ],
+
+            'category' => [
+                'code' => $config['payslip_category_code']
+            ],
+
+            'providentFund' => [
+                'id' => null,
+                'employeeAmount' => null,
+                'employerAmount' => null,
+                'rfiItems' => []
+            ],
+
+            'loan' => [
+                'id' => null
+            ],
+
+            'description' => $config['description'],
+
+            'autoCalculate' => $config['auto_calculate'],
+
+            'units' => null,
+
+            'rate' => null,
+
+            'amount' => $amount,
+
+            'includeInNettPay' => $config['include_in_nett_pay']
+        ];
+    }
+
     private function generatePayslipItems($db, $payslip, $payeBonusCalculationTypeCode)
     {
         // Clear the payslip items, if any
@@ -9525,7 +9645,8 @@ class Payrun extends Controller
             //     echo (json_encode(['ok' => false, 'error' => $result['error']]));
             //     return false;
             // }
-            $result = $this->createImportedPayslip($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $config);
+            // $result = $this->createImportedPayslip($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $config);
+            $result = $this->createImportedPayslip($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $departmentId, $payrunImportData);
             if ($result['ok'] !== true) {
                 echo (json_encode(['ok' => false, 'error' => $result['error']]));
                 return false;
