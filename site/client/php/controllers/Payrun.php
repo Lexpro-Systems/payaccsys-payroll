@@ -7094,6 +7094,720 @@ class Payrun extends Controller
         return (['ok' => true, 'payslips' => $payslips]);
     }
 
+    private function createImportedPayslip($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $config)
+    {
+
+        $payslips = [];
+
+        # Queries the database to retrieve the employees information.
+        $sqlQuery = '
+            SELECT
+                id,
+                alias,
+                EXTRACT(YEAR FROM age(CURRENT_DATE, date_of_birth)) AS employee_age,
+                payment_period_code,
+                payment_period_end_day,
+                employment_start_date,
+                employment_end_date
+            FROM employees
+            WHERE id = $1;
+        ';
+        $sqlResult = $db->paramQuery($sqlQuery, [$config['employeeId']]);
+        if (!$sqlResult->isValid()) {
+            return ['ok' => false, 'error' => 'Database error.'];
+        }
+
+        # Checks if the employee exists.
+        if ($sqlResult->getRowCount() === 0) {
+            return ['ok' => false, 'error' => 'Employee not found.'];
+        }
+
+        # Stores the employee info in the employee variable.
+        $employee = $sqlResult->fetchAssociative();
+        $employmentStart = new DateTime($employee['employment_start_date']);
+        $employmentEnd = $employee['employment_end_date'] ? new DateTime($employee['employment_end_date']) : null;
+
+        # Gets the payslips from and to date and validates it.
+        $fromDate = new DateTime($config['payslipFromDate']);
+        $toDate   = new DateTime($config['payslipToDate']);
+
+        if ($fromDate > $toDate) {
+            return ['ok' => false, 'error' => 'Payslip start date is after the end date.'];
+        }
+
+        if ($fromDate < $employmentStart) {
+            return ['ok' => false, 'error' => 'Payslip starts before employment.'];
+        }
+
+        if ($employmentEnd !== null && $toDate > $employmentEnd) {
+            return ['ok' => false, 'error' => 'Payslip ends after employment.'];
+        }
+
+        # Calculates the sars financial year (2025 or 2026 or 2027).
+        $sarsYear = (int)$toDate->format('Y');
+        if ((int)$toDate->format('n') >= 3) {
+            $sarsYear++;
+        }
+
+        # Retrieves the employees payslip period.
+        switch ($employee['payment_period_code']) {
+            case 'MONT':
+                $period = \PayslipUtil\getMonthlyPayslipPeriod($toDate);
+                break;
+            case 'WEEK':
+                $period = \PayslipUtil\getWeeklyPayslipPeriod(
+                    $toDate,
+                    $toDate,
+                    $employee['payment_period_end_day']
+                );
+                break;
+            case 'BWEE':
+                $period = \PayslipUtil\getBiWeeklyPayslipPeriod(
+                    $toDate,
+                    $toDate,
+                    $employee['payment_period_end_day']
+                );
+                break;
+            default:
+                return ['ok' => false, 'error' => 'Unknown payment period.'];
+        }
+
+        # Checks if the payslip already exists.
+        $sqlQuery = "
+            SELECT 1
+            FROM payslips
+            WHERE employee_id = \$1
+            AND sars_year = \$2
+            AND period = \$3
+            AND payment_period_code = \$4
+            AND status_code = 'ACTI'
+            LIMIT 1;
+        ";
+
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $employee['id'],
+            $sarsYear,
+            $period,
+            $employee['payment_period_code']
+        ]);
+
+        if (!$sqlResult->isValid()) {
+            return ['ok' => false, 'error' => 'Database error.'];
+        }
+
+        if ($sqlResult->getRowCount() > 0) {
+            return ['ok' => false, 'error' => 'Payslip already exists.'];
+        }
+        # Creates the paysilp object
+        $payslip = [
+            'employee' => [
+                'id' => $employee['id'],
+                'name' => $employee['alias'],
+                'age' => $employee['employee_age'],
+                'paymentPeriodEndDay' => $employee['payment_period_end_day']
+            ],
+            'taxPeriod' => [
+                'type' => $employee['payment_period_code'],
+                'number' => $period,
+                'taxYear' => $sarsYear
+            ],
+            'payeBonusCalculationTypeCode' => $payeBonusCalculationTypeCode,
+            'fromDate' => $fromDate->format('Y-m-d'),
+            'toDate' => $toDate->format('Y-m-d'),
+            'items' => [],
+            'loanCalculation' => [
+                'loanId' => null,
+                'numLoanPaymentsMade' => 0,
+                'totalLoanCapitalPaid' => 0.00
+            ]
+        ];
+
+        $items = $this->generatePayslipItems($db, $payslip, $payeBonusCalculationTypeCode);
+
+        if ($items['ok'] !== true) {
+            return $items;
+        }
+
+        $payslip['items'] = $items['payslipItems'];
+
+        foreach ($items['payslipItems'] as $item) {
+            if ($item['type']['code'] === '2008' && $item['loan']['id'] !== null) {
+                $payslip['loanCalculation']['loanId'] = $item['loan']['id'];
+                $payslip['loanCalculation']['numLoanPaymentsMade']++;
+                $payslip['loanCalculation']['totalLoanCapitalPaid'] += $item['amount'] - $item['loan']['interestAmount'];
+            }
+        }
+
+        $recalc = $this->recalculatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, [$payslip]);
+
+        if ($recalc['ok'] !== true) {
+            return $recalc;
+        }
+
+        return ['ok' => true, 'payslips' => $recalc['payslips']];
+    }
+
+    private function generateImportPayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $config)
+    {
+        # Default arrays
+        $payslips = [];
+        $sqlParams = [];
+        $sqlParams[] = $startDate->format('Y-m-d');
+        $sqlParams[] = $endDate->format('Y-m-d');
+        $sqlParams[] = $config['employeeId'];
+
+        /****************************************
+              Obtaining Employee information
+         ****************************************/
+
+        # Retrieve additional information about the employee.
+        $sqlQuery =
+            'SELECT ' .
+            'id, ' .
+            'alias, ' .
+            'EXTRACT(YEAR FROM age($2, employees.date_of_birth)) AS employee_age, ' .
+            'payment_period_code, ' .
+            'payment_period_end_day, ' .
+            'employment_start_date, ' .
+            'employment_end_date ' .
+            'FROM ' .
+            'employees ' .
+            'WHERE ' .
+            'id = $3 ' .
+            'ORDER BY ' .
+            'alias ASC;';
+        $sqlResult = $db->paramQuery($sqlQuery, $sqlParams);
+        if (!$sqlResult->isValid()) {
+            return (['ok' => false, 'error' => 'Database error.']);
+        }
+
+        # Store the retrieved employees information.
+        $employees = [];
+        while ($sqlRow = $sqlResult->fetchAssociative()) {
+            $employees[] = [
+                'id' => $sqlRow['id'],
+                'name' => $sqlRow['alias'],
+                'age' => $sqlRow['employee_age'],
+                'paymentPeriod' => $sqlRow['payment_period_code'],
+                'paymentPeriodEndDay' => $sqlRow['payment_period_end_day'],
+                'employmentStart' => $sqlRow['employment_start_date'],
+                'employmentEnd' => $sqlRow['employment_end_date'],
+                'payslips' => []
+            ];
+        }
+
+        /****************************************
+          Obtaining all Payslips for employee
+         ****************************************/
+
+        for ($i = 0; $i < count($employees); $i++) {
+            $loanId = null;
+            $numLoanPaymentsMade = 0;
+            $totalLoanCapitalPaid = 0.00;
+
+            # Get employment start and end date
+            $employmentStartDate = new DateTime($employees[$i]['employmentStart']);
+            $employmentEndDate = null;
+            if ($employees[$i]['employmentEnd'] !== null) $employmentEndDate = new DateTime($employees[$i]['employmentEnd']);
+
+            # Get the end date of the last active payslip for the employee from previous payruns
+            $sqlQuery =
+                'SELECT ' .
+                'payslips.period, payslips.from_date, payslips.to_date ' .
+                'FROM ' .
+                'payslips ' .
+                'LEFT JOIN ' .
+                'payruns ON payruns.id = payslips.payrun_id ' .
+                'WHERE ' .
+                'employee_id = $1 AND ' .
+                'payruns.to_date < $2 AND ' .
+                'status_code = \'ACTI\' ' .
+                'ORDER BY ' .
+                'to_date DESC ' .
+                'LIMIT 1;';
+            $sqlResult = $db->paramQuery($sqlQuery, [
+                $employees[$i]['id'],
+                $startDate->format('Y-m-d')
+            ]);
+            if (!$sqlResult->isValid()) {
+                return (['ok' => false, 'error' => 'Database error.']);
+            }
+
+            # Set the last payslip to date.
+            $lastPayslipToDate = null;
+            if ($sqlResult->getRowCount() > 0) {
+                $sqlRow = $sqlResult->fetchAssociative();
+                $lastPayslipToDate = new DateTime($sqlRow['to_date']);
+            }
+
+            # Set payslip end date
+            if ($lastPayslipToDate !== null) {
+                $payslipEndDate = new DateTime($lastPayslipToDate->format('Y-m-d'));
+                $payslipEndDate->modify('+1 day');
+            } else {
+                $payslipEndDate = new DateTime($employmentStartDate->format('Y-m-d'));
+            }
+
+            # Calculate the payslip end date depending on the payment period
+            if ($employees[$i]['paymentPeriod'] === 'MONT') {
+                # If the employees paymentPeriodEndDay is lower than 1 work from last day - paymentPeriodEndDay
+                if ($employees[$i]['paymentPeriodEndDay'] < 1) {
+                    $payslipEndDate->setDate($payslipEndDate->format('Y'), intval($payslipEndDate->format('m')) + 1, $employees[$i]['paymentPeriodEndDay']);
+                } else {
+                    $payslipEndDate->setDate($payslipEndDate->format('Y'), $payslipEndDate->format('m'), $employees[$i]['paymentPeriodEndDay']);
+                }
+            } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
+                $payslipEndDate->modify('-1 day');
+                $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+            } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                $payslipEndDate->modify('-1 day');
+                $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+            }
+
+            // Make sure the date is on or past the period start date as well as employment date.
+            while ($payslipEndDate < $startDate || $payslipEndDate < $employmentStartDate) {
+                if ($employees[$i]['paymentPeriod'] === 'MONT') {
+                    $payslipEndDate = \PayslipUtil\getNextMonthlyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+                } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
+                    $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+                } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                    $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+                }
+            }
+
+            // Make sure the end date is not after employment end date
+            if ($employmentEndDate !== null && $payslipEndDate > $employmentEndDate) {
+                $payslipEndDate = new DateTime($employmentEndDate->format('Y-m-d'));
+            }
+
+            // Loop till we have all payslips for the given period
+            while ($payslipEndDate <= $endDate) {
+                $addPayslip = true;
+
+                // Get the payslip start date
+                $payslipStartDate = null;
+                if ($employees[$i]['paymentPeriod'] === 'MONT') $payslipStartDate = \PayslipUtil\getMonthlyPayslipStartDate($payslipEndDate);
+                else if ($employees[$i]['paymentPeriod'] === 'WEEK') $payslipStartDate = \PayslipUtil\getWeeklyPayslipStartDate($payslipEndDate);
+                else if ($employees[$i]['paymentPeriod'] === 'BWEE') $payslipStartDate = \PayslipUtil\getBiWeeklyPayslipStartDate($payslipEndDate);
+                if ($payslipStartDate < $employmentStartDate) $payslipStartDate = new DateTime($employmentStartDate->format('Y-m-d'));
+
+                // Does the payslip's start date overlap with an existing payslip?
+                if (($lastPayslipToDate !== null) && ($payslipStartDate <= $lastPayslipToDate) && ($lastPayslipToDate <= $payslipEndDate)) {
+                    $payslipStartDate = $lastPayslipToDate->add(new DateInterval('P1D'));
+                }
+
+                // Get the payslip sars year
+                $sarsYear = intval($payslipEndDate->format('Y'));
+                if (intval($payslipEndDate->format('n')) >= 3 && intval($payslipEndDate->format('n')) <= 12) $sarsYear++;
+
+                // Get the payslip period
+                $payslipPeriod = null;
+                if ($employees[$i]['paymentPeriod'] === 'MONT') $payslipPeriod = \PayslipUtil\getMonthlyPayslipPeriod($payslipEndDate);
+                else if ($employees[$i]['paymentPeriod'] === 'WEEK') $payslipPeriod = \PayslipUtil\getWeeklyPayslipPeriod($payslipEndDate, $payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+                else if ($employees[$i]['paymentPeriod'] === 'BWEE') $payslipPeriod = \PayslipUtil\getBiWeeklyPayslipPeriod($payslipEndDate, $payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+
+                // Check if there is an existing payslip
+                $sqlQuery =
+                    'SELECT ' .
+                    'period, from_date, to_date ' .
+                    'FROM ' .
+                    'payslips ' .
+                    'WHERE ' .
+                    'employee_id = $1 AND ' .
+                    'sars_year = $2 AND ' .
+                    'period = $3 AND ' .
+                    'payment_period_code = $4 AND ' .
+                    'status_code = \'ACTI\';';
+                $sqlResult = $db->paramQuery($sqlQuery, [
+                    $employees[$i]['id'],
+                    $sarsYear,
+                    $payslipPeriod,
+                    $employees[$i]['paymentPeriod']
+                ]);
+                if (!$sqlResult->isValid()) {
+                    return (['ok' => false, 'error' => 'Database error.']);
+                }
+
+                // If we have a row then that payslip already exists
+                if ($sqlResult->getRowCount() >= 1) $addPayslip = false;
+
+                // Store payslip
+                if ($addPayslip === true) {
+                    $employees[$i]['payslips'][] = [
+                        'employee' => [
+                            'id' => $employees[$i]['id'],
+                            'name' => $employees[$i]['name'],
+                            'age' => $employees[$i]['age'],
+                            'paymentPeriodEndDay' => $employees[$i]['paymentPeriodEndDay']
+                        ],
+                        'taxPeriod' => [
+                            'type' => $employees[$i]['paymentPeriod'],
+                            'number' => $payslipPeriod,
+                            'taxYear' => $sarsYear
+                        ],
+                        'payeBonusCalculationTypeCode' => $payeBonusCalculationTypeCode,
+                        'fromDate' => $payslipStartDate->format('Y-m-d'),
+                        'toDate' => $payslipEndDate->format('Y-m-d'),
+                        'items' => []
+                    ];
+                }
+
+                // If our payslipEndDate is equal to our employmentEndDate then we can't do any more payslips
+                if ($employmentEndDate !== null && $payslipEndDate == $employmentEndDate) break;
+
+                // Move to the next payment date
+                if ($employees[$i]['paymentPeriod'] === 'MONT') {
+                    $payslipEndDate = \PayslipUtil\getNextMonthlyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+                } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
+                    $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+                } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                    $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+                }
+            }
+
+            // Generate the payslip items for the specified payslips and get the result
+            for ($j = 0; $j < count($employees[$i]['payslips']); $j++) {
+                // NOTE: 
+                //
+                // The loan calculation section is simply to help fascilitate loan calculations where
+                // an employee has more than one loan payment per payrun, these values will be discarded
+                // when the payslip is stored
+                $employees[$i]['payslips'][$j]['loanCalculation'] = [
+                    'loanId' => $loanId,
+                    'numLoanPaymentsMade' => $numLoanPaymentsMade,
+                    'totalLoanCapitalPaid' => $totalLoanCapitalPaid
+                ];
+
+                $result = $this->generatePayslipItems($db, $employees[$i]['payslips'][$j], $payeBonusCalculationTypeCode);
+                if ($result['ok'] !== true) {
+                    return (['ok' => false, 'error' => $result['error']]);
+                }
+
+                // Save the payslip items
+                $employees[$i]['payslips'][$j]['items'] = $result['payslipItems'];
+
+                // // Add the payslip to the array
+                // $payslips[] = $employees[$i]['payslips'][$j];
+
+                // Update the loan calculations, if any
+                foreach ($result['payslipItems'] as $payslipItem) {
+                    // Is it an employee loan item?
+                    if (($payslipItem['type']['code'] === '2008') && ($payslipItem['loan']['id'] !== null)) {
+                        $loanId = $payslipItem['loan']['id'];
+                        $numLoanPaymentsMade = $numLoanPaymentsMade + 1;
+                        $totalLoanCapitalPaid = $totalLoanCapitalPaid + $payslipItem['amount'] - $payslipItem['loan']['interestAmount'];
+                    }
+                }
+            }
+
+            // Re-calculate the payslips
+            $result = $this->recalculatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $employees[$i]['payslips']);
+            if ($result['ok'] !== true) {
+                return (['ok' => false, 'error' => $result['error']]);;
+            }
+            $payslips = array_merge($payslips, $result['payslips']);
+        }
+        // $departmentFilter = '';
+        // if ($departmentId !== null) {
+        //     // Add a filter for the department
+        //     $sqlParams[] = $departmentId;
+        //     $departmentFilter = ' AND (employees.department_id = $3) ';
+        // }
+        // Load all active employees for the period
+        // $sqlQuery =
+        //     'SELECT ' .
+        //     'id, ' .
+        //     'alias, ' .
+        //     'EXTRACT(YEAR FROM age($2, employees.date_of_birth)) AS employee_age, ' .
+        //     'payment_period_code, ' .
+        //     'payment_period_end_day, ' .
+        //     'employment_start_date, ' .
+        //     'employment_end_date ' .
+        //     'FROM ' .
+        //     'employees ' .
+        //     'WHERE ' .
+        //     '( (employment_end_date >= $1 OR employment_end_date IS NULL) AND employment_start_date <= $2 ) ' .
+        //     $departmentFilter .
+        //     'ORDER BY ' .
+        //     'alias ASC;';
+        // $sqlResult = $db->paramQuery($sqlQuery, $sqlParams);
+        // if (!$sqlResult->isValid()) {
+        //     return (['ok' => false, 'error' => 'Database error.']);
+        // }
+
+        // // Are there no employees?
+        // if ($sqlResult->getRowCount() == 0) {
+        //     return (['ok' => true, 'payslips' => $payslips]);
+        // }
+
+        // $employees = [];
+        // while ($sqlRow = $sqlResult->fetchAssociative()) {
+        //     $employees[] = [
+        //         'id' => $sqlRow['id'],
+        //         'name' => $sqlRow['alias'],
+        //         'age' => $sqlRow['employee_age'],
+        //         'paymentPeriod' => $sqlRow['payment_period_code'],
+        //         'paymentPeriodEndDay' => $sqlRow['payment_period_end_day'],
+        //         'employmentStart' => $sqlRow['employment_start_date'],
+        //         'employmentEnd' => $sqlRow['employment_end_date'],
+        //         'payslips' => []
+        //     ];
+        // }
+
+        // Add payslips for each employee
+        // for ($i = 0; $i < count($employees); $i++) {
+        //     $loanId = null;
+        //     $numLoanPaymentsMade = 0;
+        //     $totalLoanCapitalPaid = 0.00;
+
+        //     // Get employment start and end date
+        //     $employmentStartDate = new DateTime($employees[$i]['employmentStart']);
+        //     $employmentEndDate = null;
+        //     if ($employees[$i]['employmentEnd'] !== null) $employmentEndDate = new DateTime($employees[$i]['employmentEnd']);
+
+        //     // Get the end date of the last active payslip for the employee from previous payruns
+        //     $sqlQuery =
+        //         'SELECT ' .
+        //         'payslips.period, payslips.from_date, payslips.to_date ' .
+        //         'FROM ' .
+        //         'payslips ' .
+        //         'LEFT JOIN ' .
+        //         'payruns ON payruns.id = payslips.payrun_id ' .
+        //         'WHERE ' .
+        //         'employee_id = $1 AND ' .
+        //         'payruns.to_date < $2 AND ' .
+        //         // 'payment_period_code = $3 AND ' . 
+        //         // 'payment_period_end_day = $4 AND ' . 
+        //         'status_code = \'ACTI\' ' .
+        //         'ORDER BY ' .
+        //         'to_date DESC ' .
+        //         'LIMIT 1;';
+        //     $sqlResult = $db->paramQuery($sqlQuery, [
+        //         $employees[$i]['id'],
+        //         $startDate->format('Y-m-d')
+        //         // $employees[$i]['paymentPeriod']
+        //         // $employees[$i]['paymentPeriodEndDay']
+        //     ]);
+        //     if (!$sqlResult->isValid()) {
+        //         return (['ok' => false, 'error' => 'Database error.']);
+        //     }
+
+        //     // Set the last payslip to date
+        //     $lastPayslipToDate = null;
+        //     if ($sqlResult->getRowCount() > 0) {
+        //         $sqlRow = $sqlResult->fetchAssociative();
+        //         $lastPayslipToDate = new DateTime($sqlRow['to_date']);
+        //     }
+
+        //     // Set payslip end date
+        //     if ($lastPayslipToDate !== null) {
+        //         $payslipEndDate = new DateTime($lastPayslipToDate->format('Y-m-d'));
+        //         $payslipEndDate->modify('+1 day');
+        //     } else {
+        //         $payslipEndDate = new DateTime($employmentStartDate->format('Y-m-d'));
+        //     }
+
+        //     // $oldPayslipEndDate = new DateTime($payslipEndDate->format('Y-m-d'));
+        //     // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
+        //     //     return( ['ok' => false, 'error' => $payslipEndDate->format('Y-m-d')] );
+        //     //     // return( ['ok' => false, 'error' => $lastPayslipToDate->format('Y-m-d')] );
+        //     // }
+
+        //     // Calculate the payslip end date depending on the payment period
+        //     if ($employees[$i]['paymentPeriod'] === 'MONT') {
+        //         // If the employees paymentPeriodEndDay is lower than 1 work from last day - paymentPeriodEndDay
+        //         if ($employees[$i]['paymentPeriodEndDay'] < 1) {
+        //             $payslipEndDate->setDate($payslipEndDate->format('Y'), intval($payslipEndDate->format('m')) + 1, $employees[$i]['paymentPeriodEndDay']);
+        //         } else {
+        //             $payslipEndDate->setDate($payslipEndDate->format('Y'), $payslipEndDate->format('m'), $employees[$i]['paymentPeriodEndDay']);
+        //         }
+        //     } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
+        //         $payslipEndDate->modify('-1 day');
+        //         $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //     } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+        //         $payslipEndDate->modify('-1 day');
+        //         $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //     }
+
+        //     // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
+        //     //     return( ['ok' => false, 'error' => $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')' ]);
+        //     //     // return( ['ok' => false, 'error' => $lastPayslipToDate->format('Y-m-d')] );
+        //     // }
+
+        //     // Make sure the date is on or past the period start date as well as employment date.
+        //     while ($payslipEndDate < $startDate || $payslipEndDate < $employmentStartDate) {
+        //         if ($employees[$i]['paymentPeriod'] === 'MONT') {
+        //             $payslipEndDate = \PayslipUtil\getNextMonthlyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //         } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
+        //             $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //         } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+        //             $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //         }
+        //         // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
+        //         //     file_put_contents('php://stderr', print_r(("\n" . $employees[$i]['id'] . ': ' . $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')'), TRUE));
+        //         //     // return( ['ok' => false, 'error' => $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')' ]);
+        //         //     // return( ['ok' => false, 'error' => $lastPayslipToDate->format('Y-m-d')] );
+        //         // }
+        //     }
+
+        //     // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
+        //     //     file_put_contents('php://stderr', print_r(("\n" . $employees[$i]['id'] . ': ' . $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')'), TRUE));
+        //     //     // return( ['ok' => false, 'error' => $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')' ]);
+        //     //     // return( ['ok' => false, 'error' => $lastPayslipToDate->format('Y-m-d')] );
+        //     // }
+
+        //     // Make sure the end date is not after employment end date
+        //     if ($employmentEndDate !== null && $payslipEndDate > $employmentEndDate) {
+        //         $payslipEndDate = new DateTime($employmentEndDate->format('Y-m-d'));
+        //     }
+
+        //     // Loop till we have all payslips for the given period
+        //     while ($payslipEndDate <= $endDate) {
+        //         $addPayslip = true;
+
+        //         // Get the payslip start date
+        //         $payslipStartDate = null;
+        //         if ($employees[$i]['paymentPeriod'] === 'MONT') $payslipStartDate = \PayslipUtil\getMonthlyPayslipStartDate($payslipEndDate);
+        //         else if ($employees[$i]['paymentPeriod'] === 'WEEK') $payslipStartDate = \PayslipUtil\getWeeklyPayslipStartDate($payslipEndDate);
+        //         else if ($employees[$i]['paymentPeriod'] === 'BWEE') $payslipStartDate = \PayslipUtil\getBiWeeklyPayslipStartDate($payslipEndDate);
+        //         if ($payslipStartDate < $employmentStartDate) $payslipStartDate = new DateTime($employmentStartDate->format('Y-m-d'));
+
+        //         // Does the payslip's start date overlap with an existing payslip?
+        //         if (($lastPayslipToDate !== null) && ($payslipStartDate <= $lastPayslipToDate) && ($lastPayslipToDate <= $payslipEndDate)) {
+        //             $payslipStartDate = $lastPayslipToDate->add(new DateInterval('P1D'));
+        //         }
+
+        //         // Get the payslip sars year
+        //         $sarsYear = intval($payslipEndDate->format('Y'));
+        //         if (intval($payslipEndDate->format('n')) >= 3 && intval($payslipEndDate->format('n')) <= 12) $sarsYear++;
+
+        //         // Get the payslip period
+        //         $payslipPeriod = null;
+        //         if ($employees[$i]['paymentPeriod'] === 'MONT') $payslipPeriod = \PayslipUtil\getMonthlyPayslipPeriod($payslipEndDate);
+        //         else if ($employees[$i]['paymentPeriod'] === 'WEEK') $payslipPeriod = \PayslipUtil\getWeeklyPayslipPeriod($payslipEndDate, $payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //         else if ($employees[$i]['paymentPeriod'] === 'BWEE') $payslipPeriod = \PayslipUtil\getBiWeeklyPayslipPeriod($payslipEndDate, $payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+
+        //         // Check if there is an existing payslip
+        //         $sqlQuery =
+        //             'SELECT ' .
+        //             'period, from_date, to_date ' .
+        //             'FROM ' .
+        //             'payslips ' .
+        //             'WHERE ' .
+        //             'employee_id = $1 AND ' .
+        //             'sars_year = $2 AND ' .
+        //             'period = $3 AND ' .
+        //             'payment_period_code = $4 AND ' .
+        //             'status_code = \'ACTI\';';
+        //         $sqlResult = $db->paramQuery($sqlQuery, [
+        //             $employees[$i]['id'],
+        //             $sarsYear,
+        //             $payslipPeriod,
+        //             $employees[$i]['paymentPeriod']
+        //         ]);
+        //         if (!$sqlResult->isValid()) {
+        //             return (['ok' => false, 'error' => 'Database error.']);
+        //         }
+
+        //         // If we have a row then that payslip already exists
+        //         if ($sqlResult->getRowCount() >= 1) $addPayslip = false;
+
+        //         // Store payslip
+        //         if ($addPayslip === true) {
+        //             $employees[$i]['payslips'][] = [
+        //                 'employee' => [
+        //                     'id' => $employees[$i]['id'],
+        //                     'name' => $employees[$i]['name'],
+        //                     'age' => $employees[$i]['age'],
+        //                     'paymentPeriodEndDay' => $employees[$i]['paymentPeriodEndDay']
+        //                 ],
+        //                 'taxPeriod' => [
+        //                     'type' => $employees[$i]['paymentPeriod'],
+        //                     'number' => $payslipPeriod,
+        //                     'taxYear' => $sarsYear
+        //                 ],
+        //                 'payeBonusCalculationTypeCode' => $payeBonusCalculationTypeCode,
+        //                 'fromDate' => $payslipStartDate->format('Y-m-d'),
+        //                 'toDate' => $payslipEndDate->format('Y-m-d'),
+        //                 'items' => []
+        //             ];
+        //         }
+
+        //         // If our payslipEndDate is equal to our employmentEndDate then we can't do any more payslips
+        //         if ($employmentEndDate !== null && $payslipEndDate == $employmentEndDate) break;
+
+        //         // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
+        //         //     return( ['ok' => false, 'error' => $payslipStartDate->format('Y-m-d') . ' to ' . $payslipEndDate->format('Y-m-d')] );
+        //         // }
+
+        //         // $tempPayslipEndDate = new DateTime($payslipEndDate->format('Y-m-d'));
+        //         // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
+        //         //     $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //         //     return( ['ok' => false, 'error' => $payslipStartDate->format('Y-m-d') . ' to ' . $tempPayslipEndDate->format('Y-m-d') . '/' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] .')'] );
+        //         // }
+
+        //         // Move to the next payment date
+        //         if ($employees[$i]['paymentPeriod'] === 'MONT') {
+        //             $payslipEndDate = \PayslipUtil\getNextMonthlyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //         } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
+        //             $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //         } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+        //             $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+        //         }
+
+        //         // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
+        //         //     return( ['ok' => false, 'error' => $tempPayslipEndDate->format('Y-m-d') . ' to ' . $payslipEndDate->format('Y-m-d')] );
+        //         //     // return( ['ok' => false, 'error' => $payslipStartDate->format('Y-m-d')] );
+        //         //     // return( ['ok' => false, 'error' => $payslipEndDate->format('Y-m-d')] );
+        //         // }
+        //     }
+
+        //     // Generate the payslip items for the specified payslips and get the result
+        //     for ($j = 0; $j < count($employees[$i]['payslips']); $j++) {
+        //         // NOTE: 
+        //         //
+        //         // The loan calculation section is simply to help fascilitate loan calculations where
+        //         // an employee has more than one loan payment per payrun, these values will be discarded
+        //         // when the payslip is stored
+        //         $employees[$i]['payslips'][$j]['loanCalculation'] = [
+        //             'loanId' => $loanId,
+        //             'numLoanPaymentsMade' => $numLoanPaymentsMade,
+        //             'totalLoanCapitalPaid' => $totalLoanCapitalPaid
+        //         ];
+
+        //         $result = $this->generatePayslipItems($db, $employees[$i]['payslips'][$j], $payeBonusCalculationTypeCode);
+        //         if ($result['ok'] !== true) {
+        //             return (['ok' => false, 'error' => $result['error']]);
+        //         }
+
+        //         // Save the payslip items
+        //         $employees[$i]['payslips'][$j]['items'] = $result['payslipItems'];
+
+        //         // // Add the payslip to the array
+        //         // $payslips[] = $employees[$i]['payslips'][$j];
+
+        //         // Update the loan calculations, if any
+        //         foreach ($result['payslipItems'] as $payslipItem) {
+        //             // Is it an employee loan item?
+        //             if (($payslipItem['type']['code'] === '2008') && ($payslipItem['loan']['id'] !== null)) {
+        //                 $loanId = $payslipItem['loan']['id'];
+        //                 $numLoanPaymentsMade = $numLoanPaymentsMade + 1;
+        //                 $totalLoanCapitalPaid = $totalLoanCapitalPaid + $payslipItem['amount'] - $payslipItem['loan']['interestAmount'];
+        //             }
+        //         }
+        //     }
+
+        //     // Re-calculate the payslips
+        //     $result = $this->recalculatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $employees[$i]['payslips']);
+        //     if ($result['ok'] !== true) {
+        //         return (['ok' => false, 'error' => $result['error']]);;
+        //     }
+        //     $payslips = array_merge($payslips, $result['payslips']);
+        // }
+
+        return (['ok' => true, 'payslips' => $payslips]);
+    }
+
     // Function to generate and return the payslip items for a given payslip
     // 
     //  payslip                 An array describing the payslip
@@ -8688,7 +9402,7 @@ class Payrun extends Controller
         }
 
         /****************************************
-                Payrun Import section
+            File validation and DB transaction
          ****************************************/
 
         # We start the transaction and set all of the tables involved to exclusive mode.
@@ -8702,16 +9416,23 @@ class Payrun extends Controller
         $row = 0;
         rewind($handler);
         while (($rowData = fgetcsv($handler, 2048, $lineSperator, '"', '\\')) !== FALSE) {
+
+            # Checks the number of employees in the company.
             Util::checkCompanyEmployeeLimit($db);
+            # Skips the header row of the csv file.
             if ($row == 0) {
                 $row++;
                 continue;
             }
             $row++;
             set_time_limit(600);
+
+            # Create the object to hold all the payrun data. 
             $payrunImportData = new PayrunImportData();
             $payruns[] = $payrunImportData;
+            # Load the payrun data from the csv file into the object. 
             AssignPayrunImportData::load($payrunImportData, $rowData);
+            # Validate the payrun data. 
             $payrunImportValidator = new PayrunImportValidator($db, $payrunImportData, $user);
             $payrunImportValidator->validate($row, $exceptions);
             $payrunImportValidator->checkDuplicates($row, $payruns, $exceptions);
@@ -8719,9 +9440,13 @@ class Payrun extends Controller
                 echo (json_encode(['ok' => false, 'error' => $exceptions[0]['description'] . ' Row ' . $exceptions[0]['row'] . ', Column  ' . $exceptions[0]['column']]));
                 return false;
             }
-            // Clean the data before persisting to the database 
+            #Clean the data before persisting to the database 
             $transformData = new TransformPayrunImportData($payrunImportData, $db);
             $transformData->apply();
+
+            /****************************************
+                    Import payrun data
+             ****************************************/
 
             $departmentId = $data['departmentId'];
             $startDate = new DateTime($data['startDate']);
@@ -8765,6 +9490,182 @@ class Payrun extends Controller
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                 return false;
             }
+
+            $sqlRow = $sqlResult->fetchAssociative();
+            $payrunId = $sqlRow['id'];
+
+            /****************************************
+                   Payslip Import section
+             ****************************************/
+
+            # Loads the PAYE Calculation method for the company
+            $sqlQuery = 'SELECT paye_calculation_type_code, paye_bonus_calculation_type_code FROM company_details ORDER BY id DESC LIMIT 1; ';
+            $sqlResult = $db->paramQuery($sqlQuery, []);
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+            if ($sqlResult->getRowCount() !== 1) {
+                echo (json_encode(['ok' => false, 'error' => 'Company details not found.']));
+                return false;
+            }
+            $sqlRow = $sqlResult->fetchAssociative();
+            $payeCalculationTypeCode = $sqlRow['paye_calculation_type_code'];
+            $payeBonusCalculationTypeCode = $sqlRow['paye_bonus_calculation_type_code'];
+
+            # Creates the payslips for each employee in the payrun.
+            $config = [
+                'employeeId' => $payrunImportData->employeeNumber,
+                'payslipFromDate' => $payrunImportData->paymentPeriodFrom,
+                'payslipToDate' => $payrunImportData->paymentPeriodTo,
+                'departmentId' => $departmentId
+            ];
+            // $result = $this->generateImportPayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $config);
+            // if ($result['ok'] !== true) {
+            //     echo (json_encode(['ok' => false, 'error' => $result['error']]));
+            //     return false;
+            // }
+            $result = $this->createImportedPayslip($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $config);
+            if ($result['ok'] !== true) {
+                echo (json_encode(['ok' => false, 'error' => $result['error']]));
+                return false;
+            }
+
+            // Add the payslips (and their items) to the database
+            $payslips = $result['payslips'];
+            for ($j = 0; $j < count($payslips); $j++) {
+                // Add the payslip to the database
+                $sqlQuery =
+                    'INSERT INTO ' .
+                    'payslips ( ' .
+                    'payrun_id, ' .
+                    'employee_id, ' .
+                    'period, ' .
+                    'sars_year, ' .
+                    'from_date, ' .
+                    'to_date, ' .
+                    'status_code, ' .
+                    'payment_period_code, ' .
+                    'payment_period_end_day, ' .
+                    'paye_calculation_type_code, ' .
+                    'paye_bonus_calculation_type_code ' .
+                    ') ' .
+                    'VALUES ( ' .
+                    '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 ' .
+                    ') ' .
+                    'RETURNING id;';
+                $sqlResult = $db->paramQuery($sqlQuery, [
+                    $payrunId,                              // payrun_id
+                    $payslips[$j]['employee']['id'],        // employee_id
+                    $payslips[$j]['taxPeriod']['number'],   // period
+                    $payslips[$j]['taxPeriod']['taxYear'],  // sars_year
+                    $payslips[$j]['fromDate'],              // from_date
+                    $payslips[$j]['toDate'],                // to_date
+                    'ACTI',                                 // status_code
+                    $payslips[$j]['taxPeriod']['type'],     // payment_period_code
+                    $payslips[$j]['employee']['paymentPeriodEndDay'], // payment_period_end_day
+                    $payeCalculationTypeCode,               // paye_calculation_type_code
+                    $payeBonusCalculationTypeCode           // paye_bonus_calculation_type_code
+                ]);
+
+                if (!$sqlResult->isValid()) {
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+
+                $sqlRow = $sqlResult->fetchAssociative();
+                $payslipId = $sqlRow['id'];
+
+                // Add the payslip items to the database
+                for ($k = 0; $k < count($payslips[$j]['items']); $k++) {
+                    // Set the accrual date, if any
+                    $accrualDate = null;
+                    if (isset($payslips[$j]['items'][$k]['accrualDate'])) {
+                        $accrualDate = $payslips[$j]['items'][$k]['accrualDate'];
+                    }
+
+                    // Calculate the payslip item total
+                    $total = null;
+                    if ($payslips[$j]['items'][$k]['rate'] !== null) {
+                        if ($payslips[$j]['items'][$k]['units'] !== null) {
+                            $total = $payslips[$j]['items'][$k]['rate'] *
+                                $payslips[$j]['items'][$k]['units'];
+                        }
+                    } else if ($payslips[$j]['items'][$k]['amount'] !== null) {
+                        $total = $payslips[$j]['items'][$k]['amount'];
+                    }
+
+                    $sqlQuery =
+                        'INSERT INTO ' .
+                        'payslip_items ( ' .
+                        'payslip_id, ' .
+                        'payslip_item_type_code, ' .
+                        'description, ' .
+                        'accrual_date, ' .
+                        'auto_calculate, ' .
+                        'units, ' .
+                        'rate, ' .
+                        'total, ' .
+                        'provident_fund_id, ' .
+                        'include_in_nett_pay ' .
+                        ') ' .
+                        'VALUES ( ' .
+                        '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10 ' .
+                        ') ' .
+                        'RETURNING id;';
+                    $sqlResult = $db->paramQuery($sqlQuery, [
+                        $payslipId,                                         // payslip_id
+                        $payslips[$j]['items'][$k]['type']['code'],         // payslip_item_type_code
+                        $payslips[$j]['items'][$k]['description'],          // description
+                        $accrualDate,                                       // accrual_date
+                        $payslips[$j]['items'][$k]['autoCalculate'],        // auto_calculate
+                        $payslips[$j]['items'][$k]['units'],                // units
+                        $payslips[$j]['items'][$k]['rate'],                 // rate
+                        $total,                                             // total
+                        $payslips[$j]['items'][$k]['providentFund']['id'],  // provident_fund_id
+                        $payslips[$j]['items'][$k]['includeInNettPay']      // include_in_nett_pay
+                    ]);
+                    if (!$sqlResult->isValid()) {
+                        echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                        return false;
+                    }
+                    $sqlRow = $sqlResult->fetchAssociative();
+                    $payslipItemId = $sqlRow['id'];
+
+                    // Add loan payments, if any
+                    if (($payslips[$j]['items'][$k]['type']['code'] === '2008') && ($payslips[$j]['items'][$k]['loan']['id'] !== null)) {
+                        // Add the loan payment to the table
+                        $sqlQuery =
+                            'INSERT INTO ' .
+                            'loan_payments ( ' .
+                            'loan_id, ' .
+                            'interest_rate, ' .
+                            'interest_amount, ' .
+                            'paid_amount, ' .
+                            'paid_on, ' .
+                            'payslip_item_id, ' .
+                            'added_by_user_id ' .
+                            ') ' .
+                            'VALUES ( ' .
+                            '$1, $2, $3, $4, $5, $6, $7 ' .
+                            ');';
+                        $sqlResult = $db->paramQuery($sqlQuery, [
+                            $payslips[$j]['items'][$k]['loan']['id'],               // loan_id
+                            $payslips[$j]['items'][$k]['loan']['interestRate'],     // interest_rate
+                            $payslips[$j]['items'][$k]['loan']['interestAmount'],   // interest_amount
+                            $total,                                                 // paid_amount
+                            $payslips[$j]['toDate'],                                // paid_on
+                            $payslipItemId,                                         // payslip_item_id
+                            null                                                    // added_by_user_id
+                        ]);
+                        if (!$sqlResult->isValid()) {
+                            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                            return false;
+                        }
+                    }
+                }
+            }
+
 
             //$departmentId = null;
             // Check if deparment exists if not create new one 
