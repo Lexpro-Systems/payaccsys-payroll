@@ -23,7 +23,11 @@ app.panel.EditPayslip = function (config) {
 
     var me = this;
     var items = null;
+    var payrunPayslips = null;
+    var payrunId = null;
     var deletedItems = null;
+    var isEncrypted = null;
+    var availableODBalance = null;
     var employeeId = null;
     var employeeName = null;
     var employeeAge = null;
@@ -34,10 +38,12 @@ app.panel.EditPayslip = function (config) {
     var payslipFromDate = null;
     var payslipToDate = null;
     var payslipTaxPeriod = null;
-
+    var lockIconEl = null;
     var el = null;
     var itemContainerEl = null;
     var statusEl = null;
+    var nameContainer = null;
+    var dateContainer = null;
 
 
     //
@@ -67,6 +73,13 @@ app.panel.EditPayslip = function (config) {
         var complete = true;
 
         for (var i = 0; i < items.length; i++) {
+            // Remove comma if exists
+            // if (items[i].amountTxt.getValue().length > 0) {
+            //     let cleanValue;
+            //     cleanValue = Number(items[i].amountTxt.getValue().replace(/[^0-9\-.]+/g, ''));
+            //     items[i].amountTxt.setValue(cleanValue);
+            // }
+
             if (items[i].amountTxt.getValue() === '' || isNaN(lx.util.parseCurrency(items[i].amountTxt.getValue()))) {
                 complete = false;
                 break;
@@ -81,6 +94,294 @@ app.panel.EditPayslip = function (config) {
         }
     }
 
+    // Function to display the lock icon if user clicks Encryption
+    function updateEncryptionIcon() {
+        lockIconEl.style.display = isEncrypted ? 'inline-block' : 'none';
+    }
+
+    // Function to adjust the running Over Deduction Balance, by including balances in prior payslips in current (unprocessed) payrun
+
+    function calculateCurrentPayrunODCreditBalAdjustment(employeeId, currentPayslip) {
+
+        // Debugging:
+        // console.log("Current payslip:", currentPayslip);
+        // console.log("Index in array:", payrunPayslips.indexOf(currentPayslip));
+        // console.log("Array length:", payrunPayslips.length);
+        // console.log(payrunPayslips.includes(me));
+
+        var adjustment = 0;
+
+        // Stop at current payslip
+        var currentIndex = payrunPayslips.indexOf(currentPayslip);
+
+        for (var i = 0; i < currentIndex; i++) {
+
+            var payslipPanel = payrunPayslips[i];
+
+            if (!payslipPanel || typeof payslipPanel.getItem !== 'function') continue;
+
+
+            // Only for current employee
+            if (Number(payslipPanel.getEmployeeId()) !== Number(employeeId)) continue;
+
+            var index = 0;
+            var item = null;
+
+            while ((item = payslipPanel.getItem(index)) !== null) {
+
+                if (!item.type || !item.type.code) {
+                    index++;
+                    continue;
+                }
+
+                //var amount = item.amount !== null ? item.amount : 0; //This line doesn't allow for textbox values that aren't saved yet
+                //Rather:
+
+                var amount = 0;
+
+                if (item.amountTxt && item.amountTxt.getValue() !== '') {
+                    amount = Math.abs(lx.util.parseCurrency(item.amountTxt.getValue())) || 0;
+                }
+                else if (item.amount !== null && item.amount !== undefined) {
+                    amount = Math.abs(item.amount);
+                }
+
+
+                // PAYE Over Deduction credit
+                if (item.type.code === '2001' && item.description === 'PAYE Over Deduction') {
+                    adjustment += amount;
+                }
+
+                // PAYE OD debit
+                if (item.type.code === '2010') {
+                    adjustment -= amount;
+                }
+
+                index++;
+            }
+
+        }
+
+        // console.log("Payslip order:",
+        // payrunPayslips.map(p => p.getToDate())
+        // );
+
+        return adjustment;
+    }
+
+    function getRemainingODBalance() {
+
+        if (availableODBalance === null) return 0;
+
+        var totalDebits = 0;
+
+        // Loop to get total of all OD Debit items added to one payslip
+        for (var i = 0; i < items.length; i++) {
+
+            var item = items[i];
+
+            if (!item.type || item.type.code !== '2010') continue;
+
+            var value = lx.util.parseCurrency(item.amountTxt.getValue()) || 0;
+
+            totalDebits += value;
+        }
+        //remaing balance, after od debit items were added to same payslip
+        return availableODBalance - totalDebits;
+    }
+
+    // Function to allow all edit payslip panels to refresh their OD balance
+    function refreshODBalances() {
+
+        for (var i = 0; i < payrunPayslips.length; i++) {
+
+            let panel = payrunPayslips[i]; //to ensure each panel only references itself
+
+            if (!panel || typeof panel.getTotalODBalance !== 'function') continue; //skip if panel is null or doesn't support OD balance calculation
+
+            panel.getTotalODBalance(function (balance) {
+                if (typeof panel.setAvailableODBalance === 'function') {
+                    panel.setAvailableODBalance(balance);
+                }
+            });
+        }
+    }
+
+
+    // (Updated) Function to add validation to OD debit items to ensure debit value doesn't exceed available credit
+    // Fires on 'change' and called in additem to ensure validation takes place during edit and add events
+    // Receives amount entered in textbox, to ensure correct value is validated
+    function validateODDebit(item, enteredAmount) {
+
+        if (!item.amountTxt) return;
+
+        // Use enteredAmount if available, otherwise read from textbox
+        var entered = enteredAmount;
+        if (entered === undefined || entered === null) {
+            entered = Math.abs(lx.util.parseCurrency(item.amountTxt.getValue())) || 0; //Prevents NaN cases if value entered is empty string or other characters
+        }
+        //Recalculate base balance first, then get entered value
+        getTotalODBalance(function (balance) {
+            availableODBalance = balance;
+
+            var remaining = getRemainingODBalance() + entered; //including current value entered in textbox
+
+            //Debugging:
+            // console.log("validating: balance, entered, remaining", balance, entered, remaining);
+
+            if (entered > remaining) {
+                new lx.component.Messagebox({
+                    title: 'Invalid Amount',
+                    message: 'Cannot exceed remaining credit of R ' + remaining.toFixed(2) + '.',
+                    onClose: function () {
+
+                        item.amountTxt.setValue(
+                            lx.util.formatCurrency(remaining)
+                        );
+
+                        item.amountTxt.focus();
+                    }
+                });
+            }
+        });
+
+    }
+
+    // Create Over Deduction Debit item to be added to payslip
+    // To use in useOverDeductionCreditEventHandler function
+    function createODDebitItem(balance) {
+        return {
+            id: null,
+            category: {
+                code: 'DEDU'
+            },
+            type: {
+                code: '2010',
+                unitCode: 'FIXE'
+            },
+            providentFund: {
+                id: null,
+                employeeAmount: null,
+                employerAmount: null,
+                rfiItems: []
+            },
+            loan: {
+                id: null
+            },
+            description: 'PAYE OD Debit',
+            accrualDate: null,
+            autoCalculate: false,
+            units: null,
+            rate: null,
+            // User can enter desired amount to use
+            amount: null,
+            availableCredit: balance,
+            includeInNettPay: false
+        };
+    }
+
+    function getTotalODBalance(callback) {
+
+        lx.sendJSON({
+            url: 'exec.php?c=Payrun&fn=getOverDeductionBalance',
+            data: {
+                employeeId: employeeId,
+                sarsYear: payslipTaxPeriod.taxYear,
+                toDate: payslipToDate,
+                //Exclude current payrun from database query to avoid inclusion of "saved" (but unprocessed) payruns
+                excludePayrunId: payrunId
+            },
+            onSuccess: function (responseText) {
+
+                // Debugging to see what comes from database:
+                //console.log('RAW RESPONSE:', responseText);
+
+                // if (!responseText) {
+                //     console.log('Empty response from server');
+                //     return;
+                // }
+                // console.log(employeeId);
+                // console.log(payslipTaxPeriod);
+                // console.log("Sending excludePayrunId:", payrunId);
+
+                var response = JSON.parse(responseText);
+
+                var historicalBalance = parseFloat(response.availableBalance || 0); // Credit balance from previous payslips as stored in db
+                var currentPayrunAdjustment = calculateCurrentPayrunODCreditBalAdjustment(employeeId, me); // Include debits and credits of all previous payslips, for current employee in current payrun
+                var availableCredit = historicalBalance + currentPayrunAdjustment;
+                callback(availableCredit);
+            }
+
+        });
+    }
+
+    function useOverDeductionCreditEventHandler() {
+
+        // To ensure balance has loaded
+        if (availableODBalance === null) return;
+
+        //Refresh OD balance to include previous payslips in current payrun's changes
+        getTotalODBalance(function (balance) {
+            availableODBalance = balance;
+
+            // calculate remaing credit after OD debit items added in current payslip
+            var availableCredit = getRemainingODBalance();
+
+            if (availableCredit <= 0) {
+                return; // no useCreditBalance pop-up if no credit available
+            }
+            new lx.component.Messagebox({
+                title: 'Use PAYE Over Deduction Credit',
+                message: 'Available Credit: R ' + availableCredit.toFixed(2) +
+                    '\n\nWould you like to use it?',
+                buttons: [
+                    { name: 'cancel', label: 'No', style: 'text', isCancel: true },
+                    { name: 'ok', label: 'Yes' }
+                ],
+                onClose: function (event) {
+
+                    if (event.button === 'ok') {
+
+                        // Remove any existing OD item (2001) on this payslip
+                        for (var i = items.length - 1; i >= 0; i--) {
+
+                            var item = items[i];
+
+                            if (item.type && item.type.code === '2001' && item.description === 'PAYE Over Deduction') {
+                                removeItemByIndex(i)
+                            }
+                            //Functions refactored to calculate remaining balance, including current payslip OD debit items
+                            //This section is inconsistent with rest of system that allows duplicate user entries, so removed it
+                            // else if(item.type && item.type.code === '2010'){
+                            //       removeItemByIndex(i)
+                            // }
+                        }
+
+                        // Add OD debit item
+                        var odItem = createODDebitItem(availableCredit);
+                        me.addItems([odItem]);
+
+                        refreshODBalances();
+
+                        // Revalidate all OD debit items
+                        for (var i = 0; i < items.length; i++) {
+                            if (items[i].type && items[i].type.code === '2010') {
+                                validateODDebit(items[i]);
+                            }
+                        }
+
+                        // Notify payrun that items changed
+                        me.fireEvent('itemadd', { srcComponent: me });
+
+                        //Validation moved to addItems(), so this line is no longer relevant
+                        // attachODDebitValidation(maxDebit);
+                    }
+                }
+            });
+
+
+        });
+    }
 
     //
     // PUBLIC FUNCTIONS
@@ -105,15 +406,16 @@ app.panel.EditPayslip = function (config) {
         }
 
         // Renderto can not be null
-        if (compConfig.renderTo === null) {
-            console.log('lx.component.PayslipEditor : ERROR : renderTo config can not be null or undefined');
-            return;
-        }
+        // if( compConfig.renderTo === null ) {
+        //     //console.log('lx.component.PayslipEditor : ERROR : renderTo config can not be null or undefined');
+        //     return;
+        // }
 
         // Attach external event handlers
         if (compConfig.hasOwnProperty('onChange')) me.addEventListener('change', compConfig.onChange);
         if (compConfig.hasOwnProperty('onItemAdd')) me.addEventListener('itemadd', compConfig.onItemAdd);
         if (compConfig.hasOwnProperty('onDelete')) me.addEventListener('delete', compConfig.onDelete);
+        if (compConfig.hasOwnProperty('onEncrypt')) me.addEventListener('encrypt', compConfig.onEncrypt);
         if (compConfig.hasOwnProperty('onRecreate')) me.addEventListener('recreate', compConfig.onRecreate);
 
         // Initalize state
@@ -121,8 +423,11 @@ app.panel.EditPayslip = function (config) {
         deletedItems = [];
 
         // Store payslip and employee details
+        payrunPayslips = compConfig.payrunPayslips || [];
+        payrunId = compConfig.payrunId || null;
         deletePayslip = false;
         payslipId = compConfig.payslip.id;
+        isEncrypted = compConfig.payslip.is_encrypted === true;
         employeeId = compConfig.payslip.employee.id;
         employeeName = compConfig.payslip.employee.name;
         employeeAge = compConfig.payslip.employee.age;
@@ -135,6 +440,10 @@ app.panel.EditPayslip = function (config) {
             number: compConfig.payslip.taxPeriod.number,
             taxYear: compConfig.payslip.taxPeriod.taxYear,
         };
+
+        getTotalODBalance(function (balance) {
+            availableODBalance = balance;
+        });
 
         // Create component div
         el = document.createElement('DIV');
@@ -165,11 +474,37 @@ app.panel.EditPayslip = function (config) {
         headingEl.style.borderStyle = 'solid';
         headingEl.style.borderColor = '#DFDFDF';
         headingEl.style.borderWidth = '0px 0px 1px 0px';
-        headingEl.innerHTML =
-            '<div style="margin: 0px 0px 0px 15px;">' + employeeName + '</div>' +
-            '<div style="font-size: 12px; margin: 0px 0px 0px auto;">' + payslipFromDate +
-            ' &nbsp;to&nbsp; ' + payslipToDate + '</div>';
+
+        // lockIconEl to be displayed when isEncrypted is true
+        lockIconEl = document.createElement('i');
+        lockIconEl.className = 'fa fa-lock';
+        lockIconEl.style.color = '#282626';
+        lockIconEl.style.marginLeft = '8px';
+        lockIconEl.style.display = 'none';
+
+        // Create container for employeeName
+        nameContainer = document.createElement('div');
+        nameContainer.style.margin = '0px 0px 0px 15px';
+        nameContainer.textContent = employeeName;
+
+
+        // Append lockIconEl to name
+        nameContainer.appendChild(lockIconEl);
+        updateEncryptionIcon();
+
+        // Append nameContainer to heading element
+        headingEl.appendChild(nameContainer);
         el.appendChild(headingEl);
+
+
+        // Create date container
+        dateContainer = document.createElement('div');
+        dateContainer.style.fontSize = '12px';
+        dateContainer.style.margin = '0px 0px 0px auto';
+        dateContainer.textContent = payslipFromDate + ' to ' + payslipToDate;
+
+        // Append dateContainer to heading element
+        headingEl.appendChild(dateContainer);
 
         // Create the statusEl element
         statusEl = document.createElement('DIV');
@@ -178,6 +513,9 @@ app.panel.EditPayslip = function (config) {
         statusEl.style.borderRadius = '50%';
         statusEl.style.backgroundColor = '#FFFFFF';
         headingEl.insertBefore(statusEl, headingEl.firstChild);
+
+
+
 
         // Has the paylsip not been processed?
         if (!compConfig.isProcessed) {
@@ -194,7 +532,9 @@ app.panel.EditPayslip = function (config) {
                 parent: menuDropdownBtn.getContainer(),
                 className: 'list-item',
                 style: {
-                    width: '140px',
+                    //width: '140px',
+                    width: '100%',
+                    boxSizing: 'border-box',
                     padding: '8px 10px',
                     borderStyle: 'solid',
                     borderWidth: '0px 0px 0px 3px'
@@ -208,21 +548,42 @@ app.panel.EditPayslip = function (config) {
                 parent: menuDropdownBtn.getContainer(),
                 className: 'list-item',
                 style: {
-                    width: '140px',
-                    padding: '8px 10px',
+                    //width: '220px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '8px 12px',
                     borderStyle: 'solid',
-                    borderWidth: '0px 0px 0px 3px'
+                    borderWidth: '0px 0px 0px 3px',
+                    display: 'flex'
                 },
                 innerHTML: '<i class="fa fa-fw fa-undo" style="margin-right: 15px; font-size: 12px;"></i><span style="font-size: 14px;">Recreate Items</span>'
             });
             menuDropDownBtnRecreateEl.addEventListener('click', menuDropDownBtnRecreateElClickEventHandler);
+
+            // Create the menuDropDownBtnEncryptionEl element
+            var menuDropDownBtnEncryptEl = lx.createElement('DIV', {
+                parent: menuDropdownBtn.getContainer(),
+                className: 'list-item',
+                style: {
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    minWidth: '220px',
+                    padding: '8px 10px',
+                    borderStyle: 'solid',
+                    borderWidth: '0px 0px 0px 3px'
+                },
+                innerHTML: '<i class="fa fa-fw fa-lock" style="margin-right: 15px; font-size: 12px;"></i><span style="font-size: 14px;">Add/Remove Encryption</span>'
+            });
+            menuDropDownBtnEncryptEl.addEventListener('click', menuDropDownBtnEncryptElClickEventHandler);
 
             // Create the menuDropDownBtnDeleteEl element
             var menuDropDownBtnDeleteEl = lx.createElement('DIV', {
                 parent: menuDropdownBtn.getContainer(),
                 className: 'list-item',
                 style: {
-                    width: '140px',
+                    //width: '140px',
+                    width: '100%',
+                    boxSizing: 'border-box',
                     padding: '8px 10px',
                     borderStyle: 'solid',
                     borderWidth: '0px 0px 0px 3px'
@@ -292,6 +653,16 @@ app.panel.EditPayslip = function (config) {
         return items.length;
     };
 
+    // Funtion to get available OD Balance
+    me.getAvailableODBalance = function () {
+        return availableODBalance;
+    };
+
+    // Function to set amount
+    me.setAvailableODBalance = function (balance) {
+        availableODBalance = balance;
+    };
+
     // Function to get the amount of items
     me.deletePayslip = function () {
         // Mark the selected payslip as deleted
@@ -305,11 +676,11 @@ app.panel.EditPayslip = function (config) {
     // Function to get the amount of items
     me.restorePayslip = function () {
 
-        // Mark the selected payslip as deleted
+        // Mark the selected payslip as restored
         deletePayslip = false;
         payslipStatusCode = 'ACTI';
 
-        // Hide the selected payslip panel
+        // Display the selected payslip panel
         el.style.display = 'block';
     };
 
@@ -370,11 +741,18 @@ app.panel.EditPayslip = function (config) {
                 includeInNettPay: null
             };
 
+            // Copy availableCredit if it exists (to display in OD Debit item txtBox label)
+            if (newItems[i].availableCredit !== undefined) {
+                newItem.availableCredit = newItems[i].availableCredit;
+            }
+
             // Create the item element
             newItem.el = document.createElement('DIV');
             newItem.el.className = 'flex-row flex-align-center';
             newItem.el.style.padding = '4px 0px';
             itemContainerEl.appendChild(newItem.el);
+
+            //--------------------------------------------------------------
 
             // Create the item label
             var itemLabelEl = document.createElement('DIV');
@@ -382,6 +760,8 @@ app.panel.EditPayslip = function (config) {
             itemLabelEl.innerHTML = newItems[i].description;
             newItem.el.appendChild(itemLabelEl);
             newItem.description = newItems[i].description;
+
+            //---------------------------------------------------------
 
             newItem.autoCalculate = newItems[i].autoCalculate;
             newItem.includeInNettPay = newItems[i].includeInNettPay;
@@ -406,6 +786,11 @@ app.panel.EditPayslip = function (config) {
                 createUnits = true;
                 itemUnitsLabelText = 'km @';
                 itemRateLabelText = 'per km';
+            }
+            else if (newItems[i].type.code === '1006') {
+                createUnits = true;
+                itemUnitsLabelText = 'leave balance @';
+                itemRateLabelText = 'per unit(day/hour)';
             }
 
             if (createUnits === true) {
@@ -432,15 +817,38 @@ app.panel.EditPayslip = function (config) {
                 itemUnitsLabelEl.innerHTML = itemUnitsLabelText;
                 newItem.el.appendChild(itemUnitsLabelEl);
 
-                newItem.rateTxt = new lx.component.Textbox({
-                    renderTo: newItem.el,
-                    margin: '0px 8px 0px 0px',
-                    width: '70px',
-                    label: null,
-                    textAlign: 'right',
+                if (newItems[i].type.code === '1006') {
+                    newItem.rateTxt = new lx.component.Textbox({
+                        renderTo: newItem.el,
+                        margin: '0px 8px 0px 55px',
+                        width: '70px',
+                        label: null,
+                        textAlign: 'right',
 
-                    onChange: itemRateTxtChangeEventHandler
-                });
+                        onChange: itemRateTxtChangeEventHandler
+                    });
+
+                } else {
+                    newItem.rateTxt = new lx.component.Textbox({
+                        renderTo: newItem.el,
+                        margin: '0px 8px 0px 0px',
+                        width: '70px',
+                        label: null,
+                        textAlign: 'right',
+
+                        onChange: itemRateTxtChangeEventHandler
+                    });
+                }
+
+                // newItem.rateTxt = new lx.component.Textbox({
+                //     renderTo: newItem.el,
+                //     margin: '0px 8px 0px 0px',
+                //     width: '70px',
+                //     label: null,
+                //     textAlign: 'right',
+
+                //     onChange: itemRateTxtChangeEventHandler
+                // });
 
                 // Disable the text box if the payrun has been processed
                 if (isProcessed) {
@@ -457,16 +865,93 @@ app.panel.EditPayslip = function (config) {
                 newItem.el.appendChild(itemRateLabelEl);
             }
 
-            // Create the item amount textbox
-            newItem.amountTxt = new lx.component.Textbox({
-                renderTo: newItem.el,
-                margin: '0px 8px 0px 0px',
-                width: '120px',
-                label: null,
-                textAlign: 'right',
-
-                onChange: itemAmountTxtChangeEventHandler
+            // Create vertical wrapper for label and textbox
+            newItem.amountWrapperEl = lx.createElement('DIV', {
+                parent: newItem.el,
+                style: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
+                    margin: '0px 8px 0px 0px'
+                }
             });
+
+            // If OD Debit item added, add label above textbox
+            if (newItem.type &&
+                newItem.type.code === '2010' &&
+                newItem.availableCredit !== undefined) {
+
+                newItem.availableBalanceLbl = lx.createElement('DIV', {
+                    parent: newItem.amountWrapperEl,
+                    style: {
+                        fontSize: '11px',
+                        color: '#6c757d',
+                        marginBottom: '4px',
+                        textAlign: 'right',
+                        width: '120px'
+                    },
+                    innerHTML: 'Available Credit:<br>R ' +
+                        newItem.availableCredit.toFixed(2)
+                });
+            }
+
+            if (newItems[i].type.code === '1006') {
+                newItem.amountTxt = new lx.component.Textbox({
+                    renderTo: newItem.amountWrapperEl,
+                    width: '120px',
+                    margin: '0px 8px 0px 65px',
+                    label: null,
+                    textAlign: 'right',
+                    onChange: itemAmountTxtChangeEventHandler
+                });
+
+            } else {
+                newItem.amountTxt = new lx.component.Textbox({
+                    renderTo: newItem.amountWrapperEl,
+                    width: '120px',
+                    margin: '0px 8px 0px 0px',
+                    label: null,
+                    textAlign: 'right',
+                    onChange: itemAmountTxtChangeEventHandler
+                });
+
+            }
+
+            // Create textbox inside wrapper
+            // newItem.amountTxt = new lx.component.Textbox({
+            //     renderTo: newItem.amountWrapperEl,
+            //     width: '120px',
+            //     label: null,
+            //     textAlign: 'right',
+            //     onChange: itemAmountTxtChangeEventHandler
+            // });
+
+            //Updated validation handling, to apply to all OD Debit items (not only ones added through Annual Payment pop-up)
+            //To ensure amount used can't be more than available credit
+            if (newItem.type.code === '2010') {
+
+                // attachODDebitValidation(newItem);
+
+                // Validate newly added items
+                validateODDebit(newItem);
+
+                //Previous validation working with 'maxDebit', but incomplete, because OD Debit items in same current payslip where
+                //not included in calculations
+                //Refactored function used above
+
+                //     var maxDebit = newItem.availableCredit;
+
+                //   if(maxDebit === undefined)  {
+                //     //maxDebit = calculateCurrentPayrunODCreditBalAdjustment(employeeId, me);
+                //     maxDebit = availableODBalance;
+                //   }
+
+            }
+
+            // Function to add validation to OD Debit item
+            //if (newItem.type.code === '2010' && newItem.availableCredit !== undefined){
+            //attachODDebitValidation(newItem, newItem.availableCredit);
+            //}
 
             // Disable the amount textbox if the payrun has been processed or the amount is
             // calculated automatically
@@ -478,10 +963,11 @@ app.panel.EditPayslip = function (config) {
             if (createUnits === true) {
                 if (newItems[i].units !== null) newItem.unitsTxt.setValue(newItems[i].units);
                 if (newItems[i].rate !== null) newItem.rateTxt.setValue(lx.util.formatCurrency(newItems[i].rate));
-                if (newItems[i].amount !== null) newItem.amountTxt.setValue(lx.util.formatCurrency(newItems[i].amount));
+                //Ensures all values added in amount textboxes are positive
+                if (newItems[i].amount !== null) newItem.amountTxt.setValue(lx.util.formatCurrency(Math.abs(newItems[i].amount)));
             }
             else {
-                if (newItems[i].amount !== null) newItem.amountTxt.setValue(lx.util.formatCurrency(newItems[i].amount));
+                if (newItems[i].amount !== null) newItem.amountTxt.setValue(lx.util.formatCurrency(Math.abs(newItems[i].amount)));
             }
 
             // Create the deleteEl element (only if the payrun has not been processed)
@@ -586,6 +1072,45 @@ app.panel.EditPayslip = function (config) {
         updateStatus();
     };
 
+    me.updateOrAddItemByDescription = function (newItem) {
+
+        var foundIndex = -1;
+        var removeIndex = -1;
+
+        // Find item by description
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].description === newItem.description) {
+                foundIndex = i;
+            }
+
+            if (items[i].description === "PAYE Over Deduction") {
+                removeIndex = i;
+            }
+            // Stop if both were found
+            if (foundIndex !== -1 && removeIndex !== -1) {
+                break;
+            }
+
+        }
+
+        if (foundIndex !== -1) {
+            // ✅ Update existing item amount
+            if (items[foundIndex].amountTxt !== null) {
+                items[foundIndex].amountTxt.setValue(
+                    lx.util.formatCurrency(newItem.amount)
+                );
+            }
+        }
+        else {
+            // ✅ Add new item if it does not exist
+            if (removeIndex !== -1) {
+                removeItemByIndex(removeIndex);
+            }
+            me.addItems([newItem], false);
+        }
+
+        updateStatus();
+    };
     // Function to check whether a payslip is complete
     me.isComplete = function () {
         var complete = true;
@@ -613,6 +1138,7 @@ app.panel.EditPayslip = function (config) {
     me.toObject = function () {
         var returnObject = {
             id: payslipId,
+            is_encrypted: isEncrypted,
             delete: deletePayslip,
             statusCode: payslipStatusCode,
             fromDate: payslipFromDate,
@@ -828,15 +1354,22 @@ app.panel.EditPayslip = function (config) {
         for (var i = 0; i < items.length; i++) {
             if (items[i].amountTxt !== null && items[i].amountTxt === event.srcComponent) {
                 itemIndex = i;
+                // console.log(items[i])
                 break;
             }
+        }
+
+        // Check if comma exists
+        if (items[itemIndex].amountTxt.getValue().includes(',')) {
+            // Remove comma
+            items[itemIndex].amountTxt.setValue(items[itemIndex].amountTxt.getValue().replace(/,/g, ''));
         }
 
         var rate = null;
         if (items[itemIndex].rateTxt !== null && items[itemIndex].rateTxt.getValue() !== '') rate = lx.util.parseCurrency(items[itemIndex].rateTxt.getValue());
 
         var amount = null;
-        if (items[itemIndex].amountTxt !== null && items[itemIndex].amountTxt.getValue() !== '') amount = lx.util.parseCurrency(items[itemIndex].amountTxt.getValue());
+        if (items[itemIndex].amountTxt !== null && items[itemIndex].amountTxt.getValue() !== '') amount = Math.abs(lx.util.parseCurrency(items[itemIndex].amountTxt.getValue())); //items[itemIndex].amountTxt.getValue());
         if (isNaN(amount)) amount = null;
 
         if (items[itemIndex].unitsTxt !== null) {
@@ -844,18 +1377,25 @@ app.panel.EditPayslip = function (config) {
             else items[itemIndex].unitsTxt.setValue('');
         }
 
-        // Format the amount entered
-        if (amount !== null) items[itemIndex].amountTxt.setValue(lx.util.formatCurrency(amount));
+        // Update OD debit balances accross all payslips
+        refreshODBalances();
+
+        // Validate OD debit item
+        if (items[itemIndex].type && items[itemIndex].type.code === '2010') {
+            validateODDebit(items[itemIndex], Math.abs(amount));
+        }
+
+        // Format the amount entered and ensure value is positive
+        if (amount !== null) items[itemIndex].amountTxt.setValue(lx.util.formatCurrency(Math.abs(amount)));
 
         // Fire the onchange event
         me.fireEvent('change', { srcComponent: me });
+
         updateStatus();
     }
 
-    // deleteEl click event handler
-    function deleteElChangeEventHandler(event) {
-        var itemIndex = getItemIndexFromElement(event.currentTarget);
-
+    // deleteEl click function
+    function removeItemByIndex(itemIndex) {
         // Don't display the item
         itemContainerEl.removeChild(items[itemIndex].el);
 
@@ -871,51 +1411,104 @@ app.panel.EditPayslip = function (config) {
         updateStatus();
     }
 
+    // deleteEl click event handler
+    function deleteElChangeEventHandler(event) {
+        var itemIndex = getItemIndexFromElement(event.currentTarget);
+        removeItemByIndex(itemIndex);
+    }
+
     // menuDropDownBtnAddEl click event handler
     function menuDropDownBtnAddElClickEventHandler() {
-        // Create a modal window
-        var addItemModal = new lx.component.ModalWindow({
-            height: '100%',
-            maxWidth: '430px',
-            maxHeight: '515px',
-            margin: '40px'
+
+        //Gaurd added to prevent invalid balance from being used if server hasn't returned value yet
+        // if (availableODBalance === null) {
+        // new lx.component.Messagebox({
+        //     title: 'Please Wait',
+        //     message: 'Loading Over Deduction balance...'
+        // });
+        // return;
+        // }
+
+        //Calculate available OD Credit before openeing Add Item panel to send correct value
+        getTotalODBalance(function (balance) {
+            availableODBalance = balance;
+            var remainingBalance = getRemainingODBalance();
+            openAddPanel(remainingBalance);
         });
 
-        // Create the addPayslipItem component
-        var addPayslipItem = new app.panel.AddPayslipItem({
-            renderTo: addItemModal.getContainer(),
-            show: true,
-            payslipFromDate: payslipFromDate,
-            payslipToDate: payslipToDate,
+        function openAddPanel(remainingBalance) {
 
-            onCancel: function () {
-                app.route.popState();
-            },
+            // Create a modal window
+            var addItemModal = new lx.component.ModalWindow({
+                height: '100%',
+                maxWidth: '430px',
+                maxHeight: '515px',
+                margin: '40px'
+            });
 
-            onAdd: function (event) {
-                //console.log('edit_payslip_panel ', event);
-                app.route.popState();
-                me.addItems(event.items);
-                me.fireEvent('itemadd', { srcComponent: me });
-            }
-        });
+            // Create the addPayslipItem component
+            var addPayslipItem = new app.panel.AddPayslipItem({
+                renderTo: addItemModal.getContainer(),
+                show: true,
+                payslipFromDate: payslipFromDate,
+                payslipToDate: payslipToDate,
 
-        // Add destroy event listener to modal to destroy the contained panel.
-        addItemModal.addEventListener('destroy', function () {
-            addPayslipItem.destroy();
-        });
+                //Available OD credit balance to be sent to add_payslip_item_panel.js for use in OD debit item display
+                availableODBalance: remainingBalance,
 
-        // Create a route entry for the panel
-        var state = {
-            modal: addItemModal
-        };
-        app.route.pushState(state, function (state) {
-            state.modal.destroy();
-        });
+                onCancel: function () {
+                    app.route.popState();
+                },
 
-        addItemModal.show();
-        addPayslipItem.focus();
+                onAdd: function (event) {
+                    app.route.popState();
+                    me.addItems(event.items);
+
+                    // Check if Annual Payment was added
+                    var annualItem = event.items.find(function (item) {
+                        return item.type.code === '1004';
+                    });
+
+                    if (annualItem && annualItem.amount) {
+                        useOverDeductionCreditEventHandler();
+                    }
+
+                    me.fireEvent('itemadd', { srcComponent: me });
+                }
+            });
+
+            // Add destroy event listener to modal to destroy the contained panel.
+            addItemModal.addEventListener('destroy', function () {
+                addPayslipItem.destroy();
+            });
+
+            // Create a route entry for the panel
+            var state = {
+                modal: addItemModal
+            };
+            app.route.pushState(state, function (state) {
+                state.modal.destroy();
+            });
+
+            addItemModal.show();
+            addPayslipItem.focus();
+        }
     }
+
+    // menuDropDownBtnEncryptEl click event handler
+    function menuDropDownBtnEncryptElClickEventHandler() {
+        //Encryption toggle
+        isEncrypted = !isEncrypted;
+
+        //Update UI to display icon
+        updateEncryptionIcon();
+
+        // Notify parent
+        me.fireEvent('encrypt', {
+            srcComponent: me
+        });
+    }
+
 
     // menuDropDownBtnDeleteEl click event handler
     function menuDropDownBtnDeleteElClickEventHandler() {
