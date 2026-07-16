@@ -177,7 +177,7 @@ class Payrun extends Controller
         // Set the default dates to the first and last day of the current month
         $currentFromDate = date('Y-m-01'); // hard-coded '01' for first day
         $currentToDate = new DateTime($currentFromDate);
-        $currentToDate = $currentToDate->format('Y-m-t');
+        $currentToDate = $currentToDate->format('Y-m-t'); // 2025-05-28 Ray King: Y-m-t is the last day of current month
 
         // Was a result returned
         if ($sqlResult->getRowCount() == 1) {
@@ -416,6 +416,9 @@ class Payrun extends Controller
                 } else if ($payslips[$j]['items'][$k]['amount'] !== null) {
                     $total = $payslips[$j]['items'][$k]['amount'];
                 }
+
+                //2025-05-15 Added to eliminate comma error
+                // $total = (float)$total;
 
                 $sqlQuery =
                     'INSERT INTO ' .
@@ -702,8 +705,10 @@ class Payrun extends Controller
             for ($k = 0; $k < count($generatedPayslips[$j]['items']); $k++) {
                 // Set the accrual date, if any
                 $accrualDate = null;
-                if (isset($payslips[$j]['items'][$k]['accrualDate'])) {
-                    $accrualDate = $payslips[$j]['items'][$k]['accrualDate'];
+
+                //Fix $payslips => generatedPayslips to remove "Undefined variable" error
+                if (isset($generatedPayslips[$j]['items'][$k]['accrualDate'])) {
+                    $accrualDate = $generatedPayslips[$j]['items'][$k]['accrualDate'];
                 }
 
                 // Calculate the payslip item total
@@ -716,6 +721,9 @@ class Payrun extends Controller
                 } else if ($generatedPayslips[$j]['items'][$k]['amount'] !== null) {
                     $total = $generatedPayslips[$j]['items'][$k]['amount'];
                 }
+
+                //2025-05-15 Added to eliminate comma error -- Ray
+                // $total = (float)$total;
 
                 $sqlQuery =
                     'INSERT INTO ' .
@@ -902,6 +910,7 @@ class Payrun extends Controller
             'payslips.payment_period_end_day, ' .
             'payslips.paye_bonus_calculation_type_code, ' .
             'payslips.employee_id, ' .
+            'payslips.is_encrypted,' .
             'employees.first_name AS employee_first_name, ' .
             'employees.last_name AS employee_last_name, ' .
             'employees.alias AS employee_alias, ' .
@@ -928,6 +937,7 @@ class Payrun extends Controller
         while ($payslipRow = $payslipResult->fetchAssociative()) {
             $payslips[] = [
                 'id' => $payslipRow['id'],
+                'is_encrypted' => (bool)$payslipRow['is_encrypted'],
                 'statusCode' => $payslipRow['status_code'],
                 'statusName' => $payslipRow['status_name'],
                 'employee' => [
@@ -986,6 +996,7 @@ class Payrun extends Controller
             }
 
             // Set the payslip item details
+            //Provident Fund
             $items = [];
             while ($itemRow = $itemResult->fetchAssociative()) {
                 $units = $itemRow['units'];
@@ -1134,41 +1145,53 @@ class Payrun extends Controller
 
     public function getPayeOverDeductionCredit($data, $user, $db)
     {
-        // Set content type header
+        // ---------------------------
+        // Validation section
+        // ---------------------------
+
+        #Set content type header
         header('Content-Type: application/json');
 
-        // Set default parameter values
+        # Set default parameter values
         $defaults = [
             'payslipStatusCode' => null
         ];
+
+        # Merges the $defaults array with the $data array, removing any duplicates.
         Json::copy($defaults, $data);
 
-        // Validate data.
+        # Validates the structure of the $data array
         $validationResult = Json::validate($data, [
+
             // Required parameters
             'payrunId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
-
             // Optional parameters
             'payslipStatusCode' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => true]
+
         ]);
+
+        # Error message for failed validation
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
             return false;
         }
 
+        // ---------------------------
+        // Payrun Query section
+        // ---------------------------
+
         $payslipSqlParams = [];
-
-        // Build where clause if a search string was given
+        # stores the payrundId as a parameter
         $payslipSqlParams[] = $data['payrunId'];
+        # Builds the WHERE clause using the parameter
         $payslipsWhereClause = 'WHERE payslips.payrun_id = $' . count($payslipSqlParams) . ' ';
-
-        // Was a payslip status code specified?
+        # Was a payslip status code specified?
         if ($data['payslipStatusCode'] !== null) {
             $payslipSqlParams[] = $data['payslipStatusCode'];
             $payslipsWhereClause = $payslipsWhereClause . ' AND payslips.status_code = $' . count($payslipSqlParams) . ' ';
         }
 
-        // Load the payrun from the payruns table
+        #Load the payrun from the payruns table
         $sqlQuery =
             'SELECT ' .
             'payruns.description, ' .
@@ -1181,20 +1204,18 @@ class Payrun extends Controller
             'WHERE ' .
             'payruns.id = $1;';
         $sqlResult = $db->paramQuery($sqlQuery, [$data['payrunId']]);
+        # Validates the results returned by the query
         if (!$sqlResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
-
-        // Check if the payrun was found
+        #Check if the payrun was found
         if ($sqlResult->getRowCount() !== 1) {
             echo (json_encode(['ok' => false, 'error' => 'Payrun \'' . $data['payrunId'] . '\' not found.']));
             return false;
         }
-
-        // Create payrun details
+        #Takes all of the values returned and stores it in the $payrun array
         $sqlRow = $sqlResult->fetchAssociative();
-
         $payrun = [
             'id' => $data['payrunId'],
             'description' => $sqlRow['description'],
@@ -1205,7 +1226,10 @@ class Payrun extends Controller
             'payslips' => []
         ];
 
-        // Get all the payslips for the payrun
+        // ---------------------------
+        // Payslip Query section
+        // ---------------------------
+
         $payslipQuery =
             'SELECT DISTINCT ' .
             'payslips.id, ' .
@@ -1235,12 +1259,19 @@ class Payrun extends Controller
             $payslipsWhereClause .
             'ORDER BY employees.alias ASC, payslips.employee_id ASC, payslips.id ASC;';
         $payslipResult = $db->paramQuery($payslipQuery, $payslipSqlParams);
+
+        # Validates the results returned by the query
         if (!$payslipResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
-        // Set the payslip details
+        #Takes the results returned and stores it in the $payslips array. 
+        // $OD = [];
+        $ODC = [];
+        $ODDebit = [];
+        // $ODCreditBalance = [];
+        // $runningTotal = 0;
         $payslips = [];
         while ($payslipRow = $payslipResult->fetchAssociative()) {
             $payslips[] = [
@@ -1265,9 +1296,11 @@ class Payrun extends Controller
                 'items' => []
             ];
 
-            //$employeeId = $payslipRow['employee_id'];
+            // ---------------------------
+            // Payslip-Items Query section
+            // ---------------------------
 
-            // Get all the items for the specified payslip
+            # Queries and returns all of the payslip item
             $itemQuery =
                 'SELECT DISTINCT ' .
                 'payslip_items.id, ' .
@@ -1297,12 +1330,14 @@ class Payrun extends Controller
             $itemResult = $db->paramQuery($itemQuery, [
                 $payslipRow['id']
             ]);
+
+            # Validates the results returned by the query
             if (!$itemResult->isValid()) {
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                 return false;
             }
 
-            // Set the payslip item details
+            #Takes the results returned and stores it in the $payslips array.
             $items = [];
             while ($itemRow = $itemResult->fetchAssociative()) {
                 $units = $itemRow['units'];
@@ -1319,9 +1354,12 @@ class Payrun extends Controller
                 $employerAmount = null;
                 $rfiItems = [];
 
-                // Is it a provident fund item?
+                # Is it a provident fund item?
                 if ($providentFundId !== null) {
-                    // Load the provident fund details
+                    // ---------------------------
+                    // Item-Fund Query section
+                    // ---------------------------
+                    #Load the provident fund details
                     $providentFundQuery =
                         'SELECT ' .
                         'provident_funds.id, ' .
@@ -1341,18 +1379,21 @@ class Payrun extends Controller
                         'ORDER BY ' .
                         'provident_funds.name ASC;';
                     $providentResult = $db->paramQuery($providentFundQuery, [$providentFundId]);
+
+                    # Validates the results returned by the query
                     if (!$providentResult->isValid()) {
                         echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                         return false;
                     }
-
+                    # stores the results return in the following variables: $employeeAmount, $employerAmount, $rfiItems[]
                     $providentFundRow = $providentResult->fetchAssociative();
                     $employeeAmount = doubleval($providentFundRow['employee_amount']);
                     $employerAmount = doubleval($providentFundRow['employer_amount']);
 
-                    // Is the provident fund calculation based on retirement fund income items?
+                    # Is the provident fund calculation based on retirement fund income items? 
                     if ($providentFundRow['provident_fund_calculation_type_code'] === 'PRFI') {
-                        // Get all the relevant retirement fund income items
+
+                        # Get all the relevant retirement fund income items
                         $rfiItemSqlQuery =
                             'SELECT ' .
                             'payslip_config_items.payslip_item_type_code, ' .
@@ -1365,12 +1406,15 @@ class Payrun extends Controller
                             'WHERE ' .
                             'employee_rfi_items.id IS NOT NULL AND ' .
                             'payslip_config_items.employee_id = $2;';
-                        $rfiItemSqlResult = $db->paramQuery($rfiItemSqlQuery, [$providentFundId, $employeeId]);
+
+                        // 2025-04-25 Ray King - changed $employeeId to $payslipRow['employee_id']
+                        $rfiItemSqlResult = $db->paramQuery($rfiItemSqlQuery, [$providentFundId, $payslipRow['employee_id']]);
+
+                        # Validates the results returned by the query
                         if (!$rfiItemSqlResult->isValid()) {
                             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                             return false;
                         }
-
                         while ($rfiItemSqlRow = $rfiItemSqlResult->fetchAssociative()) {
                             $rfiItems[] = [
                                 'payslipItemTypeCode'  => $rfiItemSqlRow['payslip_item_type_code'],
@@ -1380,6 +1424,7 @@ class Payrun extends Controller
                     }
                 }
 
+                # Stores all of the results from the Item Query & Item-Fund Query section into the items array.
                 $items[] = [
                     'id' => $itemRow['id'],
                     'type' => [
@@ -1408,36 +1453,122 @@ class Payrun extends Controller
                     'includeInNettPay' => $itemRow['include_in_nett_pay']
                 ];
             }
-
-            // Add the payslip items to the payslip
+            # Appends the  items array to the $payslips array.
             $payslips[count($payslips) - 1]['items'] = $items;
 
-            // Call the calculateTaxCorrection method to get the total tax correction
+            // ---------------------------
+            // PAYE Over Dedcution && Tax Correction section
+            // ---------------------------
+
+            # Gets the nessesseray data from the payslips query for the PAYE Over Dedcution && Tax Correction section.
             $employeeId = $payslipRow['employee_id'];
+            $pID = $payslipRow['id'];
             $sarsYear = $payslipRow['sars_year'];
             $generatedPayslips = $payslips;
             $payeBonusCalculationTypeCode = $payslipRow['paye_bonus_calculation_type_code'];
-
-            $taxCorrectionResult = $this->calculatePayeOverDeductionCorrection($db, $employeeId, $sarsYear, $generatedPayslips);
+            # Calls the calculatePayeOverDeductionCorrection() function that calculates the overdeduction  && Tax Correction
+            # and returns the results
+            $taxCorrectionResult = $this->calculatePayeOverDeductionCorrection($db, $employeeId, $pID, $sarsYear, $generatedPayslips);
 
             if ($taxCorrectionResult['ok'] === true) {
-
-                // Add the calculated tax over deduction to the payslip
-                $payslips[count($payslips) - 1]['taxOverDeduction'] = $taxCorrectionResult['overDeductionAmount'];
-
-                // Add the calculated tax correction to the payslip
-                $payslips[count($payslips) - 1]['taxCorrection'] = $taxCorrectionResult['taxCorrectionAmount'];
+                #Takes the overdeduction amount with the payslips id and adds it to the $OD array
+                // $ODvalues = $taxCorrectionResult['overDeductionAmount'];
+                // foreach ($ODvalues as $key => $value) {
+                //     $OD[$employeeId][$key] = $value;
+                // }
+                #Takes the overdeductionDebit amount with the payslips id and adds it to the $ODDebit array
+                $ODDebitValues = $taxCorrectionResult['overDeductionDebits'];
+                foreach ($ODDebitValues as $key => $value) {
+                    $ODDebit[$employeeId][$key] = $value;
+                }
+                $newODCValues = $taxCorrectionResult['newODC'];
+                foreach ($newODCValues as $key => $value) {
+                    $ODC[$employeeId][$key] = $value;
+                }
             } else {
                 echo json_encode(['ok' => false, 'error' => $taxCorrectionResult['error']]);
                 return false;
             }
         }
-
-        // Add the payslips to the payrun
+        #Loops throught the OD array and calculates the running total, then adds the running total to the ODCreditBalance array
+        // foreach ($OD as $topKey => $nestedArray) {
+        //     $runningTotal = 0;
+        //     $ODCreditBalance[$topKey] = [];
+        //     foreach ($nestedArray as $key => $value) {
+        //         $ODCreditBalance[$topKey][$key] = $value + $runningTotal;
+        //         $runningTotal = $ODCreditBalance[$topKey][$key];
+        //     }
+        // }
+        // #loops through the ODDebit array
+        // foreach ($ODDebit as $employeeId => $debits) {
+        //     #Checks if the employee ID's exists
+        //     if (!isset($ODCreditBalance[$employeeId])) {
+        //         continue;
+        //     }
+        //     #references the $ODCreditBalance array
+        //     $credits = &$ODCreditBalance[$employeeId];
+        //     #Sorts the array according to its payslip ids
+        //     ksort($credits, SORT_NUMERIC);
+        //     #loops through the ODDebit array inner array values, takes the Debit amount, and subtracts is from the OD balance amount
+        //     foreach ($debits as $debitPayslipId => $debitAmount) {
+        //         foreach ($credits as $creditPayslipId => &$creditValue) {
+        //             if ($creditPayslipId > $debitPayslipId) {
+        //                 $creditValue -= $debitAmount;
+        //             }
+        //         }
+        //         unset($creditValue); 
+        //     }
+        // }
+        # appends all the information to the payrun
+        $payrun['newODC'] = $ODC;
+        // $payrun['OverDeductionCredit'] = $ODCreditBalance;
+        $payrun['OverDeductionDebit'] = $ODDebit;
         $payrun['payslips'] = $payslips;
 
         // Send result
         echo (json_encode(['ok' => true, 'payrun' => $payrun]));
+        return true;
+    }
+
+    // Over Deduction "use available credit" pop-up with Annual Payment selection (add payslip item)
+    // Function to get Over Deduction values from db to calculate OD Credit Balance of payslips, per employee, per current SARS year
+    // Uses calculateOverDeductionBalance()-helper function
+    public function getOverDeductionBalance($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        $validationResult = Json::validate($data, [
+            'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'sarsYear'   => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'toDate'     => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => false],
+            'excludePayrunId' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true]
+        ]);
+
+        if ($validationResult !== true) {
+            echo json_encode(['ok' => false, 'error' => $validationResult]);
+            return false;
+        }
+
+        //Exclude current payrun's id from db to ensure "saved" (unprocessed) payrun isn't included
+        $excludePayrunId = $data['excludePayrunId'] ?? null;
+
+        // Debugging:
+        // error_log('Exclude payrunId: ' . var_export($excludePayrunId, true));
+        // error_log('DATA: ' . print_r($data, true));
+
+        $result = $this->calculateOverDeductionBalance(
+            $db,
+            $data['employeeId'],
+            $data['sarsYear'],
+            $data['toDate'],
+            $excludePayrunId
+        );
+
+        echo json_encode([
+            'ok' => true,
+            'availableBalance' => $result['availableBalance']
+        ]);
+
         return true;
     }
 
@@ -1692,6 +1823,7 @@ class Payrun extends Controller
                 'payslips' => ['type' => Json::TYPE_ARRAY, 'required' => true, 'nullable' => false, 'rules' => [
                     ['type' => Json::TYPE_OBJECT, 'required' => true, 'nullable' => false, 'rules' => [
                         'id' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+                        'is_encrypted' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false],
                         'delete' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
                         'statusCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false],
                         'fromDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => false],
@@ -1805,6 +1937,10 @@ class Payrun extends Controller
         foreach ($payrun['payslips'] as $payslip) {
             $payslipId = $payslip['id'];
 
+            // Debugging:
+            // error_log('Update received is_encrypted: ' . json_encode($payslip['is_encrypted']));
+
+
             // Was no payslip id specified?
             if ($payslipId == null) {
                 // Add the payslip to the database
@@ -1821,10 +1957,11 @@ class Payrun extends Controller
                     'payment_period_code, ' .
                     'payment_period_end_day, ' .
                     'paye_calculation_type_code, ' .
-                    'paye_bonus_calculation_type_code ' .
+                    'paye_bonus_calculation_type_code, ' .
+                    'is_encrypted ' .
                     ') ' .
                     'VALUES ( ' .
-                    '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11 ' .
+                    '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12 ' .
                     ') ' .
                     'RETURNING id;';
                 $sqlResult = $db->paramQuery($sqlQuery, [
@@ -1838,7 +1975,8 @@ class Payrun extends Controller
                     $payslip['taxPeriod']['type'],      // payment_period_code
                     $payslip['employee']['paymentPeriodEndDay'],  // payment_period_end_day
                     $payeCalculationTypeCode,
-                    $payeBonusCalculationTypeCode
+                    $payeBonusCalculationTypeCode,
+                    (bool)$payslip['is_encrypted']
                 ]);
 
                 if (!$sqlResult->isValid()) {
@@ -1872,6 +2010,9 @@ class Payrun extends Controller
                     } else if ($item['amount'] !== null) {
                         $total = $item['amount'];
                     }
+
+                    //2025-05-15 Added to eliminate comma error
+                    // $total = (float)$total;
 
                     $sqlQuery =
                         'INSERT INTO ' .
@@ -2029,9 +2170,10 @@ class Payrun extends Controller
                 'payment_period_code = $8, ' .
                 'payment_period_end_day = $9, ' .
                 'paye_calculation_type_code = $10, ' .
-                'paye_bonus_calculation_type_code = $11 ' .
+                'paye_bonus_calculation_type_code = $11, ' .
+                'is_encrypted = $12 ' .
                 'WHERE ' .
-                'id = $12;';
+                'id = $13;';
             $sqlResult = $db->paramQuery($sqlQuery, [
                 $payrunId,                          // payrun_id
                 $payslip['employee']['id'],         // employee_id
@@ -2044,6 +2186,7 @@ class Payrun extends Controller
                 $payslip['employee']['paymentPeriodEndDay'], // payment_period_end_day
                 $payeCalculationTypeCode,           // paye_calculation_type_code
                 $payeBonusCalculationTypeCode,      // paye_bonus_calculation_type_code
+                (bool)$payslip['is_encrypted'],
                 $payslipId                          // id
             ]);
             if (!$sqlResult->isValid()) {
@@ -2078,6 +2221,9 @@ class Payrun extends Controller
                     } else if ($item['amount'] !== null) {
                         $total = $item['amount'];
                     }
+
+                    //2025-05-15 Added to eliminate comma error
+                    // $total = (float)$total;
 
                     $sqlQuery =
                         'INSERT INTO ' .
@@ -2240,6 +2386,9 @@ class Payrun extends Controller
                 } else if ($item['amount'] !== null) {
                     $total = $item['amount'];
                 }
+
+                //2025-05-15 Added to eliminate comma error
+                // $total = (float)$total;
 
                 $sqlQuery =
                     'UPDATE ' .
@@ -2493,7 +2642,8 @@ class Payrun extends Controller
         $validationResult = Json::validate($data, [
             // Required parameters
             'payrunId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
-            'emailPayslips' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false]
+            'emailPayslips' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false],
+            'encryptPayslips' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false]
         ]);
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
@@ -2502,6 +2652,7 @@ class Payrun extends Controller
 
         $payrunId = $data['payrunId'];
         $emailPayslips = $data['emailPayslips'];
+        $encryptPayslips = $data['encryptPayslips'];
 
         // Check if the specified payrun already been processed.
         $sqlQuery = 'SELECT processed_on FROM payruns WHERE id = $1;';
@@ -2866,6 +3017,7 @@ class Payrun extends Controller
             $leaveDetails = [
                 'employeeId' => $payslipRow['employee_id'],
                 'payslipId' => $payslipRow['id'],
+                'payrunId' => $payrunId,
                 'hoursWorked' => $hoursWorked,
                 'daysWorked' => $daysWorked,
                 'leaveSourceType' => 'PAYS',
@@ -2878,14 +3030,8 @@ class Payrun extends Controller
 
 
         //
-        // PRINT AND EMAIL THE PAYSLIPS
+        // PRINT, ENCRYPT AND EMAIL THE PAYSLIPS
         //
-
-        // Should payslips NOT be emailed?
-        if ($emailPayslips !== true) {
-            echo (json_encode(['ok' => true]));
-            return true;
-        }
 
         // Use the mailer module to send payslips
         System::useModule('phpmailer');
@@ -2895,387 +3041,491 @@ class Payrun extends Controller
 
         // Create a new payslip printer
         $printer = new PayslipPrinter([]);
-        $templateConfig = $printer->getConfigParameters();
 
-        $sqlQuery = 'SELECT value FROM config WHERE name = \'client_data_dir\'';
-        $sqlResult = $db->paramQuery($sqlQuery, []);
-        if (!$sqlResult->isValid()) {
-            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-            return false;
-        }
-        $sqlRow = $sqlResult->fetchAssociative();
-
-        // Create payslip template image directory
-        $imageDir = CONF_CLIENT_DIR . $sqlRow['value'] . '/payslip_images/';
-
-        // Get saved config details
-        $sqlQuery =
-            'SELECT ' .
-            'payslip_templates.id, payslip_template_config.name, payslip_template_config.value ' .
-            'FROM ' .
-            'payslip_templates ' .
-            'LEFT JOIN ' .
-            'payslip_template_config ON payslip_template_id = payslip_templates.id ' .
-            'WHERE ' .
-            'payslip_templates.name = \'default\'';
-        $sqlResult = $db->paramQuery($sqlQuery, []);
-        if (!$sqlResult->isValid()) {
-            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-            return false;
-        }
-
-        $config = [];
-
-        // Create config array
-        while ($sqlRow = $sqlResult->fetchAssociative()) {
-            $skip = false;
-            for ($i = 0; $i < count($templateConfig); $i++) {
-                if ($sqlRow['name'] === $templateConfig[$i]['name']) {
-                    if ($templateConfig[$i]['type'] === 'image') {
-                        if (file_exists($imageDir . $sqlRow['value'] . '.png')) {
-                            $config[$sqlRow['name']] = $imageDir . $sqlRow['value'] . '.png';
-                        }
-                        $skip = true;
-                        break;
-                    }
-                }
-            }
-            if (!$skip) {
-                $config[$sqlRow['name']] = $sqlRow['value'];
-            }
-        }
-
-        // Create a random folder in the temp directory
-        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $charactersLength = strlen($characters);
-
-        $destDir = '';
-        for ($i = 0; $i < 32; $i++) {
-            $destDir = $destDir . $characters[rand(0, $charactersLength - 1)];
-        }
-        $destDir = CONF_TEMP_DIR . $destDir . '/';
-
-        // Does the destination folder not exist?
-        if (!file_exists($destDir)) {
-            mkdir($destDir, 0777, true);
-        }
-
-        // Get the company details required to print payslips
-        $sqlQuery =
-            'SELECT ' .
-            'company_details.id, ' .
-            'company_details.name, ' .
-            'company_details.alias, ' .
-            'company_details.registration_number, ' .
-            'company_details.physical_address_unit, ' .
-            'company_details.physical_address_complex, ' .
-            'company_details.physical_address_street, ' .
-            'company_details.physical_address_suburb, ' .
-            'company_details.physical_address_city, ' .
-            'company_details.physical_address_postal_code, ' .
-            'company_details.physical_address_country_code, ' .
-            'company_details.postal_address_line_1, ' .
-            'company_details.postal_address_line_2, ' .
-            'company_details.postal_address_line_3, ' .
-            'company_details.postal_address_code, ' .
-            'company_details.tel_number, ' .
-            'company_details.fax_number, ' .
-            'company_details.email_address, ' .
-            'company_details.paye_reference_number, ' .
-            'company_details.sdl_payment_reference_number, ' .
-            'company_details.uif_payment_reference_number, ' .
-            'company_details.uif_registration_number, ' .
-            'company_details.sic_code, ' .
-            'company_details.eti_status_code, ' .
-            'company_details.special_economic_zone_code, ' .
-            'company_details.diplomatic_indemnity, ' .
-            'company_details.sars_contact_email_address, ' .
-            'company_details.uif_contact_person, ' .
-            'company_details.uif_contact_email_address, ' .
-            'company_details.uif_contact_number, ' .
-            'countries.name AS physical_address_country_name ' .
-            'FROM ' .
-            'company_details ' .
-            'LEFT JOIN ' .
-            'countries ON countries.code = company_details.physical_address_country_code ' .
-            'ORDER BY id DESC LIMIT 1; ';
-
-        $sqlResult = $db->paramQuery($sqlQuery, []);
-        if (!$sqlResult->isValid()) {
-            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-            return false;
-        }
-
-        $sqlRow = $sqlResult->fetchAssociative();
-
-        $companyName = $sqlRow['name'];
-        $companyAddressLine1 = $sqlRow['postal_address_line_1'];
-        $companyAddressLine2 = $sqlRow['postal_address_line_2'];
-        $companyAddressLine3 = $sqlRow['postal_address_line_3'];
-        $companyAddressLine4 = $sqlRow['postal_address_code'];
-        $companyTel = $sqlRow['tel_number'];
-        $companyFax = $sqlRow['fax_number'];
-        $companyEmail = $sqlRow['email_address'];
-        $companyLogo = '';
-
-        // Get details about every active payslip
-        $payslipQuery =
+        // Get details about every active payslip ecryption status
+        $payslipEcryptionQuery =
             'SELECT DISTINCT ' .
             'payslips.id, ' .
-            'payslips.period, ' .
-            'payslips.sars_year, ' .
-            'payslips.from_date, ' .
-            'payslips.to_date, ' .
             'payslips.employee_id, ' .
+            'payslips.is_encrypted, ' .
             'employees.id AS employee_id, ' .
             'employees.full_names, ' .
             'employees.first_name, ' .
             'employees.last_name, ' .
-            'employees.alias, ' .
             'employees.id_number, ' .
-            'employees.passport_number, ' .
-            'employees.income_tax_number, ' .
-            'employees.cell_number, ' .
-            'employees.email_address, ' .
-            'employees.payment_period_code, ' .
-            'employees.payment_period_end_day, ' .
-            'departments.name AS department_name, ' .
-            'employees.employment_position, ' .
-            'employees.employment_start_date, ' .
-            'employees.employment_end_date, ' .
-            'employees.postal_address_line_1, ' .
-            'employees.postal_address_line_2, ' .
-            'employees.postal_address_line_3, ' .
-            'employees.postal_address_code, ' .
-            'employees.code, ' .
-            'employees.send_payslip_by_email, ' .
-            'employee_bank_details.account_number, ' .
-            'employee_bank_details.branch_code, ' .
-            'bank_account_types.name AS bank_account_type_name ' .
+            'employees.passport_number ' .
             'FROM ' .
             'payslips ' .
             'LEFT JOIN ' .
             'employees ON employees.id = payslips.employee_id ' .
-            'LEFT JOIN ' .
-            'departments ON departments.id = employees.department_id ' .
-            'LEFT JOIN ' .
-            'employee_bank_details ON employee_bank_details.employee_id = employees.id ' .
-            'LEFT JOIN ' .
-            'bank_account_types ON employee_bank_details.bank_account_type_code = bank_account_types.code ' .
             'WHERE ' .
             'payslips.payrun_id = $1 AND ' .
             'payslips.status_code = \'ACTI\' ' .
             'ORDER BY employees.id ASC;';
-        $payslipResult = $db->paramQuery($payslipQuery, [
+        $payslipEncryptionResult = $db->paramQuery($payslipEcryptionQuery, [
             $payrunId
         ]);
-        if (!$payslipResult->isValid()) {
+        if (!$payslipEncryptionResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
         // Calculate leave and email the payslip to the employees where possible
-        while ($payslipRow = $payslipResult->fetchAssociative()) {
-            // Set time limit to 10 minutes
-            set_time_limit(600);
+        while ($PERow = $payslipEncryptionResult->fetchAssociative()) {
+            // Debugging
+            // error_log('Encrypt flag in process(): ' . ($encryptPayslips ? 'true' : 'false'));
 
-            // Clear previous payslip printer details, if any
-            $printer->clear();
+            // Enable encryption if selected for payrun or individual payslips
+            $shouldEncrypt = $encryptPayslips === true || (bool)$PERow['is_encrypted'] === true;
 
-            // Set config of the pdf
-            $printer->setConfig($config);
+            if ($shouldEncrypt) {
 
-            // Add the company, employee, and payslip details to the payslip printer
-            $printer->setCompanyName($companyName);
-            $printer->setCompanyAddress($companyAddressLine1, $companyAddressLine2, $companyAddressLine3, $companyAddressLine4);
-            $printer->setCompanyTel($companyTel);
-            $printer->setCompanyFaxNumber($companyFax);
-            $printer->setCompanyEmail($companyEmail);
-            $printer->setCompanyLogo($companyLogo);
+                // If employee doesn't have a valid ID or passport number, encryption should be blocked - processing of payrun continues.
+                $identityNumber = $PERow['id_number'] ?: $PERow['passport_number'];
 
-            $department = $payslipRow['department_name'];
-            if ($department === null) $department = '';
+                if (empty($identityNumber)) {
 
-            $printer->setEmployeeFullName($payslipRow['full_names'] . ' ' . $payslipRow['last_name']);
-            $printer->setEmployeeAlias($payslipRow['alias']);
-            $printer->setEmployeeCode($payslipRow['code']);
-            $printer->setEmployeeDepartment($department);
-            $printer->setEmployeePosition($payslipRow['employment_position']);
-            $printer->setEmployeeEmploymentStart($payslipRow['employment_start_date']);
-            $printer->setEmployeeEmail($payslipRow['email_address']);
-            $printer->setEmployeeAddress($payslipRow['postal_address_line_1'], $payslipRow['postal_address_line_2'], $payslipRow['postal_address_line_3'], $payslipRow['postal_address_code']);
-            $printer->setEmployeeCell($payslipRow['cell_number']);
-            $printer->setEmployeeIdNumber($payslipRow['id_number']);
-            $printer->setEmployeePassportNumber($payslipRow['passport_number']);
-            $printer->setEmployeeIncomeTaxNumber($payslipRow['income_tax_number']);
+                    // Log employees where encryption is skipped
+                    //error_log('Encryption skipped. Missing identity for employee ' . $PERow['full_names']);
 
-            $bankAccountTypeName = $payslipRow['bank_account_type_name'];
-            if ($bankAccountTypeName === null) $bankAccountTypeName = '';
-            $printer->setEmployeeBankName($bankAccountTypeName);
+                    // Track warnings
+                    $encryptionWarnings[] = $PERow['full_names'];
 
-            $accountNumber = $payslipRow['account_number'];
-            if ($accountNumber === null) $accountNumber = '';
-            $printer->setEmployeeAccountNumber($accountNumber);
+                    // Ensure db is_encrypted is false
+                    $db->paramQuery(
+                        'UPDATE payslips SET is_encrypted = false WHERE id = $1;',
+                        [$PERow['id']]
+                    );
+                } else {
 
-            $branchCode = $payslipRow['branch_code'];
-            if ($branchCode === null) $branchCode = '';
-            $printer->setEmployeeBankCode($branchCode);
+                    // db is_encrypted updated to true
+                    $db->paramQuery(
+                        'UPDATE payslips SET is_encrypted = true WHERE id = $1;',
+                        [$PERow['id']]
+                    );
 
-            $printer->setEmployeePeriod($payslipRow['from_date'] . ' - ' . $payslipRow['to_date']);
-            $printer->setPayslipToDate($payslipRow['to_date']);
+                    // Encrypt PDF
+                    $printer->enableEncryption($identityNumber);
+                }
+            }
+        }
 
-            // Get all the items for the specified payslip
-            $itemQuery =
-                'SELECT DISTINCT ' .
-                'payslip_items.id, ' .
-                'payslip_items.payslip_item_type_code, ' .
-                'payslip_item_types.name AS type_name, ' .
-                'payslip_item_types.payslip_item_unit_code, ' .
-                'payslip_item_types.payslip_category_code, ' .
-                'payslip_categories.name AS payslip_category_name, ' .
-                'payslip_items.description, ' .
-                'payslip_items.accrual_date, ' .
-                'payslip_items.units, ' .
-                'payslip_items.rate, ' .
-                'payslip_items.total, ' .
-                'payslip_items.include_in_nett_pay ' .
+        if ($emailPayslips) {
+
+            $templateConfig = $printer->getConfigParameters();
+
+            $sqlQuery = 'SELECT value FROM config WHERE name = \'client_data_dir\'';
+            $sqlResult = $db->paramQuery($sqlQuery, []);
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+            $sqlRow = $sqlResult->fetchAssociative();
+
+            // Create payslip template image directory
+            $imageDir = CONF_CLIENT_DIR . $sqlRow['value'] . '/payslip_images/';
+
+            // Get saved config details
+            $sqlQuery =
+                'SELECT ' .
+                'payslip_templates.id, payslip_template_config.name, payslip_template_config.value ' .
                 'FROM ' .
-                'payslip_items ' .
+                'payslip_templates ' .
                 'LEFT JOIN ' .
-                'payslip_item_types ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
-                'LEFT JOIN ' .
-                'payslip_categories ON payslip_categories.code = payslip_item_types.payslip_category_code ' .
+                'payslip_template_config ON payslip_template_id = payslip_templates.id ' .
                 'WHERE ' .
-                'payslip_items.payslip_id = $1 ' .
-                'ORDER BY ' .
-                'payslip_categories.name DESC;';
-            $itemResult = $db->paramQuery($itemQuery, [
-                $payslipRow['id']
-            ]);
-            if (!$itemResult->isValid()) {
+                'payslip_templates.name = \'default\'';
+            $sqlResult = $db->paramQuery($sqlQuery, []);
+            if (!$sqlResult->isValid()) {
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                 return false;
             }
 
-            // Set the payslip item details
-            $hoursWorked = null;
-            $daysWorked = null;
-            while ($itemRow = $itemResult->fetchAssociative()) {
-                // Remember hours or days worked, if any
-                if ($itemRow['payslip_item_unit_code'] === 'PHOU') {
-                    $hoursWorked = $itemRow['units'];
-                } else if ($itemRow['payslip_item_unit_code'] === 'PDAY') {
-                    $daysWorked = $itemRow['units'];
+            $config = [];
+
+            // Create config array
+            while ($sqlRow = $sqlResult->fetchAssociative()) {
+
+                // if to handle 'name' === null or empty string exceptions
+                if ($sqlRow['name'] === null || $sqlRow['name'] === '') {
+                    error_log(
+                        'Payrun config row with NULL/empty name: ' .
+                            json_encode($sqlRow)
+                    );
+                    continue;
                 }
-
-                // Calculate the amount
-                $amount = $itemRow['total'];
-                if ($itemRow['units'] !== null && $itemRow['rate'] !== null) {
-                    $amount = doubleval($itemRow['units']) * doubleval($itemRow['rate']);
+                $skip = false;
+                for ($i = 0; $i < count($templateConfig); $i++) {
+                    if ($sqlRow['name'] === $templateConfig[$i]['name']) {
+                        if ($templateConfig[$i]['type'] === 'image') {
+                            if (file_exists($imageDir . $sqlRow['value'] . '.png')) {
+                                $config[$sqlRow['name']] = $imageDir . $sqlRow['value'] . '.png';
+                            }
+                            $skip = true;
+                            break;
+                        }
+                    }
                 }
-
-                // Set the description
-                $description = $itemRow['description'];
-
-                // Is it an overtime item?
-                if ($itemRow['payslip_item_type_code'] == '1005') {
-                    // Add the number of hours worked to the payslip item description
-                    $description = $description . ' (' . $hoursWorked . ' hours)';
+                if (!$skip) {
+                    $config[$sqlRow['name']] = $sqlRow['value'];
                 }
-
-                // Add the specified item details to the payslip printer
-                $printer->addPayslipItem($itemRow['payslip_category_name'], $description, $amount, $itemRow['include_in_nett_pay']);
             }
 
-            // $leaveData = \LeaveUtil\getLeaveBalances( $payslipRow['employee_id'], $payslipRow['from_date'], $payslipRow['to_date'], $user, $db );
-            $leaveData = \LeaveUtil\calculateLeaveBalances($payslipRow['employee_id'], $payslipRow['from_date'], $payslipRow['to_date'], $user, $db);
+            // Create a random folder in the temp directory
+            $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            $charactersLength = strlen($characters);
 
-            foreach ($leaveData as $key => $value) {
-                $printer->addLeaveItem(
-                    $key,
-                    $leaveData[$key]['adjustment'],
-                    $leaveData[$key]['accrued'],
-                    $leaveData[$key]['taken'],
-                    $leaveData[$key]['balance'],
-                    $leaveData[$key]['unit']
-                );
-            }
-
-            // Skip employees that have payslip emails disabled.
-            if ($payslipRow['send_payslip_by_email'] !== true) continue;
-
-            // Does the specified employee not have a valid email address?
-            if ($payslipRow['email_address'] === null || $payslipRow['email_address'] === '') {
-                // Go to the next payslip
-                continue;
-            }
-
-            // Print the payslip
-            $printer->printPayslip();
-
-            // Create a random filename for the payslip
-            $filename = '';
+            $destDir = '';
             for ($i = 0; $i < 32; $i++) {
-                $filename = $filename . $characters[rand(0, $charactersLength - 1)];
+                $destDir = $destDir . $characters[rand(0, $charactersLength - 1)];
             }
-            $filename = $destDir . $filename . '.pdf';
+            $destDir = CONF_TEMP_DIR . $destDir . '/';
 
-            // Save the file
-            $printer->saveToFile($filename);
+            // Does the destination folder not exist?
+            if (!file_exists($destDir)) {
+                mkdir($destDir, 0777, true);
+            }
 
-            // Send the email
-            $mail = new PHPMailer\PHPMailer\PHPMailer();
+            // Get the company details required to print payslips
+            $sqlQuery =
+                'SELECT ' .
+                'company_details.id, ' .
+                'company_details.name, ' .
+                'company_details.alias, ' .
+                'company_details.registration_number, ' .
+                'company_details.physical_address_unit, ' .
+                'company_details.physical_address_complex, ' .
+                'company_details.physical_address_street, ' .
+                'company_details.physical_address_suburb, ' .
+                'company_details.physical_address_city, ' .
+                'company_details.physical_address_postal_code, ' .
+                'company_details.physical_address_country_code, ' .
+                'company_details.postal_address_line_1, ' .
+                'company_details.postal_address_line_2, ' .
+                'company_details.postal_address_line_3, ' .
+                'company_details.postal_address_code, ' .
+                'company_details.tel_number, ' .
+                'company_details.fax_number, ' .
+                'company_details.email_address, ' .
+                'company_details.paye_reference_number, ' .
+                'company_details.sdl_payment_reference_number, ' .
+                'company_details.uif_payment_reference_number, ' .
+                'company_details.uif_registration_number, ' .
+                'company_details.sic_code, ' .
+                'company_details.eti_status_code, ' .
+                'company_details.special_economic_zone_code, ' .
+                'company_details.diplomatic_indemnity, ' .
+                'company_details.sars_contact_email_address, ' .
+                'company_details.uif_contact_person, ' .
+                'company_details.uif_contact_email_address, ' .
+                'company_details.uif_contact_number, ' .
+                'countries.name AS physical_address_country_name ' .
+                'FROM ' .
+                'company_details ' .
+                'LEFT JOIN ' .
+                'countries ON countries.code = company_details.physical_address_country_code ' .
+                'ORDER BY id DESC LIMIT 1; ';
 
-            //Set SMPT settings
-            $mail->isSMTP();
-            $mail->Host = CONF_SMTP_HOST;
-            $mail->Port = CONF_SMTP_PORT;
-            $mail->charSet = 'UTF-8';
-            $mail->SMTPAuth = true;
-            $mail->Username = CONF_SMTP_USERNAME;
-            $mail->Password = CONF_SMTP_PASSW;
+            $sqlResult = $db->paramQuery($sqlQuery, []);
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
 
-            // Recipients
-            $mail->setFrom(CONF_EMAIL_FROMADDRESS, 'Payaccsys Payroll');
-            $mail->addAddress($payslipRow['email_address'], $payslipRow['alias']);
+            $sqlRow = $sqlResult->fetchAssociative();
 
-            // Add the pasylip as an attachment
-            $mail->addAttachment($filename, 'payslip_' . str_replace('-', '', $payslipRow['to_date']) . '.pdf');
+            $companyName = $sqlRow['name'];
+            $companyAddressLine1 = $sqlRow['postal_address_line_1'];
+            $companyAddressLine2 = $sqlRow['postal_address_line_2'];
+            $companyAddressLine3 = $sqlRow['postal_address_line_3'];
+            $companyAddressLine4 = $sqlRow['postal_address_code'];
+            $companyTel = $sqlRow['tel_number'];
+            $companyFax = $sqlRow['fax_number'];
+            $companyEmail = $sqlRow['email_address'];
+            $companyLogo = '';
 
-            // Set the email text
-            $htmlBody =
-                'Dear ' . $payslipRow['alias'] . ',<br><br>' .
-                'Please find the attached payslip for <b>' . $payslipRow['full_names'] . ' ' . $payslipRow['last_name'] . '</b> for the period <b>' . $payslipRow['from_date'] . ' to ' . $payslipRow['to_date'] . '</b>.<br><br>' .
-                'If you have any queries, please don\'t hesitate to contact us.<br><br>' .
-                'Regards,<br><br>' .
-                'HR Department,<br><br>' .
-                $companyName;
+            // Get details about every active payslip
+            $payslipQuery =
+                'SELECT DISTINCT ' .
+                'payslips.id, ' .
+                'payslips.period, ' .
+                'payslips.sars_year, ' .
+                'payslips.from_date, ' .
+                'payslips.to_date, ' .
+                'payslips.employee_id, ' .
+                'payslips.is_encrypted, ' .
+                'employees.id AS employee_id, ' .
+                'employees.full_names, ' .
+                'employees.first_name, ' .
+                'employees.last_name, ' .
+                'employees.alias, ' .
+                'employees.id_number, ' .
+                'employees.passport_number, ' .
+                'employees.income_tax_number, ' .
+                'employees.cell_number, ' .
+                'employees.email_address, ' .
+                'employees.payment_period_code, ' .
+                'employees.payment_period_end_day, ' .
+                'departments.name AS department_name, ' .
+                'employees.employment_position, ' .
+                'employees.employment_start_date, ' .
+                'employees.employment_end_date, ' .
+                'employees.postal_address_line_1, ' .
+                'employees.postal_address_line_2, ' .
+                'employees.postal_address_line_3, ' .
+                'employees.postal_address_code, ' .
+                'employees.code, ' .
+                'employees.send_payslip_by_email, ' .
+                'employee_bank_details.account_number, ' .
+                'employee_bank_details.branch_code, ' .
+                'bank_account_types.name AS bank_account_type_name ' .
+                'FROM ' .
+                'payslips ' .
+                'LEFT JOIN ' .
+                'employees ON employees.id = payslips.employee_id ' .
+                'LEFT JOIN ' .
+                'departments ON departments.id = employees.department_id ' .
+                'LEFT JOIN ' .
+                'employee_bank_details ON employee_bank_details.employee_id = employees.id ' .
+                'LEFT JOIN ' .
+                'bank_account_types ON employee_bank_details.bank_account_type_code = bank_account_types.code ' .
+                'WHERE ' .
+                'payslips.payrun_id = $1 AND ' .
+                'payslips.status_code = \'ACTI\' ' .
+                'ORDER BY employees.id ASC;';
+            $payslipResult = $db->paramQuery($payslipQuery, [
+                $payrunId
+            ]);
+            if (!$payslipResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
 
-            $plainTexBody =
-                "Dear " . $payslipRow['alias'] . ",\r\n\r\n" .
-                "Please find the attached payslip for " . $payslipRow['full_names'] . " " . $payslipRow['last_name'] . " for the period " . $payslipRow['from_date'] . " to " . $payslipRow['to_date'] . ".\r\n\r\n" .
-                "If you have any queries, please don\'t hesitate to contact us.\r\n\r\n" .
-                "Regards,\r\n\r\n" .
-                "HR Department,\r\n\r\n" .
-                $companyName;
+            // Calculate leave and email the payslip to the employees where possible
+            while ($payslipRow = $payslipResult->fetchAssociative()) {
+                // Set time limit to 10 minutes
+                set_time_limit(600);
 
-            // Set the email content
-            $mail->isHTML(true);    // Set email format to HTML
-            $mail->Subject = $companyName . ' payslip for period ending ' . $payslipRow['to_date'];
-            $mail->Body    = $htmlBody;
-            $mail->AltBody = $plainTexBody;
+                // Clear previous payslip printer details, if any
+                $printer->clear();
 
-            // Send the email
-            $mail->send();
+                // Set config of the pdf
+                $printer->setConfig($config);
 
-            // Delete the PDF
-            unlink($filename);
+                // Add the company, employee, and payslip details to the payslip printer
+                $printer->setCompanyName($companyName);
+                $printer->setCompanyAddress($companyAddressLine1, $companyAddressLine2, $companyAddressLine3, $companyAddressLine4);
+                $printer->setCompanyTel($companyTel);
+                $printer->setCompanyFaxNumber($companyFax);
+                $printer->setCompanyEmail($companyEmail);
+                $printer->setCompanyLogo($companyLogo);
+
+                $department = $payslipRow['department_name'];
+                if ($department === null) $department = '';
+
+                $printer->setEmployeeFullName($payslipRow['full_names'] . ' ' . $payslipRow['last_name']);
+                $printer->setEmployeeAlias($payslipRow['alias']);
+                $printer->setEmployeeCode($payslipRow['code']);
+                $printer->setEmployeeDepartment($department);
+                $printer->setEmployeePosition($payslipRow['employment_position']);
+                $printer->setEmployeeEmploymentStart($payslipRow['employment_start_date']);
+                $printer->setEmployeeEmail($payslipRow['email_address']);
+                $printer->setEmployeeAddress($payslipRow['postal_address_line_1'], $payslipRow['postal_address_line_2'], $payslipRow['postal_address_line_3'], $payslipRow['postal_address_code']);
+                $printer->setEmployeeCell($payslipRow['cell_number']);
+                $printer->setEmployeeIdNumber($payslipRow['id_number']);
+                $printer->setEmployeePassportNumber($payslipRow['passport_number']);
+                $printer->setEmployeeIncomeTaxNumber($payslipRow['income_tax_number']);
+
+                $bankAccountTypeName = $payslipRow['bank_account_type_name'];
+                if ($bankAccountTypeName === null) $bankAccountTypeName = '';
+                $printer->setEmployeeBankName($bankAccountTypeName);
+
+                $accountNumber = $payslipRow['account_number'];
+                if ($accountNumber === null) $accountNumber = '';
+                $printer->setEmployeeAccountNumber($accountNumber);
+
+                $branchCode = $payslipRow['branch_code'];
+                if ($branchCode === null) $branchCode = '';
+                $printer->setEmployeeBankCode($branchCode);
+
+                $printer->setEmployeePeriod($payslipRow['from_date'] . ' - ' . $payslipRow['to_date']);
+                $printer->setPayslipToDate($payslipRow['to_date']);
+
+                // Get all the items for the specified payslip
+                $itemQuery =
+                    'SELECT DISTINCT ' .
+                    'payslip_items.id, ' .
+                    'payslip_items.payslip_item_type_code, ' .
+                    'payslip_item_types.name AS type_name, ' .
+                    'payslip_item_types.payslip_item_unit_code, ' .
+                    'payslip_item_types.payslip_category_code, ' .
+                    'payslip_categories.name AS payslip_category_name, ' .
+                    'payslip_items.description, ' .
+                    'payslip_items.accrual_date, ' .
+                    'payslip_items.units, ' .
+                    'payslip_items.rate, ' .
+                    'payslip_items.total, ' .
+                    'payslip_items.include_in_nett_pay ' .
+                    'FROM ' .
+                    'payslip_items ' .
+                    'LEFT JOIN ' .
+                    'payslip_item_types ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
+                    'LEFT JOIN ' .
+                    'payslip_categories ON payslip_categories.code = payslip_item_types.payslip_category_code ' .
+                    'WHERE ' .
+                    'payslip_items.payslip_id = $1 ' .
+                    'ORDER BY ' .
+                    'payslip_categories.name DESC;';
+                $itemResult = $db->paramQuery($itemQuery, [
+                    $payslipRow['id']
+                ]);
+                if (!$itemResult->isValid()) {
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+
+                // Set the payslip item details
+                $hoursWorked = null;
+                $daysWorked = null;
+                while ($itemRow = $itemResult->fetchAssociative()) {
+                    // Remember hours or days worked, if any
+                    if ($itemRow['payslip_item_unit_code'] === 'PHOU') {
+                        $hoursWorked = $itemRow['units'];
+                    } else if ($itemRow['payslip_item_unit_code'] === 'PDAY') {
+                        $daysWorked = $itemRow['units'];
+                    }
+
+                    // Calculate the amount
+                    $amount = $itemRow['total'];
+                    if ($itemRow['units'] !== null && $itemRow['rate'] !== null) {
+                        $amount = doubleval($itemRow['units']) * doubleval($itemRow['rate']);
+                    }
+
+                    // Set the description
+                    $description = $itemRow['description'];
+
+                    // Is it an overtime item?
+                    if ($itemRow['payslip_item_type_code'] == '1005') {
+                        // Add the number of hours worked to the payslip item description
+                        $description = $description . ' (' . $hoursWorked . ' hours)';
+                    }
+
+                    // Add the specified item details to the payslip printer
+                    $printer->addPayslipItem($itemRow['payslip_category_name'], $description, $amount, $itemRow['include_in_nett_pay']);
+                }
+
+                // $leaveData = \LeaveUtil\getLeaveBalances( $payslipRow['employee_id'], $payslipRow['from_date'], $payslipRow['to_date'], $user, $db );
+                $leaveData = \LeaveUtil\calculateLeaveBalances($payslipRow['employee_id'], $payslipRow['from_date'], $payslipRow['to_date'], $user, $db);
+
+                foreach ($leaveData as $key => $value) {
+                    $printer->addLeaveItem(
+                        $key,
+                        $leaveData[$key]['adjustment'],
+                        $leaveData[$key]['accrued'],
+                        $leaveData[$key]['taken'],
+                        $leaveData[$key]['balance'],
+                        $leaveData[$key]['unit']
+                    );
+                }
+
+                // Print the payslip
+                $printer->printPayslip();
+
+                // Create a random filename for the payslip
+                $filename = '';
+                for ($i = 0; $i < 32; $i++) {
+                    $filename = $filename . $characters[rand(0, $charactersLength - 1)];
+                }
+                $filename = $destDir . $filename . '.pdf';
+
+                // Save the file
+                $printer->saveToFile($filename);
+
+                // Skip employees that have payslip emails disabled.
+                if ($payslipRow['send_payslip_by_email'] !== true) {
+                    if (file_exists($filename)) {
+                        unlink($filename);
+                    }
+                    continue;
+                }
+
+                // Does the specified employee not have a valid email address?
+                if ($payslipRow['email_address'] === null || $payslipRow['email_address'] === '') {
+                    if (file_exists($filename)) {
+                        unlink($filename);
+                    }
+                    // Go to the next payslip
+                    continue;
+                }
+
+                // Send the email
+                $mail = new PHPMailer\PHPMailer\PHPMailer();
+
+                //Set SMPT settings
+                $mail->isSMTP();
+                $mail->Host = CONF_SMTP_HOST;
+                $mail->Port = CONF_SMTP_PORT;
+                // 2025-04-25 Ray King - changed charSet to CharSet
+                $mail->CharSet = 'UTF-8';
+
+                // Recipients
+                $mail->setFrom(CONF_EMAIL_FROMADDRESS, 'PayaccSys Payroll');
+                $mail->addAddress($payslipRow['email_address'], $payslipRow['alias']);
+
+                // Add the pasylip as an attachment
+                $mail->addAttachment($filename, 'payslip_' . str_replace('-', '', $payslipRow['to_date']) . '.pdf');
+
+                // Set the email text
+                $htmlBody =
+                    'Dear ' . $payslipRow['alias'] . ',<br><br>' .
+                    'Please find the attached payslip for <b>' . $payslipRow['full_names'] . ' ' . $payslipRow['last_name'] . '</b> for the period <b>' . $payslipRow['from_date'] . ' to ' . $payslipRow['to_date'] . '</b>.<br><br>' .
+                    'If you have any queries, please don\'t hesitate to contact us.<br><br>' .
+                    'Regards,<br><br>' .
+                    'HR Department,<br><br>' .
+                    $companyName;
+
+                $plainTexBody =
+                    "Dear " . $payslipRow['alias'] . ",\r\n\r\n" .
+                    "Please find the attached payslip for " . $payslipRow['full_names'] . " " . $payslipRow['last_name'] . " for the period " . $payslipRow['from_date'] . " to " . $payslipRow['to_date'] . ".\r\n\r\n" .
+                    "If you have any queries, please don\'t hesitate to contact us.\r\n\r\n" .
+                    "Regards,\r\n\r\n" .
+                    "HR Department,\r\n\r\n" .
+                    $companyName;
+
+                // Set the email content
+                $mail->isHTML(true);    // Set email format to HTML
+                $mail->Subject = $companyName . ' payslip for period ending ' . $payslipRow['to_date'];
+                $mail->Body    = $htmlBody;
+                $mail->AltBody = $plainTexBody;
+
+                // Send the email
+                $mail->send();
+
+                // Delete the PDF
+                unlink($filename);
+            }
+
+            // Delete the temp folder
+            if (is_dir($destDir)) {
+                $files = array_diff(scandir($destDir), array('.', '..'));
+                foreach ($files as $file) {
+                    if (file_exists($destDir . $file)) {
+                        unlink($destDir . $file);
+                    }
+                }
+                rmdir($destDir);
+            }
+            // Build final response
+
+        }
+        $response = ['ok' => true];
+
+        if (!empty($encryptionWarnings)) {
+            $response['warning'] =
+                'Encryption skipped for: ' . implode(', ', $encryptionWarnings);
         }
 
-        // Delete the temp folder
-        rmdir($destDir);
-
-        echo (json_encode(['ok' => true]));
+        echo json_encode($response);
         return true;
     }
 
@@ -3642,6 +3892,9 @@ class Payrun extends Controller
             }
         }
 
+        // Debugging: 
+        // error_log('Generated payslips: ' . json_encode($result['payslips']));
+
         echo (json_encode(['ok' => true, 'payslips' => $payslips]));
         return true;
     }
@@ -3655,6 +3908,7 @@ class Payrun extends Controller
     //  None
     public function recreatePayslipItems($data, $user, $db)
     {
+
         // Set content type header
         header('Content-Type: application/json');
 
@@ -3796,6 +4050,7 @@ class Payrun extends Controller
     //  None
     public function calculatePayslips($data, $user, $db)
     {
+
         // Set content type header
         header('Content-Type: application/json');
 
@@ -3807,6 +4062,7 @@ class Payrun extends Controller
         $validationResult = Json::validate($data, [
             'payslips' => ['type' => Json::TYPE_ARRAY, 'required' => true, 'nullable' => false, 'rules' => [
                 ['type' => Json::TYPE_OBJECT, 'required' => true, 'nullable' => false, 'rules' => [
+                    'is_encrypted' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false],
                     'fromDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => false],
                     'toDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => false],
                     'employee' => ['type' => Json::TYPE_OBJECT, 'required' => true, 'nullable' => false, 'rules' => [
@@ -4645,6 +4901,34 @@ class Payrun extends Controller
                     // Get the amount of PAYE payable
                     $payslipTotals = \PayslipUtil\calculatePayslipTotals($payslip);
                     $payeAmount = $payslipTotals['paye'];
+                }
+
+                // Check if OD Debit amount exists and exceeds PAYE payable
+                $odDebitTotal = 0.0;
+
+                foreach ($items as $item) {
+                    if ($item['type']['code'] === '2010') {
+                        $odDebitTotal += (float)$item['amount'];
+                    }
+                }
+
+                if ($odDebitTotal > 0.00 && $odDebitTotal > $payeAmount) {
+
+                    $exceptions[] = [
+                        'description' => 'OD Debit exceeds PAYE payable (' .
+                            number_format($odDebitTotal, 2) .
+                            ' > ' .
+                            number_format($payeAmount, 2) . ')',
+                        'payslip' => [
+                            'id' =>  $payslipRow['id'],
+                            'fromDate' =>  $payslipRow['from_date'],
+                            'toDate' =>  $payslipRow['to_date']
+                        ],
+                        'employee' => [
+                            'id' =>  $payslipRow['employee_id'],
+                            'name' =>  $payslipRow['employee_name']
+                        ]
+                    ];
                 }
 
                 // Is PAYE payable?
@@ -6235,7 +6519,6 @@ class Payrun extends Controller
 
         return true;
     }
-
     // Function to get the compensation fund earnings cap
     //
     // Required Parameters
@@ -6689,9 +6972,9 @@ class Payrun extends Controller
                     if ($payeIndex !== null) {
                         // Adjust the value of the correction, if necesarry
                         $payeAmount = doubleval($payslips[$i]['items'][$payeIndex]['amount']);
-                        if (($payeAmount + $correctionAmount) <= 0.00) {
-                            $correctionAmount = (0.00 - $payeAmount);
-                        }
+                        // if( ($payeAmount + $correctionAmount) <= 0.00 ) {
+                        //     $correctionAmount = (0.00 - $payeAmount);
+                        // }
                     }
 
                     // Find the index of the PAYE correction item
@@ -8128,8 +8411,10 @@ class Payrun extends Controller
     // @param $sarsYear                 The tax year for the final payment
     private function calculateTaxCorrection($db, $employeeId, $sarsYear, $generatedPayslips, $payeBonusCalculationTypeCode)
     {
+        $paymentCode = 'MONTH';
+
         // Should tax corrections be calculated for the specified employee?
-        $sqlQuery = 'SELECT enable_paye_correction FROM employees WHERE id = $1;';
+        $sqlQuery = 'SELECT enable_paye_correction, payment_period_code FROM employees WHERE id = $1;';
         $sqlResult = $db->paramQuery($sqlQuery, [
             $employeeId
         ]);
@@ -8148,6 +8433,17 @@ class Payrun extends Controller
 
         // Use the generated payslips in the calculations
         $payslips = []; // $generatedPayslips;
+
+        // Get payment period code for calculating correct taxable income
+        $paymentCode = $sqlRow['payment_period_code'];
+        // Set the payments per year depending on the payment period
+        if ($paymentCode === 'WEEK') {
+            $numPaymentsPerYear = 52;
+        } else if ($paymentCode === 'BWEE') {
+            $numPaymentsPerYear = 26;
+        } else if ($paymentCode === 'MONT') {
+            $numPaymentsPerYear = 12;
+        }
 
         // Calculate the start and end date of the tax year
         $endDate = new DateTime($sarsYear . '-03-01');
@@ -8219,6 +8515,20 @@ class Payrun extends Controller
             }
         }
 
+        // Make provision for the generate payslip function where the last payslip has not been inserted into the payslip_items table
+        if (count($payslips) < $numPaymentsPerYear) {
+            $finalIndex = null;
+            for ($i = 0; $i < count($payslips); $i++) {
+                if ($payslips[$i]['taxPeriod']['number'] == $numPaymentsPerYear) {
+                    $finalIndex = $i;
+                    break;
+                }
+            }
+            if ($finalIndex == null && count($generatedPayslips) == 1) {
+                $payslips[] = $generatedPayslips[0];
+            }
+        }
+
         // Calculate the total PAYE and taxable income for all payslips
         $taxableIncomeTotal = 0.00;
         $payeTotal = 0.00;
@@ -8269,8 +8579,31 @@ class Payrun extends Controller
             $sqlRow = $sqlResult->fetchAssociative();
             $employeeAge = $sqlRow['employee_age'];
 
+            // Check if employees has been employed for the full year
+            // if (count($payslips) < $numPaymentsPerYear) {
+            // $taxableIncomeTotal = (($taxableIncomeTotal / count($payslips)) * $numPaymentsPerYear);
+            // }
+            // 2025-04-24 Ray King edit divide by zero issue - enable user to create more than just 1 month payrun
+            $cntPayslips = count($payslips);
+            // if ($cntPayslips <= 0) {
+            //     $cntPayslips = 1;
+            // }
+            //if (count($payslips) < $numPaymentsPerYear) {
+
+            if ($cntPayslips < $numPaymentsPerYear) {
+                if ($cntPayslips > 0) {
+                    $taxableIncomeTotal = (($taxableIncomeTotal / $cntPayslips) * $numPaymentsPerYear);
+                } else {
+                    $taxableIncomeTotal = ($taxableIncomeTotal * $numPaymentsPerYear);
+                }
+            }
+
             // Calculate the total PAYE for the year
             $paye = \PayslipUtil\calculatePaye($yearEndDate, $employeeAge, $taxableIncomeTotal);
+
+            if (count($payslips) < $numPaymentsPerYear) {
+                $paye = (($paye / $numPaymentsPerYear) * count($payslips));
+            }
 
             // Subtract the amount of PAYE already paid
             $payment = $paye - $payeTotal;
@@ -8286,12 +8619,13 @@ class Payrun extends Controller
         return ['ok' => true, 'payment' => $payment];
     }
 
-    private function calculatePayeOverDeductionCorrection($db, $employeeId, $sarsYear, $generatedPayslips)
+    private function calculatePayeOverDeductionCorrection($db, $employeeId, $pID, $sarsYear, $generatedPayslips)
     {
-
         // Use the generated payslips in the calculations
         $payslips = []; // $generatedPayslips;
-
+        //$OverDeductionCredits = [];
+        $NewODC = [];
+        $overDeductionDebits = [];
         // Calculate the start and end date of the tax year
         $endDate = new DateTime($sarsYear . '-03-01');
         $endDate->setTime(23, 59, 59);
@@ -8301,6 +8635,9 @@ class Payrun extends Controller
         $endDate->modify('-1 day');
 
         // Calculate the payslip totals for the tax year
+        #LEFT JOIN: Combines the left tables selected record with all of its matching records in the right table.
+        #Left Joins the payslips table with the payruns table using the selected payslip_id;
+        #It returns all records where the employeeID, start_date,end_date, status code matches with the provided information.
         $sqlQuery =
             'SELECT ' .
             'payslips.id AS payslip_id ' .
@@ -8309,7 +8646,6 @@ class Payrun extends Controller
             'LEFT JOIN ' .
             'payruns ON payruns.id = payslips.payrun_id ' .
             'WHERE ' .
-            // 'payruns.processed_on IS NOT NULL AND ' . 
             'payslips.employee_id = $1 AND ' .
             'payslips.to_date >= $2 AND ' .
             'payslips.to_date <= $3 AND ' .
@@ -8321,7 +8657,8 @@ class Payrun extends Controller
             $startDate->format('Y-m-d'),
             $endDate->format('Y-m-d')
         ]);
-
+        # After storing the query results it now performs validation (Checks if sqlResult is null).
+        # Function stored in:  php\modules\pgsql\PostgresResult.php
         if (!$sqlResult->isValid()) {
             return ['ok' => false, 'error' => 'Database error.'];
         }
@@ -8342,6 +8679,23 @@ class Payrun extends Controller
                 if (($generatedPayslips[$i]['employee']['id'] == $employeeId) && ($generatedPayslips[$i]['toDate'] == $payslip['toDate'])) {
                     // The payslip is one of the generated ones
                     $payslips[] = $generatedPayslips[$i];
+
+                    if ($generatedPayslips[$i]['id'] == $pID) {
+
+                        $balanceResults = $this->calculateOverDeductionBalance($db, $employeeId, $sarsYear, $generatedPayslips[$i]['toDate']);
+                        $NewODC[$pID] = $balanceResults['availableBalance'];
+                        //$OverDeductionCredits[$pID] = 0;
+                        $overDeductionDebits[$pID] = 0;
+                        #Loops through each payslip item and retrieves the Over deduction and Over deduction Debit
+                        foreach ($generatedPayslips[$i]['items'] as $item) {
+                            //   if ($item['type']['code'] === '2001' && $item['description'] === 'PAYE Over Deduction') {
+                            //      $OverDeductionCredits[$pID] = $item['amount'];
+                            //   }
+                            if ($item['type']['code'] === '2010' && $item['description'] === 'PAYE OD Debit') {
+                                $overDeductionDebits[$pID] = $item['amount'];
+                            }
+                        }
+                    }
                     $isGeneratedPayslip = true;
                     break;
                 }
@@ -8353,62 +8707,55 @@ class Payrun extends Controller
             }
         }
 
-        // Calculate the total PAYE and taxable income for all payslips
-        $overDeductionTotal = 0.00;
-        for ($i = 0; $i < count($payslips); $i++) {
-            // Exclude all payslips outside the tax year period
-            if (($payslips[$i]['toDate'] < $startDate->format('Y-m-d')) || ($payslips[$i]['toDate'] > $endDate->format('Y-m-d'))) continue;
+        // Return the result
+        // return ['ok' => true, 'overDeductionAmount' => $OverDeductionCredits,'overDeductionDebits' => $overDeductionDebits,'newODC'=>$NewODC];
+        return ['ok' => true, 'overDeductionDebits' => $overDeductionDebits, 'newODC' => $NewODC];
+    }
 
-            // Calculate PAYE total, if any
-            for ($j = 0; $j < count($payslips[$i]['items']); $j++) {
-                if (($payslips[$i]['items'][$j]['type']['code'] === '2001' && $payslips[$i]['items'][$j]['description'] !== 'PAYE Correction') /* && ($payslips[$i]['items'][$j]['autoCalculate'] == true) */) {
-                    $overDeductionTotal = $overDeductionTotal + $payslips[$i]['items'][$j]['amount'];
-                }
-            }
+    // Over Deduction Credit Balance db query and calculation logic
+    // Used as part of calculation of running balance to display in 'Use PAYE Over Deduction Credit'-pop-up
+    private function calculateOverDeductionBalance($db, $employeeId, $sarsYear, $toDate, $excludePayrunId = null)
+    {
+        $sql = "
+            SELECT
+                SUM(CASE WHEN pi.payslip_item_type_code = '2001'
+                        AND pi.description = 'PAYE Over Deduction'
+                        THEN pi.total ELSE 0 END) AS total_credit,
+                SUM(CASE WHEN pi.payslip_item_type_code = '2010'
+                        THEN pi.total ELSE 0 END) AS total_debit
+            FROM payslip_items pi
+            JOIN payslips p
+                ON p.id = pi.payslip_id
+            WHERE
+                p.employee_id = $1
+                AND p.sars_year = $2
+                AND p.to_date < $3
+                AND p.status_code = 'ACTI'
+        ";
+
+        $params = [$employeeId, $sarsYear, $toDate];
+
+        // Exclude current payrun to avoid including the current payrun's data if saved and only include current payrun data in memory.
+        if ($excludePayrunId !== null) {
+            $sql .= " AND p.payrun_id <> $4 ";
+            $params[] = $excludePayrunId;
         }
 
-        // Set the year end date to the last day of the last month of the tax year
-        $yearEndDate = new DateTime($sarsYear . '-03-01');
-        $yearEndDate->modify('-1 day');
+        $sqlResult = $db->paramQuery($sql, $params);
 
-        // Get employee age for tax calculations of final payslip
-        $sqlQuery =
-            'SELECT ' .
-            'EXTRACT(YEAR FROM age($1, employees.date_of_birth)) AS employee_age ' .
-            'FROM ' .
-            'employees ' .
-            'WHERE ' .
-            'employees.id = $2;';
-        $sqlResult = $db->paramQuery($sqlQuery, [
-            $yearEndDate->format('Y-m-d'),
-            $employeeId
-        ]);
         if (!$sqlResult->isValid()) {
             return ['ok' => false, 'error' => 'Database error.'];
         }
 
-        // Was a result found?
-        $overDeductionAmount = 0.00;
-        $taxCorrectionAmount = 0.00;
-        if ($sqlResult->getRowCount() === 1) {
-            // Get the employee age
-            $sqlRow = $sqlResult->fetchAssociative();
+        $row = $sqlResult->fetchAssociative();
 
-            // Subtract the amount of PAYE already paid
-            $overDeductionAmount = $overDeductionTotal;
-            $taxCorrectionAmount = $overDeductionTotal;
-        }
+        $credit = $row['total_credit'] ?? 0;
+        $debit  = $row['total_debit'] ?? 0;
 
-        // Do not allow cent corrections
-        if (($overDeductionAmount >= -0.99) && ($overDeductionAmount <= 0.99)) $overDeductionAmount = 0.00;
-        if (($taxCorrectionAmount >= -0.99) && ($taxCorrectionAmount <= 0.99)) $taxCorrectionAmount = 0.00;
-
-        // Fix -0.00 issue
-        if (($overDeductionAmount > -0.01) && ($overDeductionAmount < 0.01)) $overDeductionAmount = 0.00;
-        if (($taxCorrectionAmount > -0.01) && ($taxCorrectionAmount < 0.01)) $taxCorrectionAmount = 0.00;
-
-        // Return the result
-        return ['ok' => true, 'overDeductionAmount' => $overDeductionAmount, 'taxCorrectionAmount' => $taxCorrectionAmount];
+        return [
+            'ok' => true,
+            'availableBalance' => (float)$credit - (float)$debit
+        ];
     }
 
     // Function to calculate the PAYE using the tax averaging method.
@@ -8699,6 +9046,9 @@ class Payrun extends Controller
                         // different than Simply Pay for the period in which the annual payment is made, but the 
                         // following months are consistent with the tax averaging method results in general.
 
+                        // 2025-05-15 Ray King
+                        //int $periodsWorked, int $totalPeriods, float $ytdTaxableIncome, float $ytdTaxLiability
+
                         // Calculate PAYE using the averaging method
                         $taxLiability = \PayslipUtil\calculateAveragePaye(
                             new DateTime($payslips[$i]['toDate']),
@@ -8766,6 +9116,7 @@ class Payrun extends Controller
         // Return the result
         return ['ok' => true, 'payment' => ($taxLiability)];
     }
+
     public function downloadImportTemplate($data, $user, $db)
     {
         // Set content type header
