@@ -132,9 +132,13 @@ app.panel.EditPayrun = function (config) {
 
                         payslip: payslip,
                         isProcessed: isProcessed,
+                        // Required by edit_payslip_panel.js to provide access to all payslips in current payrun for running OD Credit balance calculations
+                        payrunPayslips: payslips,
+                        payrunId: payrunId,
 
                         onChange: payslipEditorChangeEventHandler,
                         onItemAdd: payslipEditorChangeEventHandler,
+                        onEncrypt: payslipEditorChangeEventHandler,
                         onDelete: payslipEditorDeleteEventHandler,
                         onRecreate: payslipEditorRecreateEventHandler
                     });
@@ -248,6 +252,7 @@ app.panel.EditPayrun = function (config) {
         // Attach external event handlers
         if (compConfig.hasOwnProperty('onCancel')) me.addEventListener('cancel', compConfig.onCancel);
         if (compConfig.hasOwnProperty('onItemAdd')) me.addEventListener('itemadd', compConfig.onItemAdd);
+        if (compConfig.hasOwnProperty('onEncrypt')) me.addEventListener('encrypt', compConfig.onEncrypt);
         if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
         if (compConfig.hasOwnProperty('onSave')) me.addEventListener('save_payrun', compConfig.onSave);
         if (compConfig.hasOwnProperty('onProcess')) me.addEventListener('process_payrun', compConfig.onProcess);
@@ -255,7 +260,7 @@ app.panel.EditPayrun = function (config) {
 
         // Initialize state
         confirmDestroy = false;
-        payrunId = compConfig.payrunId;
+        payrunId = compConfig.payrunId || null;
         payrunDescription = compConfig.payrunDescription;
         isProcessed = compConfig.isProcessed;
 
@@ -337,7 +342,7 @@ app.panel.EditPayrun = function (config) {
             onReset: onSearchResetBtnClickEventHandler
         });
 
-        // Create an edit button
+        // Create an REFRESH button
         refreshBtnEl = lx.createElement('DIV', {
             parent: titleContainerEl,
             style: {
@@ -368,6 +373,7 @@ app.panel.EditPayrun = function (config) {
 
             innerHTML: '<i class="fa fa-redo" style="margin: auto auto;"></i>'
         });
+
         refreshBtnEl.addEventListener('click', refreshBtnElClickEventHandler);
         if (isProcessed) refreshBtnEl.disable();
 
@@ -494,21 +500,21 @@ app.panel.EditPayrun = function (config) {
         }
 
         // Create the menuDropDownBtnPostLexproEl element
-        // var menuDropDownBtnPostLexproEl = lx.createElement('DIV', {
-        //     parent: menuDropdownBtn.getContainer(),
-        //     className: 'list-item',
-        //     style: {
-        //         width: '210px',
-        //         padding: '10px 10px',
-        //         borderStyle: 'solid',
-        //         borderWidth: '0px 0px 0px 3px'
-        //     },
-        //     innerHTML: '<i class="fa fa-fw fa-external-link-alt" style="margin-right: 15px; font-size: 12px;"></i><span style="font-size: 14px;">Post to Lexpro Accounting</span>'
-        // });
-        // menuDropDownBtnPostLexproEl.addEventListener('click', menuDropDownBtnPostLexproElClickEventHandler);
-        // if( !isProcessed ) {
-        //     lx.applyStyle(menuDropDownBtnPostLexproEl, {color: lx.style.global.disabledColor});
-        // }
+        var menuDropDownBtnPostLexproEl = lx.createElement('DIV', {
+            parent: menuDropdownBtn.getContainer(),
+            className: 'list-item',
+            style: {
+                width: '210px',
+                padding: '10px 10px',
+                borderStyle: 'solid',
+                borderWidth: '0px 0px 0px 3px'
+            },
+            innerHTML: '<i class="fa fa-fw fa-external-link-alt" style="margin-right: 15px; font-size: 12px;"></i><span style="font-size: 14px;">Post to Lexpro Accounting</span>'
+        });
+        menuDropDownBtnPostLexproEl.addEventListener('click', menuDropDownBtnPostLexproElClickEventHandler);
+        if (!isProcessed) {
+            lx.applyStyle(menuDropDownBtnPostLexproEl, { color: lx.style.global.disabledColor });
+        }
 
 
         // Create the menuDropDownBtnPayeOverDeductionCreditEl element
@@ -828,6 +834,7 @@ app.panel.EditPayrun = function (config) {
     function payslipEditorChangeEventHandler(event) {
         payslipsChanged = true;
         confirmDestroy = true;
+        var employeeId = event.srcComponent.getEmployeeId();
 
         // Get the payslip data
         // var payslip = event.srcComponent.toObject();
@@ -836,7 +843,7 @@ app.panel.EditPayrun = function (config) {
         var employeePayslips = [];
         for (let i = 0; i < payslips.length; i++) {
             // Dees the payslip belong to the specified emoloyee?
-            if (payslips[i].getEmployeeId() == event.srcComponent.getEmployeeId()) {
+            if (payslips[i].getEmployeeId() == employeeId) {
                 // Convert the payslip to an object
                 let employeePayslip = payslips[i].toObject();
 
@@ -844,6 +851,7 @@ app.panel.EditPayrun = function (config) {
                 for (let j = employeePayslip.items.length - 1; j >= 0; j--) {
                     if (employeePayslip.items[j]['delete'] === true) employeePayslip.items.splice(j, 1);
                 }
+
 
                 // Save the payslips to be sent
                 employeePayslips.push(employeePayslip);
@@ -893,8 +901,11 @@ app.panel.EditPayrun = function (config) {
         // Delete the specified payslip
         event.srcComponent.deletePayslip();
 
+
         payslipsChanged = true;
         confirmDestroy = true;
+
+
     }
 
     // payslipEditor recreate event handler
@@ -1224,6 +1235,7 @@ app.panel.EditPayrun = function (config) {
 
                     onChange: payslipEditorChangeEventHandler,
                     onItemAdd: payslipEditorChangeEventHandler,
+                    onEncrypt: payslipEditorChangeEventHandler,
                     onDelete: payslipEditorDeleteEventHandler,
                     onRecreate: payslipEditorRecreateEventHandler
                 });
@@ -1312,7 +1324,6 @@ app.panel.EditPayrun = function (config) {
         emailPayslipsModal.show();
         emailPayslipsPanel.focus();
     }
-
 
     // menuDropEditDescriptionElClickEventHandler click event handler
     function menuDropEditDescriptionElClickEventHandler() {
@@ -1557,33 +1568,59 @@ app.panel.EditPayrun = function (config) {
                                 payrunId: parseInt(payrunId),
                                 payslips: allPayslips,
                                 onUpdate: function (event) {
-                                    // app.route.popState();
-                                    // Iterate through all items in event.items
-                                    for (let i = 0; i < event.items.length; i++) {
+                                    // Iterate through all items sent from the update button
 
-                                        // Get the current item
-                                        let item = event.items[i];
+                                    for (let e = 0; e < event.items.length; e++) {
 
-                                        // Check if the item description is 'PAYE Correction'
-                                        if (item.description === 'PAYE Correction') {
+                                        let item = event.items[e];
 
-                                            // Iterate through the payslips array to find a matching payslip
-                                            for (let i = 0; i < payslips.length; i++) {
-                                                let payslip = payslips[i].toObject();
+                                        // Only process PAYE OD Debit
+                                        //if (item.description === 'PAYE OD Debit' || item.description === 'PAYE OD Credit Balance') {
 
-                                                // Check if the payslip ID matches the item's payslip ID
-                                                if (payslip.id === item.payslipId) {
+                                        for (let p = 0; p < payslips.length; p++) {
 
-                                                    payslips[i].addItems([item], false);
+                                            let payslipObj = payslips[p].toObject();
 
-                                                    payslipsChanged = true;
-                                                    confirmDestroy = true;
+                                            if (payslipObj.id === item.payslipId) {
 
-                                                }
+                                                // ✅ Use your new function instead of addItems
+                                                payslips[p].updateOrAddItemByDescription(item);
+
+                                                payslipsChanged = true;
+                                                confirmDestroy = true;
+
+                                                break; // stop looping once found
                                             }
                                         }
-                                        //return;
+                                        // }
                                     }
+                                    // app.route.popState();
+                                    // Iterate through all items in event.items
+                                    // for( let i = 0; i < event.items.length; i++ ) {
+
+                                    //     // Get the current item
+                                    //     let item = event.items[i];
+
+                                    //     // Check if the item description is 'PAYE Correction'
+                                    //     if (item.description === 'PAYE OD Debit') {
+
+                                    //         // Iterate through the payslips array to find a matching payslip
+                                    //         for(let i = 0; i < payslips.length; i++ ) {
+                                    //             let payslip = payslips[i].toObject();
+
+                                    //             // Check if the payslip ID matches the item's payslip ID
+                                    //             if (payslip.id === item.payslipId) {
+
+                                    //             payslips[i].addItems([item], false);
+
+                                    //             payslipsChanged = true;
+                                    //             confirmDestroy = true;
+
+                                    //             }
+                                    //         }
+                                    //     }
+                                    //     //return;
+                                    // }
                                 },
                                 onCancel: function () {
                                     app.route.popState();
@@ -1622,4 +1659,5 @@ app.panel.EditPayrun = function (config) {
     //
 
     me.init(config);
+
 };
