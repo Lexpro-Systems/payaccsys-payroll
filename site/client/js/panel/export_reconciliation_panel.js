@@ -34,6 +34,10 @@ app.panel.ExportReconciliation = function (config) {
 
     var reconciliationDetailsSectionEl = null;
     var disclaimerDisplay = null;
+    var WarningDisplay = null;
+    var WarningSymbol = null;
+    var WarningText = null;
+
     var disclaimerCb = null;
     var typeSelect = null;
 
@@ -98,7 +102,7 @@ app.panel.ExportReconciliation = function (config) {
                 alignItems: 'stretch',
                 boxSizing: 'border-box',
                 width: compConfig.width,
-                height: compConfig.height,
+                height: '473px', //compConfig.height,
                 flex: compConfig.flex,
                 backgroundColor: '#FFFFFF'
             }
@@ -176,7 +180,7 @@ app.panel.ExportReconciliation = function (config) {
             parent: reconciliationDetailsSectionEl,
             style: {
                 textAlign: 'justify',
-                margin: '15px 0px 0px 0px',
+                margin: '15px 0px 10px 0px',
                 padding: '0px'
             },
             innerHTML:
@@ -187,12 +191,49 @@ app.panel.ExportReconciliation = function (config) {
                 'damages due to the aforementioned submissions.'
         });
 
+        WarningDisplay = new lx.createElement('DIV', {
+            parent: reconciliationDetailsSectionEl,
+            style: {
+                display: 'flex',
+                alignItems: 'center', // Vertically align symbol and text
+                gap: '10px',          // Space between symbol and text
+                maxWidth: '500px',
+                fontSize: '12px',
+                margin: '15px 0px 15px 0px',
+            }
+        });
+
+        WarningSymbol = new lx.createElement('DIV', {
+            parent: WarningDisplay,
+            style: {
+                border: '2px solid #f60606',
+                borderRadius: '50%',
+                width: '15px',
+                height: '15px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                fontWeight: 'bold',
+                color: '#f60606',
+                flexShrink: '0' // Prevent the circle from shrinking
+            },
+            innerHTML: '!'
+        });
+
+        WarningText = new lx.createElement('DIV', {
+            parent: WarningDisplay,
+            style: {
+                color: '#f60606',
+                maxWidth: '100%'
+            },
+            innerHTML: 'This exported document is intended for SARS Efiling upload, if you require a view only document then proceed to the EMP501 report!'
+        });
         // Create the disclaimerCb component
         disclaimerCb = new lx.component.Checkbox({
             renderTo: reconciliationDetailsSectionEl,
             label: 'I have read and understood the disclaimer',
             labelAlign: 'right',
-            margin: '15px 0px 0px 0px',
+            margin: '10px 0px 0px 0px',
             labelWidth: '220px',
             maxWidth: '500px',
             isChecked: false
@@ -222,7 +263,7 @@ app.panel.ExportReconciliation = function (config) {
                 display: 'flex',
                 flexDirection: 'row',
                 justifyContent: 'flex-end',
-                padding: '15px',
+                padding: '10px',
                 borderStyle: 'solid',
                 borderWidth: '1px 0px 0px 0px',
                 borderColor: '#DFDFDF'
