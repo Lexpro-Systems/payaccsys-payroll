@@ -35,6 +35,8 @@ app.panel.ProcessPayrun = function (config) {
 
     var optionDetailsSectionEl = null;
     var emailPayslipsCb = null;
+    //Payslips encryption checkbox variable
+    var encryptPayslipsCb = null;
 
     var exceptionsMessageEl = null;
     var exceptionDetailsSectionEl = null;
@@ -75,6 +77,9 @@ app.panel.ProcessPayrun = function (config) {
                 }
 
                 emailPayslipsCb.setValue(response.setup.emailPayslipsOnPayrunProcess);
+                encryptPayslipsCb.setValue(response.setup.encryptPayslipsOnPayrunProcess);
+
+
             }
         });
     }
@@ -227,21 +232,51 @@ app.panel.ProcessPayrun = function (config) {
                 borderColor: '#DFDFDF',
                 borderWidth: '1px',
                 margin: '0px 15px 0px 15px',
-                padding: '15px'
+                padding: '15px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap'
+            }
+        });
+
+        var leftOptionEl = lx.createElement('DIV', {
+            parent: optionDetailsSectionEl,
+            style: {
+                display: 'flex',
+                alignItems: 'center'
+            }
+        });
+
+        // RIGHT container
+        var rightOptionEl = lx.createElement('DIV', {
+            parent: optionDetailsSectionEl,
+            style: {
+                display: 'flex',
+                alignItems: 'center'
             }
         });
 
         // Create the emailPayslipsCb component
         emailPayslipsCb = new lx.component.Checkbox({
-            renderTo: optionDetailsSectionEl,
+            renderTo: leftOptionEl,
             label: 'Email Payslips',
             labelAlign: 'left',
-            margin: '0px 0px 0px 0px',
-            labelWidth: '220px',
-            maxWidth: '500px'
+            margin: '0px',
+            // labelWidth: '220px',
+            //maxWidth: '500px'
         });
         // emailPayslipsCb.setValue( true );
 
+        // Create the encryptPayslips checkbox component
+        encryptPayslipsCb = new lx.component.Checkbox({
+            renderTo: rightOptionEl,
+            label: 'Encrypt Payslips',
+            labelAlign: 'left',
+            margin: '0px',
+            //labelWidth: '220px',
+            //maxWidth: '500px'
+        });
 
         //
         // EXCEPTIONS SECTION
@@ -505,8 +540,10 @@ app.panel.ProcessPayrun = function (config) {
             url: 'exec.php?c=Payrun&fn=process',
             data: {
                 payrunId: parseInt(payrunId),
-                emailPayslips: emailPayslipsCb.getValue()
+                emailPayslips: emailPayslipsCb.getValue(),
+                encryptPayslips: encryptPayslipsCb.getValue(),
             },
+
             onSuccess: function (responseText) {
                 processBtn.hideLoader();
                 processBtn.enable();
@@ -522,11 +559,29 @@ app.panel.ProcessPayrun = function (config) {
 
                 // Back to the list payrun panel
                 confirmDestroy = false;
-                me.fireEvent('process', { srcPanel: me });
+
+                // If encryption warning exists, show it first
+                if (response.warning) {
+                    new lx.component.Messagebox({
+                        title: 'Encryption Warning',
+                        message: response.warning,
+                        buttons: [
+                            { name: 'ok', label: 'OK', isDefault: true }
+                        ],
+                        onClose: function () {
+                            // Continue only after user clicks OK
+                            me.fireEvent('process', { srcPanel: me });
+                        }
+                    });
+                }
+                else {
+                    // If no warning, continue immediately
+                    me.fireEvent('process', { srcPanel: me });
+                }
             }
         });
-    }
 
+    }
 
     //
     // INITIALIZE OBJECT
