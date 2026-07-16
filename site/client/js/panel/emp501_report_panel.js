@@ -32,6 +32,9 @@ app.panel.Emp501Report = function (config) {
     var exportExcelBtn = null;
     var exportCsvBtn = null;
     var exportPdfBtn = null;
+    var PdfInfoEl = null;
+    var PdfTooltipLocusEl = null;
+    var PdfInfoTooltip = null;
 
     var loaderContainerEl = null;
     var contentContainerEl = null;
@@ -210,6 +213,80 @@ app.panel.Emp501Report = function (config) {
 
             onClick: exportPdfBtnOnClickEventHandler
         });
+
+        // Create an info icon
+        // let PdfInfoEl = new lx.createElement('DIV', {
+        //     parent: titleContainerEl,
+        //     style: {
+        //         cursor: 'pointer',
+        //         display: 'flex',
+        //         width: '24px',
+        //         minWidth: '24px',
+        //         height: '24px',
+        //         minHeight: '24px',
+        //         label: 'Pdf Export notice',
+        //         labelAlign: 'right',
+        //         margin: 'auto 20px auto 0px',
+        //         fontSize: '12px',
+        //         color:  lx.style.global.backgroundColor,
+        //         backgroundColor: '#3B81EB',
+        //         borderRadius: '50%'
+        //     },
+        //     innerHTML: '<i class="fa fa-question" style="margin: auto auto;"></i>'
+        // });
+
+        let PdfInfoEl = new lx.createElement('DIV', {
+            parent: titleContainerEl,
+            style: {
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                margin: 'auto 20px auto 0px'
+            },
+            innerHTML:
+                '<div style="' +
+                'display:flex;' +
+                'width:24px;' +
+                'min-width:24px;' +
+                'height:24px;' +
+                'background-color:#3B81EB;' +
+                'border-radius:50%;' +
+                'color:#fff;' +
+                'font-size:12px;' +
+                'margin-right:8px;' +
+                '">' +
+                '<i class="fa fa-question" style="margin:auto;"></i>' +
+                '</div>' +
+                '<span style="font-size:12px; color:#3B81EB;">PDF Export Notice</span>'
+        });
+
+        // Create the element used to position the tooltip
+        let PdfTooltipLocusEl = lx.createElement('DIV', {
+            parent: titleContainerEl,
+            style: {
+                position: 'relative',
+                margin: 'auto 10px 0px 0px',
+                width: '0px',
+                height: '30px'
+            }
+        });
+
+        // Create the tooltip component
+        let PdfInfoTooltip = new lx.component.Tooltip({
+            renderTo: PdfTooltipLocusEl,
+            alignment: 'bottomRight',
+            arrowOffset: '15px',
+            width: '100%',
+            maxWidth: '540px',
+            margin: '5px 10px',
+            backgroundColor: '#3B81EB', // '#4885F4',
+            message:
+                '<span style="font-size: 12px;">' +
+                'This PDF export file is <strong>not compatible</strong> for SARS Efiling upload, please enter information manually on SARS Efiling.!' +
+                '</span>'
+        });
+        PdfInfoEl.addEventListener('mouseenter', function () { PdfInfoTooltip.show(); });
+        PdfInfoEl.addEventListener('mouseleave', function () { PdfInfoTooltip.hide(); });
 
 
         //
@@ -413,7 +490,36 @@ app.panel.Emp501Report = function (config) {
             return;
         }
 
-        // Run the report
+        // new lx.component.Messagebox({
+        //     title: '<i class="fas fa-exclamation-triangle" style="margin: 0px 15px 0px 0px;"></i>Important Note:',
+        //     message: 
+        //         '<div style="text-align: left;">' + 
+        //             'The EMP 501 report is a <strong>Read-Only</strong> pdf and cannot be edited or be submitted afterwards.' + 
+        //             '<br><br>Are you certain you wish to continue?' +
+        //             '</div>',
+        //     buttons: [
+        //         {name: 'cancel', label: 'Cancel', style: 'text', isCancel: true},
+        //         {name: 'continue', label: 'Continue', isDefault: true}
+        //     ],
+        //     onClose: function( event ) {
+
+        //         if( event.button === 'continue' ) {
+        //             lx.sendForm({
+        //                 url: 'exec.php?c=Report&fn=runEmp501PdfReport',
+        //                 target: '_blank',
+        //                 data: {
+        //                     taxYear: filterTaxPeriodSelect.getValue(),
+        //                     reconciliationType: filterReconciliationTypeSelect.getValue()
+        //                 }
+        //             });
+        //         }
+        //         else {
+        //             return;
+        //         }
+        //     }
+        // });
+
+        //Run the report
         lx.sendForm({
             url: 'exec.php?c=Report&fn=runEmp501PdfReport',
             target: '_blank',
