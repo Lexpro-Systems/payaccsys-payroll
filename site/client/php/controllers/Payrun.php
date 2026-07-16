@@ -9531,6 +9531,52 @@ class Payrun extends Controller
         $db->paramQuery('LOCK TABLE payslip_items IN ACCESS EXCLUSIVE MODE', []);
         $db->paramQuery('LOCK TABLE payslips IN ACCESS EXCLUSIVE MODE', []);
 
+        $departmentId = $data['departmentId'];
+        $startDate = new DateTime($data['startDate']);
+        $endDate = new DateTime($data['endDate']);
+
+        // Check that the start date is before the end date
+        if ($endDate < $startDate) {
+            echo (json_encode(['ok' => false, 'error' => 'The payrun\'s end date can\'t be before it\'s start date.']));
+            return false;
+        }
+
+        $userData = System::getUserData();
+
+        // Add the payrun to the database
+        $sqlQuery =
+            'INSERT INTO ' .
+            'payruns ( ' .
+            'description, ' .
+            'from_date, ' .
+            'to_date, ' .
+            'department_id, ' .
+            'created_on, ' .
+            'processed_on, ' .
+            'created_by_user_id ' .
+            ') ' .
+            'VALUES ( ' .
+            '$1, $2, $3, $4, $5, $6, $7 ' .
+            ') ' .
+            'RETURNING id;';
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $data['description'],   // description
+            $data['startDate'],     // from_date
+            $data['endDate'],       // to_date
+            $data['departmentId'],  // department_id
+            date('Y-m-d', time()),  // created_on
+            null,                   // processed_on
+            $userData['id']         // created_by_user_id
+        ]);
+
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        $sqlRow = $sqlResult->fetchAssociative();
+        $payrunId = $sqlRow['id'];
+
         # Loads the data from the import file into the PayrunImportData objects.
         # We start at row 0 and rewind to the top of the page. Then we loop through each row of data where is is cleaned and transformed.
         $row = 0;
@@ -9563,56 +9609,6 @@ class Payrun extends Controller
             #Clean the data before persisting to the database 
             $transformData = new TransformPayrunImportData($payrunImportData, $db);
             $transformData->apply();
-
-            /****************************************
-                    Import payrun data
-             ****************************************/
-
-            $departmentId = $data['departmentId'];
-            $startDate = new DateTime($data['startDate']);
-            $endDate = new DateTime($data['endDate']);
-
-            // Check that the start date is before the end date
-            if ($endDate < $startDate) {
-                echo (json_encode(['ok' => false, 'error' => 'The payrun\'s end date can\'t be before it\'s start date.']));
-                return false;
-            }
-
-            $userData = System::getUserData();
-
-            // Add the payrun to the database
-            $sqlQuery =
-                'INSERT INTO ' .
-                'payruns ( ' .
-                'description, ' .
-                'from_date, ' .
-                'to_date, ' .
-                'department_id, ' .
-                'created_on, ' .
-                'processed_on, ' .
-                'created_by_user_id ' .
-                ') ' .
-                'VALUES ( ' .
-                '$1, $2, $3, $4, $5, $6, $7 ' .
-                ') ' .
-                'RETURNING id;';
-            $sqlResult = $db->paramQuery($sqlQuery, [
-                $data['description'],   // description
-                $data['startDate'],     // from_date
-                $data['endDate'],       // to_date
-                $data['departmentId'],  // department_id
-                date('Y-m-d', time()),  // created_on
-                null,                   // processed_on
-                $userData['id']         // created_by_user_id
-            ]);
-
-            if (!$sqlResult->isValid()) {
-                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                return false;
-            }
-
-            $sqlRow = $sqlResult->fetchAssociative();
-            $payrunId = $sqlRow['id'];
 
             /****************************************
                    Payslip Import section
