@@ -51,6 +51,9 @@ app.panel.AddLeaveType = function (config) {
     var cancelBtn = null;
     var nextBtnContainerEl = null;
     var nextBtn = null;
+    var resetInterval = null;
+    var carryOverInterval = null;
+
 
 
     //
@@ -74,8 +77,38 @@ app.panel.AddLeaveType = function (config) {
         let ruleMargin = '15px';
         if (rules.length === 0) ruleMargin = '0px';
 
-        // Create rule element.
+
+        // Create rule wrapper to group earn and reset rules
+        const ruleWrapper = lx.createElement('DIV', {
+            parent: rulesContainerEl,
+            style: {
+                padding: '10px 0px 10px 0px',
+                borderStyle: 'solid',
+                borderColor: '#DFDFDF',
+                borderWidth: '0px 0px 1px 0px'
+            }
+        });
+
+        // Create the rulesHeadingEl element
+        rulesHeadingEl = lx.createElement('DIV', {
+            parent: ruleWrapper,
+            style: {
+                display: 'flex',
+                flexDirection: 'row',
+                boxSizing: 'border-box',
+                width: '100%',
+                height: '25px'
+            },
+            innerHTML:
+                '<div style="width: 80px; margin: 0px 0px 0px 0px;">From month</div>' +
+                '<div style="width: 130px; margin: 0px 0px 0px 10px;">Earn</div>' +
+                '<div style="width: 310px; margin: 0px 0px 0px 10px;">Every</div>' //+ 
+            //'<div style="width: 80px; margin: 0px 0px 0px 10px;">Resetting</div>'
+        });
+
+        // Create rule element
         let ruleEl = lx.createElement('DIV', {
+            parent: ruleWrapper,
             style: {
                 display: 'flex',
                 flexDirection: 'row',
@@ -83,7 +116,7 @@ app.panel.AddLeaveType = function (config) {
                 boxSizing: 'border-box',
                 width: '100%',
                 height: '35px',
-                margin: ruleMargin + ' 0px 0px 0px'
+                //margin: ruleMargin + ' 0px 0px 0px'
             }
         });
 
@@ -119,16 +152,22 @@ app.panel.AddLeaveType = function (config) {
         });
         ruleXTxt.setValue(ruleData.accrualInterval);
 
+        //Create Reset Leave section
+        const resetData = createResetSection(ruleWrapper);
+
         // Create ruleCycleTypeSelect component.
         let ruleCycleTypeSelect = new lx.component.Selectbox({
             renderTo: ruleEl,
-            width: '265px',
+            // width: '265px',
+            width: '320px',
             margin: '0px 0px 0px 5px',
 
             items: [
                 { value: 'DWOR', text: 'Days worked' },
                 { value: 'HWOR', text: 'Hours worked' },
                 { value: 'PAYS', text: 'Payslips processed' },
+                { value: 'PPEE', text: 'Payment Period End Day (Accrue/end)' }, //added the PPEE
+                { value: 'PPES', text: 'Payment Period End Day (Accrue/beginning)' }, //added the PPES
                 { value: 'DCEN', text: 'Day cycle (Accrue at end)' },
                 { value: 'DCST', text: 'Day cycle (Accrue at beginning)' },
                 { value: 'MCEN', text: 'Month cycle (Accrue at end)' },
@@ -140,6 +179,8 @@ app.panel.AddLeaveType = function (config) {
         if (ruleData.accrualType.code === 'DWOR') ruleCycleTypeSelect.setValue('DWOR', 'Days worked');
         else if (ruleData.accrualType.code === 'HWOR') ruleCycleTypeSelect.setValue('HWOR', 'Hours worked');
         else if (ruleData.accrualType.code === 'PAYS') ruleCycleTypeSelect.setValue('PAYS', 'Payslips processed');
+        else if (ruleData.accrualType.code === 'PPEE') ruleCycleTypeSelect.setValue('PPEE', 'Payment Period End Day (Accrue/end)'); //added the PPEE for else if
+        else if (ruleData.accrualType.code === 'PPES') ruleCycleTypeSelect.setValue('PPES', 'Payment Period End Day (Accrue/beginning)'); //added the PPES for else if
         else if (ruleData.accrualType.code === 'DCEN') ruleCycleTypeSelect.setValue('DCEN', 'Day cycle (Accrue at end)');
         else if (ruleData.accrualType.code === 'DCST') ruleCycleTypeSelect.setValue('DCST', 'Day cycle (Accrue at beginning)');
         else if (ruleData.accrualType.code === 'MCEN') ruleCycleTypeSelect.setValue('MCEN', 'Month cycle (Accrue at end)');
@@ -147,23 +188,25 @@ app.panel.AddLeaveType = function (config) {
         else if (ruleData.accrualType.code === 'YCEN') ruleCycleTypeSelect.setValue('YCEN', 'Year cycle (Accrue at end)');
         else if (ruleData.accrualType.code === 'YCST') ruleCycleTypeSelect.setValue('YCST', 'Year cycle (Accrue at beginning)');
 
-        // Create ruleResetSelect component
-        let ruleResetSelect = new lx.component.Selectbox({
-            renderTo: ruleEl,
-            width: '100px',
-            margin: '0px 0px 0px 10px',
+        // // Create ruleResetSelect component
+        // let ruleResetSelect = new lx.component.Selectbox({
+        //     renderTo: ruleEl,
+        //     width: '100px',
+        //     margin: '0px 0px 0px 10px',
 
-            items: [
-                { value: 'NONE', text: 'None' },
-                { value: 'ACCR', text: 'Accrued' },
-                { value: 'TAKE', text: 'Taken' },
-                { value: 'BOTH', text: 'Both' }
-            ]
-        });
-        if (ruleData.resetAccrued === true && ruleData.resetTaken === true) ruleResetSelect.setValue('BOTH', 'Both');
-        else if (ruleData.resetAccrued === true && ruleData.resetTaken === false) ruleResetSelect.setValue('ACCR', 'Accrued');
-        else if (ruleData.resetAccrued === false && ruleData.resetTaken === true) ruleResetSelect.setValue('TAKE', 'Taken');
-        else if (ruleData.resetAccrued === false && ruleData.resetTaken === false) ruleResetSelect.setValue('NONE', 'None');
+        //     items: [
+        //         {value: 'NONE', text: 'None'},
+        //         {value: 'ACCR', text: 'Accrued'},
+        //         {value: 'TAKE', text: 'Taken'},
+        //         {value: 'BOTH', text: 'Both'}
+        //     ]
+        // });
+
+        //Reset Selectbox Section
+        if (ruleData.resetAccrued === true && ruleData.resetTaken === true) resetData.select.setValue('BOTH', 'Both');
+        else if (ruleData.resetAccrued === true && ruleData.resetTaken === false) resetData.select.setValue('ACCR', 'Accrued');
+        else if (ruleData.resetAccrued === false && ruleData.resetTaken === true) resetData.select.setValue('TAKE', 'Taken');
+        else if (ruleData.resetAccrued === false && ruleData.resetTaken === false) resetData.select.setValue('NONE', 'None');
 
         // Create addEl el
         let addEl = lx.createElement('DIV', {
@@ -192,34 +235,46 @@ app.panel.AddLeaveType = function (config) {
 
         // Add the rule into the rulesContainerEl at given index.
         if (typeof insertIndex === 'undefined' || insertIndex === null || insertIndex >= rules.length || insertIndex < 0) {
-            rulesContainerEl.appendChild(ruleEl);
+            // rulesContainerEl.appendChild( ruleEl );
+            rulesContainerEl.appendChild(ruleWrapper);
 
             // Add rule to the rules array
             rules.push({
                 id: ruleData.id,
+                wrapper: ruleWrapper,
                 el: ruleEl,
                 monthTxt: ruleMonthTxt,
                 earnTxt: ruleEarnTxt,
                 earnTypeDisplay: ruleEarnTypeDisplay,
                 xTxt: ruleXTxt,
                 cycleTypeSelect: ruleCycleTypeSelect,
-                resetSelect: ruleResetSelect
+                resetSelect: resetData.select,
+                resetIntervalTxt: resetData.resetIntervalText,
+                //carryOverIntervalTxt: resetData.carryOverIntervalTxt
+                carryOverIntervalTxt: resetData.carryOverIntervalText
             });
         }
         else {
-            rulesContainerEl.insertBefore(ruleEl, rules[insertIndex].el);
+            //rulesContainerEl.insertBefore(ruleEl, rules[insertIndex].el);
+            rulesContainerEl.insertBefore(ruleWrapper, rules[insertIndex].wrapper);
 
             // Add rule to the rules array
             rules.splice(insertIndex, 0, {
                 id: ruleData.id,
+                wrapper: ruleWrapper,
                 el: ruleEl,
                 monthTxt: ruleMonthTxt,
                 earnTxt: ruleEarnTxt,
                 xTxt: ruleXTxt,
                 cycleTypeSelect: ruleCycleTypeSelect,
-                resetSelect: ruleResetSelect
+                resetSelect: resetData.select,
+                resetIntervalTxt: resetData.resetIntervalText,
+                //carryOverIntervalTxt: resetData.carryOverIntervalTxt
+                carryOverIntervalTxt: resetData.carryOverIntervalText
             });
         }
+
+        updateRuleBorders();
     }
 
     // Function to set focus to a given rule
@@ -334,7 +389,7 @@ app.panel.AddLeaveType = function (config) {
             width: ''
         });
 
-        // 
+        // Preset Radio Button
         presetRadioButton = new lx.component.RadioButtonGroup({
             renderTo: presetsSectionEl,
             margin: '0px 0px 0px 0px',
@@ -411,7 +466,8 @@ app.panel.AddLeaveType = function (config) {
 
                     // Remove all existing rules
                     for (let i = rules.length - 1; i >= 0; i--) {
-                        rulesContainerEl.removeChild(rules[i].el);
+                        //rulesContainerEl.removeChild( rules[i].el );
+                        rulesContainerEl.removeChild(rules[i].wrapper);
                         rules.splice(i, 1);
                     }
 
@@ -450,7 +506,8 @@ app.panel.AddLeaveType = function (config) {
 
                     // Remove all existing rules
                     for (let i = rules.length - 1; i >= 0; i--) {
-                        rulesContainerEl.removeChild(rules[i].el);
+                        //rulesContainerEl.removeChild( rules[i].el );
+                        rulesContainerEl.removeChild(rules[i].wrapper);
                         rules.splice(i, 1);
                     }
 
@@ -489,7 +546,8 @@ app.panel.AddLeaveType = function (config) {
 
                     // Remove all existing rules
                     for (let i = rules.length - 1; i >= 0; i--) {
-                        rulesContainerEl.removeChild(rules[i].el);
+                        //rulesContainerEl.removeChild( rules[i].el );
+                        rulesContainerEl.removeChild(rules[i].wrapper);
                         rules.splice(i, 1);
                     }
 
@@ -527,7 +585,8 @@ app.panel.AddLeaveType = function (config) {
                     startDate.setValue('');
                     // Remove all existing rules
                     for (let i = rules.length - 1; i >= 0; i--) {
-                        rulesContainerEl.removeChild(rules[i].el);
+                        //rulesContainerEl.removeChild( rules[i].el );
+                        rulesContainerEl.removeChild(rules[i].wrapper);
                         rules.splice(i, 1);
                     }
 
@@ -566,7 +625,8 @@ app.panel.AddLeaveType = function (config) {
 
                     // Remove all existing rules
                     for (let i = rules.length - 1; i >= 0; i--) {
-                        rulesContainerEl.removeChild(rules[i].el);
+                        // rulesContainerEl.removeChild( rules[i].el );
+                        rulesContainerEl.removeChild(rules[i].wrapper);
                         rules.splice(i, 1);
                     }
 
@@ -752,11 +812,11 @@ app.panel.AddLeaveType = function (config) {
 
 
         //
-        // RULES SECTION
+        // EARN RULES SECTION
         //
 
         // Create a container for the component as well as the info icon
-        let rulesHeadingContainerEl = new lx.createElement('DIV', {
+        let rulesHeadingContainerEl = lx.createElement('DIV', {
             parent: contentEl,
             style: {
                 boxSizing: 'border-box',
@@ -769,7 +829,7 @@ app.panel.AddLeaveType = function (config) {
         // Create rules heading component
         new lx.component.Heading({
             renderTo: rulesHeadingContainerEl,
-            label: 'Rules',
+            label: 'Leave Rules',
             margin: '0px 0px',
             width: ''
         });
@@ -786,7 +846,7 @@ app.panel.AddLeaveType = function (config) {
         });
 
         // Create an info icon
-        let rulesHeadingInfoEl = new lx.createElement('DIV', {
+        let rulesHeadingInfoEl = lx.createElement('DIV', {
             parent: rulesHeadingContainerEl,
             style: {
                 cursor: 'pointer',
@@ -817,20 +877,22 @@ app.panel.AddLeaveType = function (config) {
             message:
                 // '<div style="max-height: 100px; overflow: auto;">' +  
                 '<span style="font-size: 12px;">' +
-                'Rules determine when and how leave is earned and consist of the following components:<br><br>' +
+                'Leave rules determine when and how leave is earned and reset. It consists of the following components:<br><br>' +
                 '&quot;From Month&quot; - Indicates the number of months from the employment date or user specified date before the rule takes effect.<br><br>' +
                 '&quot;Earn&quot; - The number of days/hours of leave to earn when the rule takes effect.<br><br>' +
                 '&quot;Every&quot; - Specifies the frequency of leave earned. For example: &quot;8 hours worked&quot; if the employee earns leave for every 8 hours worked, or &quot;1 year cycle (accrue at beginning)&quot; if leave is earned at the beginning of every year.<br><br>' +
-                '&quot;Resetting&quot; - Indicates what happens to any existing leave taken and accrued when the rule takes effect. Can be one of the following: ' +
-                '&quot;None&quot; - the current accrued leave and leave taken will be preserved. ' +
-                '&quot;Both&quot; - any accrued leave will be lost and any leave taken will be reset to zero. ' +
-                '&quot;Accrued&quot; - any accrued leave will be lost. ' +
-                '&quot;Taken&quot; - any leave taken will be reset to zero.<br><br>' +
-                'For example, if an employee has earned 7 days leave, has taken 1 day, and earns another 5 days when the rule takes effect: ' +
+                '&quot;Resetting&quot; - Indicates what happens to any existing leave taken and accrued when the rule takes effect. Can be one of the following:<br>' +
+                '&quot;None&quot; - the current accrued leave and leave taken will be preserved.<br>' +
+                '&quot;Taken&quot; - any leave taken will be reset to zero.<br>' +
+                '&quot;Accrued&quot; - any accrued leave will be lost.<br>' +
+                '&quot;Both&quot; - any accrued leave will be lost and any leave taken will be reset to zero.<br><br>' +
+                'For example, if an employee has earned 7 days leave, has taken 1 day, and earns another 5 days when the rule takes effect:<br>' +
                 'If &quot;None&quot; was specified the employee will now have 11 days [5+7-1]. ' +
-                'If &quot;Both&quot; was specified the employee will now have 5 days [5+0-0]. ' +
+                'If &quot;Taken&quot; was specified the employee will now have 12 [5+7-0].<br><br>' +
                 'If &quot;Accrued&quot; was specified the employee will now have 4 days [5+0-1]. ' +
-                'If &quot;Taken&quot; was specified the employee will now have 12 [5+7-0]. ' +
+                'If &quot;Both&quot; was specified the employee will now have 5 days [5+0-0].<br><br>' +
+                'If &quot;Taken&quot;, &quot;Accrued&quot; or &quot;Both&quot; is selected, the default number of months until leave is reset, should be specified. Specified leave can be carried over for an additional number of months if &quot;Months to carry over specified leave&quot; is filled in.<br>' +
+                'For example, if &quot;Default number of months in period&quot; - &quot;12&quot; any specified leave will be reset after 12 months. If &quot;Months to carry over specified leave&quot; - &quot;6&quot; any specified leave will be carried over for six additional months (12+6=18 months) before it is reset.' +
                 '</span>' // +
             // '</dive>'
         });
@@ -850,22 +912,22 @@ app.panel.AddLeaveType = function (config) {
             }
         });
 
-        // Create the rulesHeadingEl element
-        rulesHeadingEl = lx.createElement('DIV', {
-            parent: rulesSectionEl,
-            style: {
-                display: 'flex',
-                flexDirection: 'row',
-                boxSizing: 'border-box',
-                width: '100%',
-                height: '25px'
-            },
-            innerHTML:
-                '<div style="width: 80px; margin: 0px 0px 0px 0px;">From month</div>' +
-                '<div style="width: 130px; margin: 0px 0px 0px 10px;">Earn</div>' +
-                '<div style="width: 310px; margin: 0px 0px 0px 10px;">Every</div>' +
-                '<div style="width: 80px; margin: 0px 0px 0px 10px;">Resetting</div>'
-        });
+        // // Create the rulesHeadingEl element
+        // rulesHeadingEl = lx.createElement('DIV', {
+        //     parent: rulesSectionEl,
+        //     style: {
+        //         display: 'flex',
+        //         flexDirection: 'row',
+        //         boxSizing: 'border-box',
+        //         width: '100%',
+        //         height: '25px'
+        //     },
+        //     innerHTML:
+        //         '<div style="width: 80px; margin: 0px 0px 0px 0px;">From month</div>' +
+        //         '<div style="width: 130px; margin: 0px 0px 0px 10px;">Earn</div>' + 
+        //         '<div style="width: 310px; margin: 0px 0px 0px 10px;">Every</div>' + 
+        //         '<div style="width: 80px; margin: 0px 0px 0px 10px;">Resetting</div>'
+        // });
 
         // Create the rulesContainerEl
         rulesContainerEl = lx.createElement('DIV', {
@@ -875,7 +937,6 @@ app.panel.AddLeaveType = function (config) {
                 width: '100%'
             }
         });
-
 
         //
         // BUTTON CONTAINER SECTION
@@ -1079,8 +1140,11 @@ app.panel.AddLeaveType = function (config) {
         if (ruleIndex === null) return;
 
         // Remove the rule element
-        rulesContainerEl.removeChild(rules[ruleIndex].el);
+        //rulesContainerEl.removeChild( rules[ruleIndex].el );
+        rulesContainerEl.removeChild(rules[ruleIndex].wrapper);
         rules.splice(ruleIndex, 1);
+
+        updateRuleBorders();
 
         // If the first item was removed fix padding
         if (ruleIndex === 0 && rules.length > 0) {
@@ -1168,13 +1232,42 @@ app.panel.AddLeaveType = function (config) {
                 return;
             }
             else if (completionCounter === 0) {
+
+                let value = rules[i].resetIntervalTxt.getValue();
+                if (value === null || value === undefined || value.trim() === "") {
+                    resetInterval = 0;
+                } else {
+                    resetInterval = parseInt(rules[i].resetIntervalTxt.getValue())
+                }
+
+                let carryOverValue = rules[i].carryOverIntervalTxt.getValue();
+                //console.log(carryOverValue);
+                if (carryOverValue === null || carryOverValue === undefined || carryOverValue.trim() === "") {
+                    carryOverInterval = 0;
+                } else {
+                    carryOverInterval = parseInt(rules[i].carryOverIntervalTxt.getValue())
+                }
+
+                //Check if default period is greater than or equal to accrualIntervalMonths of Year Cycles  
+                if (rules[i].resetSelect.getValue() !== 'NONE' && (rules[i].cycleTypeSelect.getValue() === 'YCST' || rules[i].cycleTypeSelect.getValue() === 'YCEN')) {
+                    var accrualIntervalMonths = rules[i].xTxt.getValue() * 12
+                    //console.log(accrualIntervalMonths);
+                    if (accrualIntervalMonths > rules[i].resetIntervalTxt.getValue()) {
+                        nextBtn.showWarning('Default period can\'t be less than Accrual interval.');
+                        setTimeout(() => { rules[i].resetIntervalTxt.focus(); }, 2500);
+                        return;
+                    }
+                };
+
                 ruleData.push({
                     id: rules[i].id,
                     month: parseInt(rules[i].monthTxt.getValue()),
                     amount: rules[i].earnTxt.getValue(),
                     days: parseInt(rules[i].xTxt.getValue()),
                     cycleType: rules[i].cycleTypeSelect.getValue(),
-                    reset: rules[i].resetSelect.getValue()
+                    reset: rules[i].resetSelect.getValue(),
+                    resetInterval: resetInterval,
+                    carryOver: carryOverInterval
                 });
             }
         }
@@ -1206,6 +1299,262 @@ app.panel.AddLeaveType = function (config) {
                 me.fireEvent('save', { srcPanel: me });
             }
         });
+    }
+
+    // Reset Rules Event Handler
+
+    function createResetSection(parentEl) {
+
+        // Create reset rules section
+        const resetRulesSectionEl = lx.createElement('DIV', {
+            parent: parentEl,
+            style: {
+                backgroundColor: '#FFFFFF',
+                margin: '0px 0px 0px 0px',
+                padding: '0px'
+            }
+        });
+
+        // Create the resetRulesHeadingEl element
+        const resetRulesHeadingEl = lx.createElement('DIV', {
+            parent: resetRulesSectionEl,
+            style: {
+                display: 'flex',
+                width: '100%',
+                marginTop: '10px',
+                marginBottom: '2px',
+                gap: '8px'
+
+            }
+        });
+
+        // Left heading: Resetting Section
+        const resettingHeading = lx.createElement('DIV', {
+            parent: resetRulesHeadingEl,
+            innerHTML: 'Resetting',
+            style: {
+                flex: '0 0 220px'
+                // fontWeight: '600'
+            }
+        });
+
+        // Right heading: Carry Over Section
+        lx.createElement('DIV', {
+            parent: resetRulesHeadingEl,
+            // innerHTML: 'Carry Over',
+            style: {
+                flex: '1'
+                //  fontWeight: '600'
+            }
+        })
+
+        // Create row container for content section
+        const resetRulesRow = lx.createElement('DIV', {
+            parent: resetRulesSectionEl,
+            style: {
+                display: 'flex',
+                //width: '100%',
+                marginTop: '10px',
+                alignItems: 'flex-start',
+                //gap: '5px'
+            }
+        });
+
+        //Left: Resetting section
+        const leftColumn = lx.createElement('DIV', {
+            parent: resetRulesRow,
+            style: {
+                //flex: '1'
+                flex: '0 0 110px' //only take up needed space, not full size of column
+            }
+        });
+
+        const resetRulesSelect = new lx.component.Selectbox({
+            renderTo: leftColumn,
+            margin: '0px',
+            //minWidth: '150px',
+            width: '100px',
+            height: '35px',
+            textColor: '#000',
+            backgroundColor: '#FFFFFF',
+            highlightColor: '#e0e0e0',
+            items: [
+                { value: 'NONE', text: 'None' },
+                { value: 'TAKE', text: 'Taken' },
+                { value: 'ACCR', text: 'Accrued' },
+                { value: 'BOTH', text: 'Both' }
+            ]
+        });
+
+        // Right column (Reset Interval Section)
+        const rightColumn = lx.createElement('DIV', {
+            parent: resetRulesRow,
+            style: {
+                flex: '1',
+                // marginTop: '100px',
+                maxWidth: '500px'
+            }
+        });
+
+        //Reset Section container (reset interval & carry over)
+        const resetIntervalRow = lx.createElement('DIV', {
+            parent: rightColumn,
+            style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flex: '0 0 auto'
+            }
+        });
+
+        //Reset Interval Section
+        const resetWrapper = lx.createElement('DIV', {
+            parent: resetIntervalRow,
+            style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flex: '0 0 auto'
+            }
+        });
+
+        //Reset Interval textbox label
+        new lx.component.Label({
+            renderTo: resetWrapper,
+            text: 'Default number of months in period:',
+            style: {
+                marginBottom: '0px'
+            }
+        });
+
+        // Reset Interval textbox
+        const resetIntervalTxt = new lx.component.Textbox({
+            renderTo: resetWrapper,
+            width: '60px'
+        });
+
+        //Carry Over Section
+        const carryOverWrapper = lx.createElement('DIV', {
+            parent: resetIntervalRow,
+            style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flex: '0 0 auto'
+            }
+        });
+
+        //Carry Over Interval textbox label
+        new lx.component.Label({
+            renderTo: carryOverWrapper,
+            text: 'Months to carry over specified leave:',
+            style: {
+                marginBottom: '0px'
+            }
+        });
+
+        //Carry Over Interval textbox
+        const carryOverIntervalTxt = new lx.component.Textbox({
+            renderTo: carryOverWrapper,
+            width: '60px'
+        });
+
+        //Reset Interval Textbox validation - only whole numbers allowed as valid input
+        resetIntervalTxt.addEventListener('change', function () {
+            const value = resetIntervalTxt.getValue();
+            if (!/^\d+$/.test(value)) {
+                resetIntervalTxt.setValue('');
+                resetIntervalTxt.showWarning('Please enter a valid whole number.');
+                resetIntervalTxt.focus();
+            }
+            else {
+                resetIntervalTxt.clearWarning();
+            }
+        });
+
+        //Clear warning when user starts typing
+        resetIntervalTxt.addEventListener('input', function () {
+            resetIntervalTxt.clearWarning();
+        });
+
+        // Carry Over Textbox validation - only whole numbers allowed as valid input
+        carryOverIntervalTxt.addEventListener('change', function () {
+            const value = carryOverIntervalTxt.getValue();
+            if (!/^\d+$/.test(value)) {
+                carryOverIntervalTxt.setValue('');
+                carryOverIntervalTxt.showWarning('Please enter a valid whole number.');
+                carryOverIntervalTxt.focus();
+            }
+            else {
+                carryOverIntervalTxt.clearWarning();
+            }
+        });
+
+        //Clear warning when user starts typing
+        carryOverIntervalTxt.addEventListener('input', function () {
+            carryOverIntervalTxt.clearWarning();
+        });
+
+        //Set initial value of select box (default: none) and state of textboxes (disabled)
+        resetRulesSelect.setValue('NONE');
+        resetIntervalTxt.disable();
+        carryOverIntervalTxt.disable();
+
+        //Enable Reset Interval and Carry Over textbox editing when "taken", "both" or "accrued" is selected
+        resetRulesSelect.addEventListener('change', function () {
+
+            const value = resetRulesSelect.getValue();
+
+            const shouldEnable = (value == 'TAKE' || value == 'ACCR' || value == 'BOTH');
+
+            if (shouldEnable) {
+                //Enable textboxes
+                resetIntervalTxt.enable();
+                carryOverIntervalTxt.enable();
+                //Set default values without overriding user input
+                if (!resetIntervalTxt.getValue()) {
+                    resetIntervalTxt.setValue(12);
+                }
+                if (!carryOverIntervalTxt.getValue()) {
+                    carryOverIntervalTxt.setValue(6);
+                }
+                //Set focus to first textbox
+                resetIntervalTxt.focus();
+            }
+            else {
+                //Disable textboxes if "None" is selected
+                resetIntervalTxt.disable();
+                carryOverIntervalTxt.disable();
+                //Clear textboxes
+                resetIntervalTxt.setValue('');
+                carryOverIntervalTxt.setValue('');
+                //Clear warnings
+                resetIntervalTxt.clearWarning();
+                carryOverIntervalTxt.clearWarning();
+            }
+        });
+
+        //return data to make visible to add function
+        return {
+            section: resetRulesSectionEl,
+            select: resetRulesSelect,
+            resetIntervalText: resetIntervalTxt,
+            carryOverIntervalText: carryOverIntervalTxt
+        };
+    }
+
+    // Function to remove border from last rule
+    function updateRuleBorders() {
+
+        rules.forEach(function (rule, index) {
+            if (index === rules.length - 1) {
+                rule.wrapper.style.borderWidth = '0px';
+            }
+            else {
+                rule.wrapper.style.borderWidth = '0px 0px 1px 0px';
+            }
+        });
+
     }
 
 
