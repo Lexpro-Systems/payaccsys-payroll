@@ -40,9 +40,15 @@ app.panel.EssentialReports = function(config) {
     
     var emp501SectionEl = null;
     var emp501Btn = null;
+
+    var etiSectionEl = null;
+    var etiBtn = null;
     
     var uifSectionEl = null;
     var uifBtn = null;
+
+    var UI19SectionEl = null;
+    var UI19Btn = null;
     
     var returnOfEarningsSectionEl = null;
     var returnOfEarningsBtn = null;
@@ -255,6 +261,45 @@ app.panel.EssentialReports = function(config) {
             onClick: emp501BtnClickEventHandler
         });
         
+
+        //
+        //ETI SECTION
+        //
+        
+        // Create the etiSectionEl element
+        etiSectionEl = lx.createElement('DIV', {
+            parent: contentContainerEl,
+            style: {
+                backgroundColor: '#FFFFFF',
+                borderStyle: 'solid',
+                borderColor: '#DFDFDF',
+                borderWidth: '1px',
+                margin: '20px 0px 0px 0px',
+                padding: '15px',
+                width: '100%',
+                maxWidth: '900px',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+            },
+            innerHTML: 
+                '<div><div style="font-size: 18px;">ETI - Employment Tax Incentive</div>' + 
+                '<div style="font-size: 12px; margin: 10px 0px 0px 0px;">' + 
+                    'Shows company\'s monthly employment tax incentive calculations for qualifying employees.' + 
+                '</div></div>'
+        });
+        
+        // Create the etiBtn component
+        etiBtn = new lx.component.Button({
+            renderTo: etiSectionEl,
+            label: 'Open',
+            width: '120px',
+            margin: '0px 0px 0px 30px',
+            
+            onClick: etiBtnClickEventHandler
+        });        
         
         //
         // UIF SECTION
@@ -293,6 +338,41 @@ app.panel.EssentialReports = function(config) {
             margin: '0px 0px 0px 30px',
             
             onClick: uifBtnClickEventHandler
+        });
+
+         // Create the UI19SectionEl element
+        UI19SectionEl = lx.createElement('DIV', {
+            parent: contentContainerEl,
+            style: {
+                backgroundColor: '#FFFFFF',
+                borderStyle: 'solid',
+                borderColor: '#DFDFDF',
+                borderWidth: '1px',
+                margin: '20px 0px 0px 0px',
+                padding: '15px',
+                width: '100%',
+                maxWidth: '900px',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+            },
+            innerHTML: 
+                '<div><div style="font-size: 18px;">UI-19 Export</div>' + 
+                '<div style="font-size: 12px; margin: 10px 0px 0px 0px;">' + 
+                    'Export a pdf of the UI-19 SARS document containing a dissmissed Employee\'s UIF details' + 
+                '</div></div>'
+        });
+        
+        // Create the netPayBtn component
+        UI19Btn = new lx.component.Button({
+            renderTo: UI19SectionEl,
+            label: 'Open',
+            width: '120px',
+            margin: '0px 0px 0px 30px',
+            
+            onClick: UI19BtnClickEventHandler
         });
         
         
@@ -458,7 +538,28 @@ app.panel.EssentialReports = function(config) {
             state.previousPanel.show();
         });
     }
-    
+
+     // etiBtn click event handler
+    function etiBtnClickEventHandler() {
+        config.parentPanel.hide();
+        
+        var etiPanel = new app.panel.EtiReport({
+            renderTo: app.mainPanel.getContainer(),
+            show: true
+        });
+        etiPanel.focus();
+        
+        var panelState = {
+            previousPanel: config.parentPanel,
+            panel: etiPanel
+        };
+        
+        app.route.pushState(panelState, function( state ) {
+            state.panel.destroy();
+            state.previousPanel.show();
+        });
+    }
+
     // returnOfEarningsBtn click event handler
     // function returnOfEarningsBtnClickEventHandler() {
     //     config.parentPanel.hide();
@@ -521,7 +622,28 @@ app.panel.EssentialReports = function(config) {
             state.previousPanel.show();
         });
     }
+
+     // UI19fBtn click event handler
+    function UI19BtnClickEventHandler() {
+        config.parentPanel.hide();
+        
+        var UI19Panel = new app.panel.UI19Report({
+            renderTo: app.mainPanel.getContainer(),
+            show: true
+        });
+        UI19Panel.focus();
+        
+        var panelState = {
+            previousPanel: config.parentPanel,
+            panel: UI19Panel
+        };
+        
+        app.route.pushState(panelState, function( state ) {
+            state.panel.destroy();
+            state.previousPanel.show();
+        });
     
+    }
     
     //
     // INITIALIZE OBJECT

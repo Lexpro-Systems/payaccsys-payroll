@@ -3,6 +3,7 @@
 <html lang="en">
 
 <head>
+    <meta charset="utf-8" />
     <title>Payaccsys Payroll</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -19,12 +20,14 @@
     <!-- LOAD CSS -->
     <link rel="stylesheet" href="css/common.css" />
 
-    <!-- INCLUDE ZXCVBN LIBRARY -->
+    <!-- INCLUDE ZXCVBN LIBRARY: Password strength estimator -->
     <script src="https://www.lexproonline.co.za/zxcvbn/zxcvbn.js"></script>
 
     <!-- INCLUDE LX LIBRARY -->
     <script src="https://www.lexproonline.co.za/liblx/v0_0_2/lx.js"></script>
-    <!-- <script src="../../../LibLx/src/lx.js"></script> -->
+    <!-- 2025-05-19 Ray King -->
+    <!-- <script src="./liblx/v0_0_2/lx.js"></script> -->
+    <!-- <script src="../liblx_R29/lx.js"></script> -->
 
     <!-- INCLUDE PROJECT FILES -->
     <script src="js/app.js"></script>
@@ -54,6 +57,7 @@
     <script src="js/panel/view_employee_details_panel.js"></script>
     <script src="js/panel/view_employee_work_schedule_panel.js"></script>
     <script src="js/panel/edit_employee_work_schedule_panel.js"></script>
+    <script src="js/panel/edit_employee_work_days.js"></script>
     <script src="js/panel/add_employee_wizard_panel.js"></script>
     <script src="js/panel/import_employees_panel.js"></script>
     <script src="js/panel/import_payrun_panel.js"></script>
@@ -128,18 +132,24 @@
     <script src="js/panel/earnings_cost_analysis_report_panel.js"></script>
     <script src="js/panel/emp201_report_panel.js"></script>
     <script src="js/panel/emp501_report_panel.js"></script>
+    <script src="js/panel/eti_report_panel.js"></script>
     <script src="js/panel/nett_pay_report.js"></script>
     <script src="js/panel/employee_details_report_panel.js"></script>
     <script src="js/panel/birthday_report_panel.js"></script>
     <script src="js/panel/leave_summary_report_panel.js"></script>
     <script src="js/panel/employee_leave_report_panel.js"></script>
+    <script src="js/panel/employee_leave_summary_report.js"></script>
+    <script src="js/panel/company_leave_summary_report_panel.js"></script>
     <script src="js/panel/uif_report_panel.js"></script>
+    <script src="js/panel/ui19_report_panel.js"></script>
     <script src="js/panel/export_uif_declaration_panel.js"></script>
     <script src="js/panel/payslip_items_report_panel.js"></script>
-    <!-- <script src="js/panel/return_of_earnings_report_panel.js"></script> -->
+    <script src="js/panel/payslips_broader_items_report_panel.js"></script>
+    <script src="js/panel/return_of_earnings_report_panel.js"></script>
     <script src="js/panel/coida_report_panel.js"></script>
     <script src="js/panel/overtime_report_panel.js"></script>
     <script src="js/panel/payslip_items_specified_report_panel.js"></script>
+    <script src="js/panel/year_to_date_report_panel.js"></script>
 
     <script src="js/panel/view_setup_panel.js"></script>
     <script src="js/panel/miscellaneous_setup_panel.js"></script>
@@ -299,7 +309,7 @@
         !function (f, b, e, v, n, t, s) {
             if (f.fbq) return; n = f.fbq = function () {
                 n.callMethod ?
-                n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+                    n.callMethod.apply(n, arguments) : n.queue.push(arguments)
             };
             if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
             n.queue = []; t = b.createElement(e); t.async = !0;
@@ -320,8 +330,7 @@
 <body onload="bodyLoadEventHandler();">
     <div style="display: flex; flex-direction: column; width: 100%; height: 100%;">
         <div style="display: block; flex: 1 1 100%;"></div>
-        <div style="display: block; width: 100%; text-align: center; color: #DFDFDF;">Payaccsys Payroll is loading...
-        </div>
+        <div style="display: block; width: 100%; text-align: center; color: #DFDFDF;">Payaccsys Payroll is loading...</div>
         <div style="display: block; flex: 1 1 100%;"></div>
     </div>
 </body>
