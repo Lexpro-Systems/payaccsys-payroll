@@ -8,7 +8,6 @@ System::includeFile('Util.php');
 System::includeFile('PayslipUtil.php');
 System::includeFile('LeaveUtil.php');
 
-
 //
 // USER CONTROLLER CLASS
 //
@@ -140,19 +139,23 @@ class Payslip extends Controller
         // Create employees array
         $itemTypes = [];
         while ($sqlRow = $sqlResult->fetchAssociative()) {
-            $itemTypes[] = [
-                'code' => $sqlRow['payslip_item_type_code'],
-                'name' => $sqlRow['payslip_item_type_name'],
-                'category' => [
-                    'code' => $sqlRow['payslip_category_code'],
-                    'name' => $sqlRow['payslip_category_name']
-                ],
-                'unit' => [
-                    'code' => $sqlRow['payslip_item_unit_code']
-                ],
-                'autoCalculate' => $sqlRow['auto_calculate'],
-                'includeInNettPay' => $sqlRow['include_in_nett_pay']
-            ];
+            if ($sqlRow['payslip_item_type_code'] === '2009') {
+                continue;
+            } else {
+                $itemTypes[] = [
+                    'code' => $sqlRow['payslip_item_type_code'],
+                    'name' => $sqlRow['payslip_item_type_name'],
+                    'category' => [
+                        'code' => $sqlRow['payslip_category_code'],
+                        'name' => $sqlRow['payslip_category_name']
+                    ],
+                    'unit' => [
+                        'code' => $sqlRow['payslip_item_unit_code']
+                    ],
+                    'autoCalculate' => $sqlRow['auto_calculate'],
+                    'includeInNettPay' => $sqlRow['include_in_nett_pay']
+                ];
+            }
         }
 
         // Send result
@@ -194,6 +197,7 @@ class Payslip extends Controller
                 return false;
             }
         }
+
 
         // Load the payslip template
         System::includeFile('payslip_printing/PayslipPrinterDefault.php');
@@ -245,7 +249,7 @@ class Payslip extends Controller
                     }
                 }
             }
-            if (!$skip) {
+            if (!$skip && !empty($sqlRow['name'])) {
                 $config[$sqlRow['name']] = $sqlRow['value'];
             }
         }
@@ -339,6 +343,7 @@ class Payslip extends Controller
                 'payslips.from_date, ' .
                 'payslips.to_date, ' .
                 'payslips.employee_id, ' .
+                'payslips.is_encrypted,' .
                 'employees.id AS employee_id, ' .
                 'employees.full_names, ' .
                 'employees.first_name, ' .
@@ -491,6 +496,11 @@ class Payslip extends Controller
                     $description = $description . ' (' . $hoursWorked . ' hours)';
                 }
 
+                // 2025-08-21 Add hours worked and hourly rate to description when unit_code is PHOU and item_type_code is 1001
+                if ($itemRow['payslip_item_type_code'] == '1001') {
+                    $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                }
+
                 // Add the specified item details to the payslip printer
                 $printer->addPayslipItem($itemRow['payslip_category_name'], $description, $amount, $itemRow['include_in_nett_pay']);
             }
@@ -509,17 +519,17 @@ class Payslip extends Controller
                 );
             }
 
+            // Encryption
+            if ((bool)$payslipRow['is_encrypted'] === true) {
+                $identityNumber = $payslipRow['id_number'] ?: $payslipRow['passport_number'];
+                if (!empty($identityNumber)) {
+                    $printer->enableEncryption($identityNumber);
+                }
+            }
+
             // Print the payslip
             $printer->printPayslip();
 
-            // Set protection
-            $printer->SetProtection(
-                array('print', 'copy'),         // Permissions
-                $payslipRow['id_number'],       // User password (required to open the PDF)
-                '',                             // Owner password (controls permissions)
-                1,                              // Encryption mode (0 = 128-bit, 1 = 256-bit AES)
-                null                            // Public key certificate (optional)
-            );
 
             // Create a random filename for the payslip
             $filename = '';
@@ -538,22 +548,31 @@ class Payslip extends Controller
             $mail->isSMTP();
             $mail->Host = CONF_SMTP_HOST;
             $mail->Port = CONF_SMTP_PORT;
-            $mail->charSet = 'UTF-8';
-            $mail->SMTPAuth = true;
-            $mail->Username = CONF_SMTP_USERNAME;
-            $mail->Password = CONF_SMTP_PASSW;
+            // 2025-05-15 Ray King
+            $mail->CharSet = 'UTF-8';
 
             //Recipients
-            $mail->setFrom(CONF_EMAIL_FROMADDRESS, 'Payaccsys Payroll');
+            $mail->setFrom(CONF_EMAIL_FROMADDRESS, 'Lexpro Payroll');
             $mail->addAddress($emailAddress, $payslipRow['alias']);
 
             // Add the pasylip as an attachment
             $mail->addAttachment($filename, 'payslip_' . str_replace('-', '', $payslipRow['to_date']) . '.pdf');
 
+            $passwordNotice = '';
+
+            if ((bool)$payslipRow['is_encrypted'] === true) {
+                $passwordNotice =
+                    '<b>Important:</b> This document is password protected.<br>' .
+                    'Use your South African ID number to open the payslip.<br><br>';
+            }
+
+
             // Set the email text
             $htmlBody =
                 'Dear ' . $payslipRow['alias'] . ',<br><br>' .
                 'Please find the attached payslip for <b>' . $payslipRow['full_names'] . ' ' . $payslipRow['last_name'] . '</b> for the period <b>' . $payslipRow['from_date'] . ' to ' . $payslipRow['to_date'] . '</b>.<br><br>' .
+                $passwordNotice .
+
                 'If you have any queries, please don\'t hesitate to contact us.<br><br>' .
                 'Regards,<br><br>' .
                 'HR Department,<br><br>' .
@@ -623,6 +642,7 @@ class Payslip extends Controller
             'payslips.payment_period_code, ' .
             'payslips.payment_period_end_day, ' .
             'payslips.employee_id, ' .
+            'payslips.is_encrypted,' .
             'employees.id AS employee_id, ' .
             'employees.full_names, ' .
             'employees.first_name, ' .
@@ -731,7 +751,13 @@ class Payslip extends Controller
             }
 
             if ($itemRow['payslip_category_code'] === 'DEDU') {
-                $deductionsTotal = $deductionsTotal + (float)$itemRow['total'];
+
+                if ($itemRow['payslip_item_type_code'] === '2010') {
+                    $deductionsTotal = $deductionsTotal - (float)$itemRow['total'];
+                } else {
+                    $deductionsTotal = $deductionsTotal + (float)$itemRow['total'];
+                }
+                //$deductionsTotal = $deductionsTotal + (float)$itemRow['total'];
             }
 
             $payslipItems[] = [
@@ -928,6 +954,7 @@ class Payslip extends Controller
             'payslips.from_date, ' .
             'payslips.to_date, ' .
             'payslips.employee_id, ' .
+            'payslips.is_encrypted,' .
             'employees.id AS employee_id, ' .
             'employees.full_names, ' .
             'employees.first_name, ' .
@@ -1080,6 +1107,11 @@ class Payslip extends Controller
                 $description = $description . ' (' . $hoursWorked . ' hours)';
             }
 
+            // 2025-08-21 Add hours worked and hourly rate to description when unit_code is PHOU and item_type_code is 1001
+            if ($itemRow['payslip_item_type_code'] == '1001') {
+                $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+            }
+
             // Add the specified item details to the payslip printer
             $printer->addPayslipItem($itemRow['payslip_category_name'], $description, $amount, $itemRow['include_in_nett_pay']);
         }
@@ -1096,6 +1128,14 @@ class Payslip extends Controller
                 $leaveData[$key]['balance'],
                 $leaveData[$key]['unit']
             );
+        }
+
+        // Encryption
+        if ((bool)$payslipRow['is_encrypted'] === true) {
+            $identityNumber = $payslipRow['id_number'] ?: $payslipRow['passport_number'];
+            if (!empty($identityNumber)) {
+                $printer->enableEncryption($identityNumber);
+            }
         }
 
         // Print the payslip
@@ -1199,7 +1239,7 @@ class Payslip extends Controller
 
         $sqlQuery =
             'SELECT  ' .
-            'payslips.id, payslips.from_date, payslips.to_date, sars_year, description, employees.email_address ' .
+            'payslips.id, payslips.from_date, payslips.to_date, sars_year, description, payslips.is_encrypted, employees.email_address ' .
             'FROM payslips ' .
             'LEFT JOIN ' .
             'payruns ON payruns.id  = payslips.payrun_id ' .
@@ -1232,6 +1272,7 @@ class Payslip extends Controller
                 'toDate' => $sqlRow['to_date'],
                 'sarsYear' => $sarsYear,
                 'description' => $sqlRow['description'],
+                'is_encrypted' => (bool)$sqlRow['is_encrypted'],
             ];
         }
 
@@ -1485,6 +1526,36 @@ class Payslip extends Controller
 
         // Send result
         echo (json_encode(['ok' => true]));
+        return true;
+    }
+
+    public function ydtEmployeePayslipItems($data, $user, $db)
+    {
+        // Set content type header
+        header('Content-Type: application/json');
+
+        // Set default parameter values
+        $defaults = [];
+        Json::copy($defaults, $data);
+        // Validate data.
+        $validationResult = Json::validate($data, [
+            'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'startDate' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
+            'endDate' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        // Get the data for the specified report
+        $reportData = \PayslipUtil\getEmployeeYTDData($data, $user, $db);
+        if ($reportData['ok'] !== true) {
+            echo (json_encode(['ok' => false, 'error' => $reportData['error']]));
+            return false;
+        }
+
+        echo json_encode(['ok' => true, 'ytdData' => $reportData['ytdData']]);
         return true;
     }
 }
