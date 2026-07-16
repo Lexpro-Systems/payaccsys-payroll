@@ -35,6 +35,10 @@ app.panel.ViewEmployeeLeave = function (config) {
     var contentContainerEl = null;
     var loader = null;
     var leaveTypes = [];
+    var employeeDetails = [];
+    var subscribedLeaveTypes = [];
+
+    var exportPdfBtn = null;
 
 
     //
@@ -80,6 +84,7 @@ app.panel.ViewEmployeeLeave = function (config) {
                 }
 
                 // Add leave type sections
+                //subscribedLeaveTypes = [];
                 for (let i = 0; i < result.leaveTypes.length; i++) {
 
                     if (result.leaveTypes[i].id === leaveTypeId) {
@@ -187,6 +192,9 @@ app.panel.ViewEmployeeLeave = function (config) {
                                     },
                                     innerHTML: 'The employee does not have any leave of this type.'
                                 });
+                                subscribedLeaveTypes = subscribedLeaveTypes.filter(item =>
+                                    item.LeaveType !== result.leaveTypes[i].name
+                                );
                             }
                             else {
                                 lx.createElement('DIV', {
@@ -200,6 +208,7 @@ app.panel.ViewEmployeeLeave = function (config) {
                                     innerHTML: 'The employee does not have any leave of this type for the specified period.'
                                 });
                             }
+                            //console.log(subscribedLeaveTypes)
                             continue;
                         }
                         let typeItemEl = lx.createElement('DIV', {
@@ -263,6 +272,13 @@ app.panel.ViewEmployeeLeave = function (config) {
                         }
                         leaveGrid.clear();
                         leaveGrid.addRows(leave);
+                        if (result.leaveTypes[i].isSubscribed === true) {
+                            subscribedLeaveTypes.push({
+                                LeaveType: result.leaveTypes[i].name,
+                                leaveDetails: leave
+                            })
+                        }
+                        //console.log(subscribedLeaveTypes)
                         break;
                     }
                 }
@@ -293,6 +309,7 @@ app.panel.ViewEmployeeLeave = function (config) {
                     return;
                 }
 
+                subscribedLeaveTypes = [];
                 // Add leave type sections
                 for (let i = 0; i < result.leaveTypes.length; i++) {
 
@@ -492,7 +509,14 @@ app.panel.ViewEmployeeLeave = function (config) {
                     }
                     leaveGrid.clear();
                     leaveGrid.addRows(leave);
+                    if (result.leaveTypes[i].isSubscribed === true) {
+                        subscribedLeaveTypes.push({
+                            LeaveType: result.leaveTypes[i].name,
+                            leaveDetails: leave
+                        })
+                    }
                 }
+                //console.log(subscribedLeaveTypes);
             }
         });
     }
@@ -524,6 +548,13 @@ app.panel.ViewEmployeeLeave = function (config) {
 
         // Initialize state
         confirmDestroy = false;
+        employeeDetails = [];
+        employeeDetails.push({
+            Name: compConfig.fullname,
+            Surname: compConfig.lastname,
+            EmploymentDate: compConfig.employmentDate,
+        })
+        //console.log(`ID: ${compConfig.employeeId},\n name: ${compConfig.employeeName},\n fullname: ${compConfig.fullname},\n lastname: ${compConfig.lastname},\n EMPDate: ${compConfig.employmentDate},\n`)
 
         // Create root element
         el = lx.createElement('DIV', {
@@ -588,41 +619,56 @@ app.panel.ViewEmployeeLeave = function (config) {
 
             onChange: filterOnChangeEvent
         });
-
         var date = new Date();
-        var firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-        var lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-        // Set the default start date
-        var month = '' + ((lastDay.getMonth() % 12) + 1);
-        var day = '' + firstDay.getDate();
-        var year = firstDay.getFullYear() - 1;
+        // Start date
+        var startYear = date.getFullYear();
+        var startMonth = date.getMonth();
 
-        if (month.length < 2) {
-            month = '0' + month;
-        }
-        if (day.length < 2) {
-            day = '0' + day;
-        }
-        startDate.setValue(year + '-' + month + '-' + day);
+        var startMonthStr = ('0' + (startMonth + 1)).slice(-2);
 
-        // Set the default end date
-        // month = '' + (lastDay.getMonth() + 1);
-        // day = '' + lastDay.getDate();
-        // year = lastDay.getFullYear();
-        month = '' + (date.getMonth() + 1);
-        day = '' + date.getDate();
-        year = date.getFullYear();
+        var startDateStr = startYear + '-' + startMonthStr + '-01';
 
-        if (month.length < 2) {
-            month = '0' + month;
-        }
-        if (day.length < 2) {
-            day = '0' + day;
-        }
-        endDate.setValue(year + '-' + month + '-' + day);
+        startDate.setValue(startDateStr);
 
+        // End date
+        var endDateObj = new Date(startYear + 1, startMonth + 3, 0);
 
+        var endYear = endDateObj.getFullYear();
+        var endMonth = ('0' + (endDateObj.getMonth() + 1)).slice(-2);
+        var endDay = ('0' + endDateObj.getDate()).slice(-2);
+
+        var endDateStr = endYear + '-' + endMonth + '-' + endDay;
+
+        endDate.setValue(endDateStr);
+        //    var date = new Date();
+
+        //     // Start date (already correct)
+        //     var startYear = date.getFullYear();
+        //     var startMonth = date.getMonth(); // 0-based
+
+        //     var startDateStr = `${startYear}-${String(startMonth + 1).padStart(2, '0')}-01`;
+        //     startDate.setValue(startDateStr);
+
+        //     // 👉 End date logic
+        //     // Go 1 year forward, then set day = 0 of next month
+        //     // (this gives last day of previous month)
+        //     var endDateObj = new Date(startYear + 1, startMonth + 3, 0);
+
+        //     var endYear = endDateObj.getFullYear();
+        //     var endMonth = String(endDateObj.getMonth() + 1).padStart(2, '0');
+        //     var endDay = String(endDateObj.getDate()).padStart(2, '0');
+
+        //     endDate.setValue(`${endYear}-${endMonth}-${endDay}`);
+
+        exportPdfBtn = new lx.component.Button({
+            renderTo: filterContainerEl,
+            label: 'PDF Export',
+            width: '130px',
+            margin: '0px 10px 0px 80px',
+
+            onClick: exportPdfBtnOnClickEventHandler
+        });
 
         //
         // CONTENT SECTION
@@ -843,6 +889,21 @@ app.panel.ViewEmployeeLeave = function (config) {
 
         // Show the modal window and focus on the panel
         viewLeaveTypeModel.show();
+    }
+
+    function exportPdfBtnOnClickEventHandler() {
+
+        // Open the report in a new tab
+        lx.sendForm({
+            url: 'exec.php?c=Report&fn=runEmployeeLeaveSummaryPdfReport',
+            target: '_blank',
+            data: {
+                Pdfdetails: subscribedLeaveTypes,
+                Employee: employeeDetails,
+                startDate: startDate.getValue(),
+                endDate: endDate.getValue()
+            }
+        });
     }
 
     // The event that is fire when a filter is changed

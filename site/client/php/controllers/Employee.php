@@ -74,7 +74,15 @@ class Employee extends Controller
             'thursday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
             'friday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
             'saturday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
-            'sunday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true]
+            'sunday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
+            'mondayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'tuesdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'wednesdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'thursdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'fridayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'saturdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'sundayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'wdEnableLeave' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false]
 
         ]);
         if ($validationResult !== true) {
@@ -111,6 +119,15 @@ class Employee extends Controller
             $friday = null;
             $saturday = null;
             $sunday = null;
+            $wdEnableLeave = false;
+            $mondayWd = false;
+            $tuesdayWd = false;
+            $wednesdayWd = false;
+            $thursdayWd = false;
+            $fridayWd = false;
+            $saturdayWd = false;
+            $sundayWd = false;
+
 
             if (array_key_exists('enableLeave', $data)) {
                 $enableLeave = $data['enableLeave'];
@@ -136,13 +153,38 @@ class Employee extends Controller
             if (array_key_exists('sunday', $data)) {
                 $sunday = $data['sunday'];
             }
+            if (array_key_exists('enableLeave', $data)) {
+                $wdEnableLeave = $data['wdEnableLeave'];
+            }
+            if (array_key_exists('monday', $data)) {
+                $mondayWd = $data['mondayWd'];
+            }
+            if (array_key_exists('tuesday', $data)) {
+                $tuesdayWd = $data['tuesdayWd'];
+            }
+            if (array_key_exists('wednesday', $data)) {
+                $wednesdayWd = $data['wednesdayWd'];
+            }
+            if (array_key_exists('thursday', $data)) {
+                $thursdayWd = $data['thursdayWd'];
+            }
+            if (array_key_exists('friday', $data)) {
+                $fridayWd = $data['fridayWd'];
+            }
+            if (array_key_exists('saturday', $data)) {
+                $saturdayWd = $data['saturdayWd'];
+            }
+            if (array_key_exists('sunday', $data)) {
+                $sundayWd = $data['sundayWd'];
+            }
 
             // Build the query to insert the item.
             $sqlQuery =
                 'INSERT INTO work_schedules( ' .
                 'employee_id, enable_leave, monday_hours, tuesday_hours, wednesday_hours,  ' .
-                'thursday_hours, friday_hours, saturday_hours, sunday_hours) ' .
-                'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9); ';
+                'thursday_hours, friday_hours, saturday_hours, sunday_hours ' .
+                'monday_wd, tuesday_wd, wednesday_wd, thursday_wd, friday_wd, saturday_wd, sunday_wd, wd_enable_leave) ' .
+                'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17); ';
             $sqlResult = $db->paramQuery($sqlQuery, [
                 $data['employeeId'],        // employee_id
                 $enableLeave,               // enable_leave
@@ -152,7 +194,15 @@ class Employee extends Controller
                 $thursday,                  // thursday hours
                 $friday,                    // friday hours
                 $saturday,                  // saturday hours
-                $sunday                     // sunday hours
+                $sunday,
+                $mondayWd,
+                $tuesdayWd,
+                $wednesdayWd,
+                $thursdayWd,
+                $fridayWd,
+                $saturdayWd,
+                $sundayWd,
+                $wdEnableLeave,                     // sunday hours
             ]);
 
             if (!$sqlResult->isValid()) {
@@ -220,6 +270,60 @@ class Employee extends Controller
                 $updateQuery = $updateQuery . 'sunday_hours = $' . $updateCount;
                 $updateValues[] = $data['sunday'];
             }
+            if (array_key_exists('mondayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'monday_wd = $' . $updateCount;
+                $updateValues[] = $data['mondayWd'];
+            }
+
+            if (array_key_exists('tuesdayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'tuesday_wd = $' . $updateCount;
+                $updateValues[] = $data['tuesdayWd'];
+            }
+
+            if (array_key_exists('wednesdayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'wednesday_wd = $' . $updateCount;
+                $updateValues[] = $data['wednesdayWd'];
+            }
+
+            if (array_key_exists('thursdayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'thursday_wd = $' . $updateCount;
+                $updateValues[] = $data['thursdayWd'];
+            }
+
+            if (array_key_exists('fridayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'friday_wd = $' . $updateCount;
+                $updateValues[] = $data['fridayWd'];
+            }
+
+            if (array_key_exists('saturdayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'saturday_wd = $' . $updateCount;
+                $updateValues[] = $data['saturdayWd'];
+            }
+
+            if (array_key_exists('sundayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'sunday_wd = $' . $updateCount;
+                $updateValues[] = $data['sundayWd'];
+            }
+            if (array_key_exists('wdEnableLeave', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'wd_enable_leave = $' . $updateCount;
+                $updateValues[] = $data['wdEnableLeave'];
+            }
 
             // Set where clause
             $updateCount++;
@@ -243,6 +347,7 @@ class Employee extends Controller
 
         return true;
     }
+
 
     // Function to get work schedule of the specified employee
     //
@@ -817,7 +922,9 @@ class Employee extends Controller
             }
         }
 
-
+        // $leaveNotices = [];
+        // if ($data['page'] === 'ELSpage') {
+        // }
         // Send result
         echo (json_encode(['ok' => true, 'leaveTypes' => $leaveTypes]));
 
@@ -1229,7 +1336,7 @@ class Employee extends Controller
             if ($whereClause === '')
                 $whereClause = 'WHERE ';
             else
-                $whereClause = $whereClause . 'AND ';
+                $whereClause = $whereClause . ' AND ';
             $sqlParams[] = $data['departmentName'];
             $whereClause = $whereClause . ' departments.name = $' . count($sqlParams);
         }
@@ -1240,7 +1347,7 @@ class Employee extends Controller
                 if ($whereClause === '') {
                     $whereClause = 'WHERE ';
                 } else {
-                    $whereClause = $whereClause . 'AND ';
+                    $whereClause = $whereClause . ' AND ';
                 }
 
                 if ($data['employeeStatus'] === 'employed') {
@@ -1285,12 +1392,14 @@ class Employee extends Controller
             'SELECT ' .
             'employees.id, ' .
             'employees.code, ' .
+            'employees.full_names, ' .
             'employees.last_name, ' .
             'employees.alias, ' .
             'employees.email_address, ' .
             'employees.cell_number, ' .
             'employment_start_date, ' .
             'employment_end_date, ' .
+            'employees.date_of_birth, ' .
             'employees.department_id, ' .
             'departments.name AS department_name, ' .
             'dismissal_reasons.code AS dismissal_reasons_code, ' .
@@ -1334,6 +1443,8 @@ class Employee extends Controller
             $employees[] = [
                 'id' => $sqlRow['id'],
                 'code' => $sqlRow['code'],
+                'Fullname' => $sqlRow['full_names'],
+                'Lastname' => $sqlRow['last_name'],
                 'alias' => $sqlRow['alias'],
                 'emailAddress' => $sqlRow['email_address'],
                 'cellNumber' => $sqlRow['cell_number'],
@@ -1341,6 +1452,7 @@ class Employee extends Controller
                 'departmentName' => $sqlRow['department_name'],
                 'employmentStartDate' => $sqlRow['employment_start_date'],
                 'employmentEndDate' => $sqlRow['employment_end_date'],
+                'dateOfBirth' => $sqlRow['date_of_birth'],
                 'employmentStatus' => $employmentStatus,
                 'dismissalReasonsCode' => $sqlRow['dismissal_reasons_code'],
                 'dismissalReasonsName' => $sqlRow['dismissal_reasons_name']
@@ -1655,7 +1767,20 @@ class Employee extends Controller
                 'fridayHours' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
                 'saturdayHours' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
                 'sundayHours' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true]
-            ]]
+            ]],
+            'workDays' => [
+                ['type' => Json::TYPE_OBJECT, 'required' => false, 'nullable' => true, 'rules' => [
+                    'mondayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+                    'tuesdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+                    'wednesdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+                    'thursdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+                    'fridayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+                    'saturdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+                    'sundayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+                    'wdEnableLeave' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false]
+                ]],
+
+            ]
         ]);
 
         if ($validationResult !== true) {
@@ -2421,14 +2546,16 @@ class Employee extends Controller
             }
         }
 
-        // Add retirement fund if any was provided
-        if (isset($data['workSchedule'])) {
+        // Add work schedule or work days if it was provided
+        if (isset($data['workSchedule']) || isset($data['workDays'])) {
             $workSchedule = $data['workSchedule'];
+            $workDays = $data['workDays'];
+
 
             // Lock the relevant table(s)
             $db->paramQuery('LOCK TABLE work_schedules IN ACCESS EXCLUSIVE MODE', []);
 
-            // Load banking details
+            // Load work schedule details
             $enableLeave = false;
             $mondayHours = null;
             $tuesdayHours = null;
@@ -2438,6 +2565,15 @@ class Employee extends Controller
             $saturdayHours = null;
             $sundayHours = null;
 
+            $mondayWd = false;
+            $tuesdayWd = false;
+            $wednesdayWd = false;
+            $thursdayWd = false;
+            $fridayWd = false;
+            $saturdayWd = false;
+            $sundayWd = false;
+            $wdEnableLeave = false;
+
             if (array_key_exists('enableLeave', $workSchedule)) $enableLeave = $workSchedule['enableLeave'];
             if (array_key_exists('mondayHours', $workSchedule)) $mondayHours = $workSchedule['mondayHours'];
             if (array_key_exists('tuesdayHours', $workSchedule)) $tuesdayHours = $workSchedule['tuesdayHours'];
@@ -2446,6 +2582,15 @@ class Employee extends Controller
             if (array_key_exists('fridayHours', $workSchedule)) $fridayHours = $workSchedule['fridayHours'];
             if (array_key_exists('saturdayHours', $workSchedule)) $saturdayHours = $workSchedule['saturdayHours'];
             if (array_key_exists('sundayHours', $workSchedule)) $sundayHours = $workSchedule['sundayHours'];
+
+            if (array_key_exists('mondayWd', $workDays)) $mondayWd = $workDays['mondayWd'];
+            if (array_key_exists('tuesdayWd', $workDays)) $tuesdayWd = $workDays['tuesdayWd'];
+            if (array_key_exists('wednesdayWd', $workDays)) $wednesdayWd = $workDays['wednesdayWd'];
+            if (array_key_exists('thursdayWd', $workDays)) $thursdayWd = $workDays['thursdayWd'];
+            if (array_key_exists('fridayWd', $workDays)) $fridayWd = $workDays['fridayWd'];
+            if (array_key_exists('saturdayWd', $workDays)) $saturdayWd = $workDays['saturdayWd'];
+            if (array_key_exists('sundayWd', $workDays)) $sundayWd = $workDays['sundayWd'];
+            if (array_key_exists('wdEnableLeave', $workDays)) $wdEnableLeave = $workDays['wdEnableLeave'];
 
             // Build the query to insert the item.
             $sqlQuery =
@@ -2458,9 +2603,17 @@ class Employee extends Controller
                 'thursday_hours, ' .
                 'friday_hours, ' .
                 'saturday_hours, ' .
-                'sunday_hours ' .
+                'sunday_hours, ' .
+                'monday_wd, ' .
+                'tuesday_wd, ' .
+                'wednesday_wd, ' .
+                'thursday_wd, ' .
+                'friday_wd, ' .
+                'saturday_wd, ' .
+                'sunday_wd, ' .
+                'wd_enable_leave ' .
                 ') ' .
-                'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9); ';
+                'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17); ';
             $sqlResult = $db->paramQuery($sqlQuery, [
                 $employeeId,        // employee_id
                 $enableLeave,       // enable_leave
@@ -2470,7 +2623,16 @@ class Employee extends Controller
                 $thursdayHours,     // thursday hours
                 $fridayHours,       // friday hours
                 $saturdayHours,     // saturday hours
-                $sundayHours        // sunday hours
+                $sundayHours,        // sunday hours
+                $mondayWd,
+                $tuesdayWd,
+                $wednesdayWd,
+                $thursdayWd,
+                $fridayWd,
+                $saturdayWd,
+                $sundayWd,
+                $wdEnableLeave
+
             ]);
 
             if (!$sqlResult->isValid()) {
@@ -2658,6 +2820,14 @@ class Employee extends Controller
             'work_schedules.friday_hours, ' .
             'work_schedules.saturday_hours, ' .
             'work_schedules.sunday_hours, ' .
+            'work_schedules.wd_enable_leave, ' .
+            'work_schedules.monday_wd, ' .
+            'work_schedules.tuesday_wd, ' .
+            'work_schedules.wednesday_wd, ' .
+            'work_schedules.thursday_wd, ' .
+            'work_schedules.friday_wd, ' .
+            'work_schedules.saturday_wd, ' .
+            'work_schedules.sunday_wd, ' .
             'postal_address_country_code, ' .
             'employee_bank_details.financial_institution_code, financial_institutions.name AS financial_institution_name, ' .
             'employee_bank_details.bank_account_type_code, bank_account_types.name AS bank_account_type_name, ' .
@@ -2831,9 +3001,18 @@ class Employee extends Controller
                 'thursday' => $sqlRow['thursday_hours'],
                 'friday' => $sqlRow['friday_hours'],
                 'saturday' => $sqlRow['saturday_hours'],
-                'sunday' => $sqlRow['sunday_hours']
+                'sunday' => $sqlRow['sunday_hours'],
+                'wdEnableLeave' => $sqlRow['wd_enable_leave'],
+                'mondaywd' => $sqlRow['monday_wd'],
+                'tuesdaywd' => $sqlRow['tuesday_wd'],
+                'wednesdaywd' => $sqlRow['wednesday_wd'],
+                'thursdaywd' => $sqlRow['thursday_wd'],
+                'fridaywd' => $sqlRow['friday_wd'],
+                'saturdaywd' => $sqlRow['saturday_wd'],
+                'sundaywd' => $sqlRow['sunday_wd']
             ];
         }
+
 
         // Send result
         echo (json_encode([
@@ -6348,7 +6527,7 @@ class Employee extends Controller
         rewind($handler);
         $employees = [];
         // $countCriticalWarnings = 0;
-        while (($rowData = fgetcsv($handler, 2048, $lineSperator)) !== FALSE) {
+        while (($rowData = fgetcsv($handler, 2048, $lineSperator, '"', '\\')) !== FALSE) {
             Util::checkCompanyEmployeeLimit($db);
             // skip headers
             if ($row == 0) {
@@ -6584,7 +6763,7 @@ class Employee extends Controller
         $employees = [];
         rewind($handler);
         // For every entry in the import file
-        while (($rowData = fgetcsv($handler, 2048, $lineSperator)) !== FALSE) {
+        while (($rowData = fgetcsv($handler, 2048, $lineSperator, '"', '\\')) !== FALSE) {
             Util::checkCompanyEmployeeLimit($db);
             // skip headers
             if ($row == 0) {
@@ -7265,10 +7444,8 @@ class Employee extends Controller
             $mail->isSMTP();
             $mail->Host = CONF_SMTP_HOST;
             $mail->Port = CONF_SMTP_PORT;
-            $mail->charSet = 'UTF-8';
-            $mail->SMTPAuth = true;
-            $mail->Username = CONF_SMTP_USERNAME;
-            $mail->Password = CONF_SMTP_PASSW;
+            // 2025-04-29 Ray King
+            $mail->CharSet = 'UTF-8';
 
             // Create template
             $mailText = file_get_contents(CONF_SYSTEM_DIR . 'email_templates/self_service_invite.html');

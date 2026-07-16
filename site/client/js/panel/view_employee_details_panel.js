@@ -84,6 +84,17 @@ app.panel.ViewEmployeeDetails = function (config) {
     var paymentPeriodEndDayDisplay = null;
     var paymentDayDisplay = null;
 
+    var WDDetailsHeadingEl = null;
+    var WDDetailsEditBtn = null;
+    var WDDetailsSectionEl = null;
+    var mondayDWCb = null;
+    var tuesdayDWCb = null;
+    var wednesdayDWCb = null;
+    var thursdayDWCb = null;
+    var fridayDWCb = null;
+    var saturdayDWCb = null;
+    var sundayDWCb = null;
+
     var scheduleDetailsHeadingEl = null;
     var scheduleDetailsEditBtn = null;
     var scheduleDetailsSectionEl = null;
@@ -471,38 +482,60 @@ app.panel.ViewEmployeeDetails = function (config) {
                 if (response.employee.workSchedule !== null) {
                     var scheduleString = '';
 
-                    scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Sunday:</div>';
-                    if (response.employee.workSchedule.sunday === null) scheduleString = scheduleString + '-<br />';
-                    else scheduleString = scheduleString + response.employee.workSchedule.sunday + ' hours<br />';
+                    if (response.employee.workSchedule.enableLeave) {
+                        scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Sunday:</div>';
+                        if (response.employee.workSchedule.sunday === null) scheduleString = scheduleString + '-<br />';
+                        else scheduleString = scheduleString + response.employee.workSchedule.sunday + ' hours<br />';
 
-                    scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Monday:</div>';
-                    if (response.employee.workSchedule.monday === null) scheduleString = scheduleString + '-<br />';
-                    else scheduleString = scheduleString + response.employee.workSchedule.monday + ' hours<br />';
+                        scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Monday:</div>';
+                        if (response.employee.workSchedule.monday === null) scheduleString = scheduleString + '-<br />';
+                        else scheduleString = scheduleString + response.employee.workSchedule.monday + ' hours<br />';
 
-                    scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Tuesday:</div>';
-                    if (response.employee.workSchedule.tuesday === null) scheduleString = scheduleString + '-<br />';
-                    else scheduleString = scheduleString + response.employee.workSchedule.tuesday + ' hours<br />';
+                        scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Tuesday:</div>';
+                        if (response.employee.workSchedule.tuesday === null) scheduleString = scheduleString + '-<br />';
+                        else scheduleString = scheduleString + response.employee.workSchedule.tuesday + ' hours<br />';
 
-                    scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Wednesday:</div>';
-                    if (response.employee.workSchedule.wednesday === null) scheduleString = scheduleString + '-<br />';
-                    else scheduleString = scheduleString + response.employee.workSchedule.wednesday + ' hours<br />';
+                        scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Wednesday:</div>';
+                        if (response.employee.workSchedule.wednesday === null) scheduleString = scheduleString + '-<br />';
+                        else scheduleString = scheduleString + response.employee.workSchedule.wednesday + ' hours<br />';
 
-                    scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Thursday:</div>';
-                    if (response.employee.workSchedule.thursday === null) scheduleString = scheduleString + '-<br />';
-                    else scheduleString = scheduleString + response.employee.workSchedule.thursday + ' hours<br />';
+                        scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Thursday:</div>';
+                        if (response.employee.workSchedule.thursday === null) scheduleString = scheduleString + '-<br />';
+                        else scheduleString = scheduleString + response.employee.workSchedule.thursday + ' hours<br />';
 
-                    scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Friday:</div>';
-                    if (response.employee.workSchedule.friday === null) scheduleString = scheduleString + '-<br />';
-                    else scheduleString = scheduleString + response.employee.workSchedule.friday + ' hours<br />';
+                        scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Friday:</div>';
+                        if (response.employee.workSchedule.friday === null) scheduleString = scheduleString + '-<br />';
+                        else scheduleString = scheduleString + response.employee.workSchedule.friday + ' hours<br />';
 
-                    scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Saturday:</div>';
-                    if (response.employee.workSchedule.saturday === null) scheduleString = scheduleString + '-<br />';
-                    else scheduleString = scheduleString + response.employee.workSchedule.saturday + ' hours<br />';
+                        scheduleString = scheduleString + '<div style="display: inline-block; width: 90px;">Saturday:</div>';
+                        if (response.employee.workSchedule.saturday === null) scheduleString = scheduleString + '-<br />';
+                        else scheduleString = scheduleString + response.employee.workSchedule.saturday + ' hours<br />';
 
-                    scheduleDetailsDisplayEl.setValue(scheduleString);
+                        scheduleDetailsDisplayEl.setValue(scheduleString);
+
+                    } else {
+                        scheduleDetailsDisplayEl.setValue('No work schedule set.');
+                    }
+
+                    if (response.employee.workSchedule.wdEnableLeave) {
+
+                        mondayDWCb.setValue(response.employee.workSchedule.mondaywd);
+                        tuesdayDWCb.setValue(response.employee.workSchedule.tuesdaywd);
+                        wednesdayDWCb.setValue(response.employee.workSchedule.wednesdaywd);
+                        thursdayDWCb.setValue(response.employee.workSchedule.thursdaywd);
+                        fridayDWCb.setValue(response.employee.workSchedule.fridaywd);
+                        saturdayDWCb.setValue(response.employee.workSchedule.saturdaywd);
+                        sundayDWCb.setValue(response.employee.workSchedule.sundaywd);
+
+                    } else {
+                        WDDetailsSectionEl.innerHTML = "No workdays configured.";
+                    }
+
+
                 }
                 else {
                     scheduleDetailsDisplayEl.setValue('No work schedule set.');
+                    WDDetailsSectionEl.innerHTML = "No workdays configured.";
                 }
 
                 var enableLeaveStatus = false;
@@ -1138,6 +1171,122 @@ app.panel.ViewEmployeeDetails = function (config) {
         });
 
         //
+        // Days Worked SECTION
+        //
+
+        // Create the scheduleDetailsHeadingEl element
+        WDDetailsHeadingEl = lx.createElement('DIV', {
+            parent: contentContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                maxWidth: '900px',
+                padding: '15px 15px 0px 15px',
+                fontSize: '16px',
+                color: '#0F0F0F'
+            },
+            innerHTML: '<div>Employee Working Days</div>'
+        });
+
+        // Create scheduleDetailsEditBtn component
+        WDDetailsEditBtn = new lx.component.Button({
+            renderTo: WDDetailsHeadingEl,
+            label: 'Edit',
+            style: 'text',
+
+            onClick: WDDetailsEditBtnClickEventhandler
+        });
+
+        // Create the scheduleDetailsSectionEl element
+        WDDetailsSectionEl = lx.createElement('DIV', {
+            parent: contentContainerEl,
+            style: {
+                backgroundColor: '#FFFFFF',
+                borderStyle: 'solid',
+                borderColor: '#DFDFDF',
+                borderWidth: '1px',
+                padding: '15px 15px 15px 50px',
+                gap: '10px',
+                width: '100%',
+                maxWidth: '900px',
+                boxSizing: 'border-box',
+                display: 'flex'
+            }
+        });
+
+        mondayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Monday',
+            width: '100px',
+        });
+        tuesdayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Tuesday',
+            width: '100px',
+
+            //onChange: tuesdayCbOnChangeEventHandler
+        });
+        wednesdayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            margin: '0px 15px 0px 0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Wednesday',
+            width: '100px',
+
+        });
+        thursdayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Thursday',
+            width: '100px',
+
+        });
+        fridayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Friday',
+            width: '100px',
+
+        });
+        saturdayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Saturday',
+            width: '100px',
+
+        });
+        sundayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Sunday',
+            width: '100px',
+        });
+
+        //
         // WORK SCHEDULE SECTION
         //
 
@@ -1482,6 +1631,49 @@ app.panel.ViewEmployeeDetails = function (config) {
         // Show the modal window and focus on the panel
         editEmployeeWorkScheduleModal.show();
         editEmployeeWorkSchedulePanel.focus();
+    }
+
+    function WDDetailsEditBtnClickEventhandler() {
+        // Create a modal window
+        var editEmployeeWorkDaysModal = new lx.component.ModalWindow({
+            margin: '40px',
+            maxWidth: '1000px',
+            maxHeight: '300px'
+        });
+
+        // Create the editEmployeeWorkSchedulePanel panel
+        var editEmployeeWorkDaysPanel = new app.panel.EditEmployeeWorkDays({
+            renderTo: editEmployeeWorkDaysModal.getContainer(),
+            show: true,
+
+            employeeId: employeeId,
+
+            onCancel: function () {
+                app.route.popState();
+            },
+
+            onSave: function () {
+                app.route.popState();
+                loadEmployee(true);
+            }
+        });
+
+        // Add destroy event listener to modal to destroy the contained panel.
+        editEmployeeWorkDaysModal.addEventListener('destroy', function () {
+            editEmployeeWorkDaysPanel.destroy();
+        });
+
+        // Create a route entry for the panel
+        var state = {
+            modal: editEmployeeWorkDaysModal
+        };
+        app.route.pushState(state, function (state) {
+            state.modal.destroy();
+        });
+
+        // Show the modal window and focus on the panel
+        editEmployeeWorkDaysModal.show();
+        editEmployeeWorkDaysPanel.focus();
     }
 
     // personalDetailsEditBtn click event handler

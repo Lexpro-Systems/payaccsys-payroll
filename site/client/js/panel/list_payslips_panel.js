@@ -70,11 +70,23 @@ app.panel.ListPayslips = function (config) {
 
                 var payslips = [];
                 for (var i = 0; i < response.payslips.length; i++) {
+
+                    var desc = response.payslips[i].description;
+
+                    if (response.payslips[i].is_encrypted) {
+                        desc =
+                            '<i class="fa fa-lock text-warning" ' +
+                            'style="margin-right:6px;" ' +
+                            'title="Payslip is password protected. Use Employee ID number to view or open the downloaded PDF."></i>' +
+                            desc;
+                    }
+
                     payslips.push({
                         id: response.payslips[i].id,
                         emailAddress: response.payslips[i].emailAddress,
                         date: response.payslips[i].fromDate + ' to ' + response.payslips[i].toDate,
-                        description: response.payslips[i].description,
+                        description: desc,
+                        is_encrypted: response.payslips[i].is_encrypted,
                         sarsYear: response.payslips[i].sarsYear,
                         menu: '<i class="fa fa-ellipsis-v"></i>',
                         spacer: ''
@@ -215,7 +227,22 @@ app.panel.ListPayslips = function (config) {
 
             columns: [
                 { dataIndex: 'date', name: 'Date', width: '190px', padding: '0px 0px 0px 20px', type: 'button' },
-                { dataIndex: 'description', name: 'Payrun', minWidth: '200px', wrapText: true },
+                {
+                    dataIndex: 'description', name: 'Payrun', minWidth: '200px', wrapText: true, type: 'html'
+
+
+                    // renderer: function(value, record) {
+                    //     console.log(record);
+
+                    //  if (record && record.is_encrypted) {
+                    //      return '<i class="fa fa-lock text-warning" ' +
+                    //             'style="margin-right:6px;" ' +
+                    //             'title="Password protected. Use your ID number to open the downloaded PDF."></i>' +
+                    //      value;
+                    //      }
+
+                    //      return value;
+                },
                 { dataIndex: 'sarsYear', name: 'SARS Year', width: '100px' },
                 { dataIndex: 'menu', name: '', type: 'menu', options: payslipsGridMenuOptions, width: '50px', alignment: 'center' },
                 { dataIndex: 'spacer', name: '', width: '5px', padding: '0px 0px 0px 0px' }
