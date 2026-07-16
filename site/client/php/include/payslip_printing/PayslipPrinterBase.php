@@ -19,6 +19,11 @@ abstract class PayslipPrinterBase
     protected $pdf;
     protected $config;
 
+    //Encryption variables
+    protected bool $encrypt = false;
+    protected ?string $encryptionPassword = null;
+
+
     protected $companyName;
     protected $companyAddress;
     protected $companyTel;
@@ -394,6 +399,19 @@ abstract class PayslipPrinterBase
     // return               True if the payslip was printed and false otherwise.
     abstract public function printPayslip(): bool;
 
+    // Function to enable Encryption on payslips
+
+    public function enableEncryption(string $password): void
+    {
+        //Debugging:
+        error_log('enableEncryption() called');
+
+        if (!empty($password)) {
+            $this->encrypt = true;
+            $this->encryptionPassword = $password;
+        }
+    }
+
     // Output the document
     //
     // fileName             The name of the PDF file
@@ -401,6 +419,14 @@ abstract class PayslipPrinterBase
     public function output(string $fileName): bool
     {
         if ($this->pdf === null) return false;
+        if ($this->encrypt && !empty($this->encryptionPassword)) {
+            $this->pdf->SetProtection(
+                ['print'],
+                $this->encryptionPassword,
+                null,
+                3
+            );
+        }
 
         //Close and output PDF document
         $this->pdf->Output($fileName, 'I');

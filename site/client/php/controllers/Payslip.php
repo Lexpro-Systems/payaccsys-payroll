@@ -552,7 +552,7 @@ class Payslip extends Controller
             $mail->CharSet = 'UTF-8';
 
             //Recipients
-            $mail->setFrom(CONF_EMAIL_FROMADDRESS, 'Lexpro Payroll');
+            $mail->setFrom(CONF_EMAIL_FROMADDRESS, 'Payaccsys Payroll');
             $mail->addAddress($emailAddress, $payslipRow['alias']);
 
             // Add the pasylip as an attachment

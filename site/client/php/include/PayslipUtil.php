@@ -1,4 +1,5 @@
 <?php
+
 // Set namespace
 namespace PayslipUtil;
 
@@ -168,7 +169,7 @@ $payeTable = [
 //  ]
 global $travelAllowanceTable;
 $travelAllowanceTable = [
-    [new DateTime('2026-03-01'),                       null, 4.95],
+    [new DateTime('2026-03-01'), new DateTime('2027-02-28'), 4.95],
     [new DateTime('2025-03-01'), new DateTime('2026-02-28'), 4.76],
     [new DateTime('2024-03-01'), new DateTime('2025-02-28'), 4.84],
     [new DateTime('2023-03-01'), new DateTime('2024-02-29'), 4.64],
@@ -701,11 +702,16 @@ function calculateAveragePaye(DateTime $date, int $age, int $periodsWorked, int 
 {
     // Calculate the annual equivalent income
     $annualEquivalentIncome = 0;
-    if ($periodsWorked > 0) {
-        $annualEquivalentIncome = $ytdTaxableIncome / $periodsWorked * $totalPeriods;
-    } else {
-        return 0.0;
+
+    // 2025-05-15 Ray King
+    if ($periodsWorked < 1) {
+        $periodsWorked = 1;
     }
+    //if ($periodsWorked > 0) {
+    $annualEquivalentIncome = $ytdTaxableIncome / $periodsWorked * $totalPeriods;
+    // } else {
+    //     return 0.0;
+    // }
 
     // Calculate the the PAYE amount for the annual equivalent income
     $annualEquivalentTax = \PayslipUtil\calculatePaye($date, $age, $annualEquivalentIncome);
@@ -1468,18 +1474,33 @@ function calculatePayslipTotals($payslip): array
             $totalAllowances = $totalAllowances + $item['amount'];
         } else if ($item['type']['code'] === '5001') {
             if ($item['units'] !== null) {
-                $taxableIncome = $taxableIncome + $item['amount'];
+                //$taxableIncome = $taxableIncome + $item['amount'];
                 $totalAllowances = $totalAllowances + $item['amount'];
                 $taxThreshold = getTravelAllowancePrescribedRate(new DateTime($payslip['toDate'])) * $item['units'];
 
                 if ($item['amount'] > $taxThreshold) {
                     $travelAllowanceDeduction = $travelAllowanceDeduction + $taxThreshold; // ($item['amount'] - $taxThreshold);
+                    $taxableIncome = $taxableIncome + ($item['amount'] - $taxThreshold);
+                    $nonTaxableIncome = $nonTaxableIncome + $taxThreshold;
                     // $nonTaxableIncome = $nonTaxableIncome + $taxThreshold;
                 } else {
                     $travelAllowanceDeduction = $travelAllowanceDeduction + $item['amount'];
                     $nonTaxableIncome = $nonTaxableIncome + $item['amount'];
                 }
             }
+            // if ($item['units'] !== null) {
+            //     $taxableIncome = $taxableIncome + $item['amount'];
+            //     $totalAllowances = $totalAllowances + $item['amount'];
+            //     $taxThreshold = getTravelAllowancePrescribedRate(new DateTime($payslip['toDate'])) * $item['units'];
+
+            //     if ($item['amount'] > $taxThreshold) {
+            //         $travelAllowanceDeduction = $travelAllowanceDeduction + $taxThreshold; // ($item['amount'] - $taxThreshold);
+            //         // $nonTaxableIncome = $nonTaxableIncome + $taxThreshold;
+            //     } else {
+            //         $travelAllowanceDeduction = $travelAllowanceDeduction + $item['amount'];
+            //         $nonTaxableIncome = $nonTaxableIncome + $item['amount'];
+            //     }
+            // }
         } else if ($item['type']['code'] === '5002') {
             $taxableIncome = $taxableIncome + $item['amount'];
             $totalAllowances = $totalAllowances + $item['amount'];
@@ -1569,7 +1590,7 @@ function calculatePayslipTotals($payslip): array
         'commissionIncome' => round($commissionIncome, 2),
         'taxableIncome' => round($taxableIncome, 2),
         'payeIncome' => round($payeIncome, 2),
-        'commissionIncome' => round($commissionIncome, 2),
+        //'commissionIncome' => round($commissionIncome, 2),
         'nonTaxableIncome' => round($nonTaxableIncome, 2),
         'paye' => $paye,
         'onceOffPaye' => $onceOffPaye,
@@ -1580,4 +1601,191 @@ function calculatePayslipTotals($payslip): array
     ];
 
     return $totals;
+}
+// function getEmployeeYTDData($data, $user, $db)
+// {
+//     $employeeId = $data['employeeId'];
+//     $empStartDate = $data['startDate'];
+//     $empEndDate = $data['endDate'];
+
+//     $sqlQuery =
+//         'SELECT ' .
+//         'payslips.id, ' .
+//         'payslips.from_date, ' .
+//         'payslips.to_date, ' .
+//         'payslip_item_types.payslip_category_code, ' .
+//         'payslip_items.description, ' .
+//         'payslip_items.total, ' .
+//         'payslip_items.include_in_nett_pay AS nett_pay ' .
+//         'FROM ' .
+//         'payslips ' .
+//         'LEFT JOIN ' .
+//         'payslip_items ON payslip_items.payslip_id = payslips.id ' .
+//         'LEFT JOIN ' .
+//         'payslip_item_types ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
+//         'WHERE ' .
+//         'payslips.status_code = \'ACTI\' AND ' .
+//         'payslips.employee_id = $1 AND ' .
+//         'payslips.to_date >= $2 AND payslips.to_date <= $3 ' .
+//         'ORDER BY payslips.to_date ASC';
+
+//     // Execute the query
+//     $sqlResult = $db->paramQuery($sqlQuery, [$employeeId, $empStartDate, $empEndDate]);
+
+//     if (!$sqlResult->isValid()) {
+//         return ['ok' => false, 'error' => 'Database error.'];
+//     }
+
+//     // Fiscal year months (March -> February)
+//     $months = [
+//         'March',
+//         'April',
+//         'May',
+//         'June',
+//         'July',
+//         'August',
+//         'September',
+//         'October',
+//         'November',
+//         'December',
+//         'January',
+//         'February'
+//     ];
+
+//     // Process results
+//     $ytdData = [];
+
+//     while ($sqlRow = $sqlResult->fetchAssociative()) {
+
+//         $code = $sqlRow['payslip_category_code'];
+//         $description = $sqlRow['description'];
+
+//         // Skip records without a code or description
+//         if (empty($code) || empty($description)) {
+//             continue;
+//         }
+
+//         // Determine month from ToDate
+//         $month = (new DateTime($sqlRow['to_date']))->format('F');
+
+//         // Sum amounts if multiple entries exist for the same month
+//         $ytdData[$code][$description][$month] =
+//             ($ytdData[$code][$description][$month] ?? 0)
+//             + (float)$sqlRow['total'];
+//     }
+
+//     // Ensure all fiscal months exist for each description
+//     foreach ($ytdData as &$codeGroup) {
+//         foreach ($codeGroup as &$descriptionGroup) {
+
+//             $descriptionGroup = array_replace(
+//                 array_fill_keys($months, 0),
+//                 $descriptionGroup
+//             );
+//         }
+//     }
+
+//     unset($codeGroup, $descriptionGroup);
+
+//     $ytdData['NET'] = [];
+//     $ytdData['NET']['Nett Income'] = [];
+
+//     foreach ($months as $month) {
+//         $ytdData['NET']['Nett Income'][$month] = 0;
+//     }
+
+//     return [
+//         'ok' => true,
+//         'ytdData' => $ytdData
+//     ];
+// }
+function getEmployeeYTDData($data, $user, $db)
+{
+    $employeeId = $data['employeeId'];
+    $empStartDate = $data['startDate'];
+    $empEndDate = $data['endDate'];
+
+    $sqlQuery =
+        'SELECT ' .
+        'payslips.id, ' .
+        'payslips.from_date, ' .
+        'payslips.to_date, ' .
+        'payslip_item_types.payslip_category_code, ' .
+        'payslip_items.description, ' .
+        'payslip_items.total, ' .
+        'payslip_item_types.include_in_nett_pay AS nett_pay ' .
+        'FROM ' .
+        'payslips ' .
+        'LEFT JOIN ' .
+        'payslip_items ON payslip_items.payslip_id = payslips.id ' .
+        'LEFT JOIN ' .
+        'payslip_item_types ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
+        'WHERE ' .
+        'payslips.status_code = \'ACTI\' AND ' .
+        'payslips.employee_id = $1 AND ' .
+        'payslips.to_date >= $2 AND payslips.to_date <= $3 ' .
+        'ORDER BY payslips.to_date ASC';
+
+    $sqlResult = $db->paramQuery($sqlQuery, [$employeeId, $empStartDate, $empEndDate]);
+
+    if (!$sqlResult->isValid()) {
+        return ['ok' => false, 'error' => 'Database error.'];
+    }
+
+    $months = [
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
+        'January',
+        'February'
+    ];
+
+    $ytdData = [];
+
+    while ($sqlRow = $sqlResult->fetchAssociative()) {
+
+        $code = $sqlRow['payslip_category_code'];
+        $description = $sqlRow['description'];
+
+        if (empty($code) || empty($description)) {
+            continue;
+        }
+
+        $month = (new DateTime($sqlRow['to_date']))->format('F');
+        $amount = (float)$sqlRow['total'];
+
+        // set net_pay only once per item
+        if (!isset($ytdData[$code][$description]['net_pay'])) {
+            $ytdData[$code][$description]['net_pay'] = (bool)$sqlRow['nett_pay'];
+        }
+
+        // accumulate monthly totals
+        $ytdData[$code][$description][$month] =
+            ($ytdData[$code][$description][$month] ?? 0) + $amount;
+    }
+
+    // ensure all fiscal months exist for each description
+    foreach ($ytdData as &$codeGroup) {
+        foreach ($codeGroup as &$descriptionGroup) {
+
+            $descriptionGroup = array_replace(
+                array_fill_keys($months, 0),
+                $descriptionGroup
+            );
+        }
+    }
+
+    unset($codeGroup, $descriptionGroup);
+
+    return [
+        'ok' => true,
+        'ytdData' => $ytdData
+    ];
 }

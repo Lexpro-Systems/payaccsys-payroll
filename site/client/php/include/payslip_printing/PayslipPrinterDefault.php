@@ -198,7 +198,13 @@ class PayslipPrinter extends PayslipPrinterBase
                     'name' => $this->payslipItems[$i]['description'],
                     'value' => $this->payslipItems[$i]['amount']
                 ];
-                $deductionsTotal = (float)$deductionsTotal + (float)$this->payslipItems[$i]['amount'];
+
+                if ($this->payslipItems[$i]['description'] === 'PAYE OD Debit') {
+                    $deductionsTotal = (float)$deductionsTotal - (float)$this->payslipItems[$i]['amount'];
+                } else {
+                    $deductionsTotal = (float)$deductionsTotal + (float)$this->payslipItems[$i]['amount'];
+                }
+                // $deductionsTotal = (float)$deductionsTotal + (float)$this->payslipItems[$i]['amount'];
             } else if ($this->payslipItems[$i]['type'] === 'Company Contributions') {
                 $companyContributions[] = [
                     'name' => $this->payslipItems[$i]['description'],
@@ -814,6 +820,21 @@ class PayslipPrinter extends PayslipPrinterBase
                 $leave = $leave + 5;
             }
         }
+
+        if (!empty($this->encryptionPassword)) {
+            // Debugging
+            error_log('SetProtection executing inside printPayslip...');
+            $this->pdf->SetProtection(
+                ['print'],
+                $this->encryptionPassword,
+                null,
+                3
+            );
+        }
+
+
+        error_log('printPayslip finished building PDF');
+
 
         return true;
     }
