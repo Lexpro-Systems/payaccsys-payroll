@@ -422,6 +422,89 @@ class TaxCertificate extends Controller
                 'tax_certificate_types ON tax_certificate_types.code = tax_certificates.tax_certificate_type_code ' .
                 'WHERE ' .
                 'tax_certificates.id = $1;';
+
+            // Julian - 2026-03-26 - Comment out the query below as I believe this is changes Ray King made which breaks the send function as SARS code 3702 is not present in all tax certificates
+            //             $taxCertificateSqlQuery =
+            //                 'SELECT
+            // tax_certificates.id, tax_certificates.tax_reconciliation_id, tax_certificates.tax_certificate_type_code,
+            // tax_certificates.reason_for_non_deduction, tax_certificates.number, tax_certificates.pay_periods,
+            // tax_certificates.pay_periods_worked, tax_certificates.employee_id, tax_certificates.employee_nature,
+            // tax_certificates.employee_sic_code, tax_certificates.employee_fixed_rate_income,
+            // tax_certificates.employee_voluntary_over_deduction, tax_certificates.employee_directive_1,
+            // tax_certificates.employee_directive_2, tax_certificates.employee_directive_3, tax_certificates.employee_surname,
+            // tax_certificates.employee_first_names, tax_certificates.employee_initials, tax_certificates.employee_id_number,
+            // tax_certificates.employee_passport_number, tax_certificates.employee_passport_country,
+            // tax_certificates.employee_date_of_birth, tax_certificates.employee_income_tax_number,
+            // tax_certificates.employee_number, tax_certificates.employee_employed_from, tax_certificates.employee_employed_to,
+            // tax_certificates.employee_work_address_unit, tax_certificates.employee_work_address_complex,
+            // tax_certificates.employee_work_address_street_number, tax_certificates.employee_work_address_street_name,
+            // tax_certificates.employee_work_address_suburb, tax_certificates.employee_work_address_city,
+            // tax_certificates.employee_work_address_postal_code, tax_certificates.employee_work_address_country_code,
+            // tax_certificates.employee_residential_address_unit, tax_certificates.employee_residential_address_complex,
+            // tax_certificates.employee_residential_address_street_number, tax_certificates.employee_residential_address_street_name,
+            // tax_certificates.employee_residential_address_suburb, tax_certificates.employee_residential_address_city,
+            // tax_certificates.employee_residential_address_postal_code, tax_certificates.employee_residential_address_country_code,
+            // employee_country.name AS employee_country_name,
+            // tax_certificates.employee_postal_address_line_1, tax_certificates.employee_postal_address_line_2,
+            // tax_certificates.employee_postal_address_line_3, tax_certificates.employee_postal_address_line_4,
+            // tax_certificates.employee_postal_address_code, tax_certificates.employee_postal_address_country_code,
+            // tax_certificates.employee_home_number, tax_certificates.employee_work_number, tax_certificates.employee_cell_number,
+            // tax_certificates.employee_fax_number, tax_certificates.employee_email_address,
+            // tax_certificates.employee_financial_institution_code, tax_certificates.employee_financial_institution_name,
+            // tax_certificates.employee_bank_account_type_code, tax_certificates.employee_account_number,
+            // tax_certificates.employee_branch_code, 
+            // CASE tax_certificate_items.sars_code
+            //      WHEN \'3702\' THEN tax_certificates.total_income + tax_certificate_items.amount
+            // END total_income, 
+            // CASE tax_certificate_items.sars_code
+            //      WHEN \'3702\' THEN tax_certificates.total_taxable_income + tax_certificate_items.amount
+            // END total_taxable_income,
+            // tax_certificates.total_non_taxable_income, tax_certificates.total_retirement_income,
+            // tax_certificates.total_non_retirement_income, tax_certificates.total_deductions,
+            // tax_certificates.total_paye_on_lump_sums, tax_certificates.total_medical_scheme_credit,
+            // tax_certificates.total_medical_expenses, tax_certificates.total_standard_income_tax,
+            // tax_certificates.total_paye, tax_certificates.total_tax, tax_certificates.total_uif, tax_certificates.total_sdl,
+            // tax_reconciliations.sars_year,
+            // tax_reconciliations.tax_reconciliation_period_code,
+            // tax_reconciliations.employer_name, tax_reconciliations.employer_paye_number,
+            // tax_reconciliations.employer_sdl_number, tax_reconciliations.employer_uif_number,
+            // tax_reconciliations.employer_sic_code, tax_reconciliations.employer_eti_status_code,
+            // tax_reconciliations.employer_special_economic_zone_code,
+            // tax_reconciliations.employer_diplomatic_indemnity,
+            // tax_reconciliations.employer_address_unit, tax_reconciliations.employer_address_complex,
+            // tax_reconciliations.employer_address_street_number, tax_reconciliations.employer_address_street_name,
+            // tax_reconciliations.employer_address_suburb, tax_reconciliations.employer_address_city,
+            // tax_reconciliations.employer_address_postal_code, tax_reconciliations.employer_address_country_code,
+            // employer_country.name AS employer_country_name,
+            // tax_reconciliations.employer_contact_person_first_name,
+            // tax_reconciliations.employer_contact_person_last_name,
+            // tax_reconciliations.employer_contact_person_position,
+            // tax_reconciliations.employer_contact_person_tel_number,
+            // tax_reconciliations.employer_contact_person_fax_number,
+            // tax_reconciliations.employer_contact_person_cell_number,
+            // tax_reconciliations.employer_contact_person_email_address,
+            // tax_reconciliations.note, tax_reconciliations.generated_on,
+            // tax_certificate_types.name AS tax_certificate_type_name,
+            // employees.alias, tax_reconciliation_periods.name AS tax_reconciliation_period_name,
+            // full_names, last_name
+            // FROM
+            // tax_certificates
+            // LEFT JOIN
+            // tax_reconciliations ON tax_reconciliations.id = tax_certificates.tax_reconciliation_id
+            // LEFT JOIN
+            // tax_reconciliation_periods ON tax_reconciliation_periods.code = tax_reconciliations.tax_reconciliation_period_code
+            // LEFT JOIN
+            // employees ON employees.id = tax_certificates.employee_id
+            // LEFT JOIN
+            // countries AS employer_country ON employer_country.code = tax_reconciliations.employer_address_country_code
+            // LEFT JOIN
+            // countries AS employee_country ON employee_country.code = tax_certificates.employee_residential_address_country_code
+            // LEFT JOIN
+            // tax_certificate_types ON tax_certificate_types.code = tax_certificates.tax_certificate_type_code
+            // LEFT JOIN
+            // tax_certificate_items ON tax_certificate_items.tax_certificate_id = tax_certificates.id
+            // WHERE
+            // tax_certificate_items.sars_code = \'3702\' AND tax_certificates.id = $1;';
             $taxCertificateSqlResult = $db->paramQuery($taxCertificateSqlQuery, [$taxCertificateId]);
             if (!$taxCertificateSqlResult->isValid()) {
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
@@ -764,13 +847,10 @@ class TaxCertificate extends Controller
             $mail->isSMTP();
             $mail->Host = CONF_SMTP_HOST;
             $mail->Port = CONF_SMTP_PORT;
-            $mail->charSet = 'UTF-8';
-            $mail->SMTPAuth = true;
-            $mail->Username = CONF_SMTP_USERNAME;
-            $mail->Password = CONF_SMTP_PASSW;
+            $mail->CharSet = 'UTF-8';
 
             //Recipients
-            $mail->setFrom(CONF_EMAIL_FROMADDRESS, 'Payaccsys Payroll');
+            $mail->setFrom(CONF_EMAIL_FROMADDRESS, 'Lexpro Payroll');
             $mail->addAddress($emailAddress, $taxCertificateSqlRow['alias']);
 
             // Add the tax certificate as an attachment
@@ -979,6 +1059,85 @@ class TaxCertificate extends Controller
             'tax_certificate_types ON tax_certificate_types.code = tax_certificates.tax_certificate_type_code ' .
             'WHERE ' .
             'tax_certificates.id = $1;';
+        //         $sqlQuery =
+        //             'SELECT
+        // tax_certificates.id, tax_certificates.tax_reconciliation_id, tax_certificates.tax_certificate_type_code,
+        // tax_certificates.reason_for_non_deduction, tax_certificates.number, tax_certificates.pay_periods,
+        // tax_certificates.pay_periods_worked, tax_certificates.employee_id, tax_certificates.employee_nature,
+        // tax_certificates.employee_sic_code, tax_certificates.employee_fixed_rate_income,
+        // tax_certificates.employee_voluntary_over_deduction, tax_certificates.employee_directive_1,
+        // tax_certificates.employee_directive_2, tax_certificates.employee_directive_3, tax_certificates.employee_surname,
+        // tax_certificates.employee_first_names, tax_certificates.employee_initials, tax_certificates.employee_id_number,
+        // tax_certificates.employee_passport_number, tax_certificates.employee_passport_country,
+        // tax_certificates.employee_date_of_birth, tax_certificates.employee_income_tax_number,
+        // tax_certificates.employee_number, tax_certificates.employee_employed_from, tax_certificates.employee_employed_to,
+        // tax_certificates.employee_work_address_unit, tax_certificates.employee_work_address_complex,
+        // tax_certificates.employee_work_address_street_number, tax_certificates.employee_work_address_street_name,
+        // tax_certificates.employee_work_address_suburb, tax_certificates.employee_work_address_city,
+        // tax_certificates.employee_work_address_postal_code, tax_certificates.employee_work_address_country_code,
+        // tax_certificates.employee_residential_address_unit, tax_certificates.employee_residential_address_complex,
+        // tax_certificates.employee_residential_address_street_number, tax_certificates.employee_residential_address_street_name,
+        // tax_certificates.employee_residential_address_suburb, tax_certificates.employee_residential_address_city,
+        // tax_certificates.employee_residential_address_postal_code, tax_certificates.employee_residential_address_country_code,
+        // employee_country.name AS employee_country_name,
+        // tax_certificates.employee_postal_address_line_1, tax_certificates.employee_postal_address_line_2,
+        // tax_certificates.employee_postal_address_line_3, tax_certificates.employee_postal_address_line_4,
+        // tax_certificates.employee_postal_address_code, tax_certificates.employee_postal_address_country_code,
+        // tax_certificates.employee_home_number, tax_certificates.employee_work_number, tax_certificates.employee_cell_number,
+        // tax_certificates.employee_fax_number, tax_certificates.employee_email_address,
+        // tax_certificates.employee_financial_institution_code, tax_certificates.employee_financial_institution_name,
+        // tax_certificates.employee_bank_account_type_code, tax_certificates.employee_account_number,
+        // tax_certificates.employee_branch_code, 
+        // CASE tax_certificate_items.sars_code
+        //      WHEN \'3702\' THEN tax_certificates.total_income + tax_certificate_items.amount
+        // END total_income, 
+        // CASE tax_certificate_items.sars_code
+        //      WHEN \'3702\' THEN tax_certificates.total_taxable_income + tax_certificate_items.amount
+        // END total_taxable_income,
+        // tax_certificates.total_non_taxable_income, tax_certificates.total_retirement_income,
+        // tax_certificates.total_non_retirement_income, tax_certificates.total_deductions,
+        // tax_certificates.total_paye_on_lump_sums, tax_certificates.total_medical_scheme_credit,
+        // tax_certificates.total_medical_expenses, tax_certificates.total_standard_income_tax,
+        // tax_certificates.total_paye, tax_certificates.total_tax, tax_certificates.total_uif, tax_certificates.total_sdl,
+        // tax_reconciliations.sars_year,
+        // tax_reconciliations.tax_reconciliation_period_code,
+        // tax_reconciliations.employer_name, tax_reconciliations.employer_paye_number,
+        // tax_reconciliations.employer_sdl_number, tax_reconciliations.employer_uif_number,
+        // tax_reconciliations.employer_sic_code, tax_reconciliations.employer_eti_status_code,
+        // tax_reconciliations.employer_special_economic_zone_code,
+        // tax_reconciliations.employer_diplomatic_indemnity,
+        // tax_reconciliations.employer_address_unit, tax_reconciliations.employer_address_complex,
+        // tax_reconciliations.employer_address_street_number, tax_reconciliations.employer_address_street_name,
+        // tax_reconciliations.employer_address_suburb, tax_reconciliations.employer_address_city,
+        // tax_reconciliations.employer_address_postal_code, tax_reconciliations.employer_address_country_code,
+        // employer_country.name AS employer_country_name,
+        // tax_reconciliations.employer_contact_person_first_name,
+        // tax_reconciliations.employer_contact_person_last_name,
+        // tax_reconciliations.employer_contact_person_position,
+        // tax_reconciliations.employer_contact_person_tel_number,
+        // tax_reconciliations.employer_contact_person_fax_number,
+        // tax_reconciliations.employer_contact_person_cell_number,
+        // tax_reconciliations.employer_contact_person_email_address,
+        // tax_reconciliations.note, tax_reconciliations.generated_on,
+        // tax_certificate_types.name AS tax_certificate_type_name
+        // FROM
+        // tax_certificates
+        // LEFT JOIN
+        // tax_reconciliations ON tax_reconciliations.id = tax_certificates.tax_reconciliation_id
+        // LEFT JOIN
+        // tax_reconciliation_periods ON tax_reconciliation_periods.code = tax_reconciliations.tax_reconciliation_period_code
+        // LEFT JOIN
+        // employees ON employees.id = tax_certificates.employee_id
+        // LEFT JOIN
+        // countries AS employer_country ON employer_country.code = tax_reconciliations.employer_address_country_code
+        // LEFT JOIN
+        // countries AS employee_country ON employee_country.code = tax_certificates.employee_residential_address_country_code
+        // LEFT JOIN
+        // tax_certificate_types ON tax_certificate_types.code = tax_certificates.tax_certificate_type_code
+        // LEFT JOIN
+        // tax_certificate_items ON tax_certificate_items.tax_certificate_id = tax_certificates.id 
+        // WHERE
+        // tax_certificate_items.sars_code = \'3702\' AND tax_certificates.id = $1;';
         $sqlResult = $db->paramQuery($sqlQuery, [$data['taxCertificateId']]);
         if (!$sqlResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
@@ -1603,6 +1762,88 @@ class TaxCertificate extends Controller
             'tax_certificate_types ON tax_certificate_types.code = tax_certificates.tax_certificate_type_code ' .
             'WHERE ' .
             'tax_certificates.id = $1;';
+
+        //         $sqlQuery =
+        //             'SELECT
+        // tax_certificates.id, tax_certificates.tax_reconciliation_id, tax_certificates.tax_certificate_type_code,
+        // tax_certificates.reason_for_non_deduction, tax_certificates.number, tax_certificates.pay_periods,
+        // tax_certificates.pay_periods_worked, tax_certificates.employee_id, tax_certificates.employee_nature,
+        // tax_certificates.employee_sic_code, tax_certificates.employee_fixed_rate_income,
+        // tax_certificates.employee_voluntary_over_deduction, tax_certificates.employee_directive_1,
+        // tax_certificates.employee_directive_2, tax_certificates.employee_directive_3, tax_certificates.employee_surname,
+        // tax_certificates.employee_first_names, tax_certificates.employee_initials, tax_certificates.employee_id_number,
+        // tax_certificates.employee_passport_number, tax_certificates.employee_passport_country,
+        // tax_certificates.employee_date_of_birth, tax_certificates.employee_income_tax_number,
+        // tax_certificates.employee_number, tax_certificates.employee_employed_from, tax_certificates.employee_employed_to,
+        // tax_certificates.employee_work_address_unit, tax_certificates.employee_work_address_complex,
+        // tax_certificates.employee_work_address_street_number, tax_certificates.employee_work_address_street_name,
+        // tax_certificates.employee_work_address_suburb, tax_certificates.employee_work_address_city,
+        // tax_certificates.employee_work_address_postal_code, tax_certificates.employee_work_address_country_code,
+        // tax_certificates.employee_residential_address_unit, tax_certificates.employee_residential_address_complex,
+        // tax_certificates.employee_residential_address_street_number, tax_certificates.employee_residential_address_street_name,
+        // tax_certificates.employee_residential_address_suburb, tax_certificates.employee_residential_address_city,
+        // tax_certificates.employee_residential_address_postal_code, tax_certificates.employee_residential_address_country_code,
+        // employee_country.name AS employee_country_name,
+        // tax_certificates.employee_postal_address_line_1, tax_certificates.employee_postal_address_line_2,
+        // tax_certificates.employee_postal_address_line_3, tax_certificates.employee_postal_address_line_4,
+        // tax_certificates.employee_postal_address_code, tax_certificates.employee_postal_address_country_code,
+        // tax_certificates.employee_home_number, tax_certificates.employee_work_number, tax_certificates.employee_cell_number,
+        // tax_certificates.employee_fax_number, tax_certificates.employee_email_address,
+        // tax_certificates.employee_financial_institution_code, tax_certificates.employee_financial_institution_name,
+        // tax_certificates.employee_bank_account_type_code, tax_certificates.employee_account_number,
+        // tax_certificates.employee_branch_code, 
+        // CASE tax_certificate_items.sars_code
+        //      WHEN \'3702\' THEN tax_certificates.total_income + tax_certificate_items.amount
+        // END total_income, 
+        // CASE tax_certificate_items.sars_code
+        //      WHEN \'3702\' THEN tax_certificates.total_taxable_income + tax_certificate_items.amount
+        // END total_taxable_income,
+        // tax_certificates.total_non_taxable_income, tax_certificates.total_retirement_income,
+        // tax_certificates.total_non_retirement_income, tax_certificates.total_deductions,
+        // tax_certificates.total_paye_on_lump_sums, tax_certificates.total_medical_scheme_credit,
+        // tax_certificates.total_medical_expenses, tax_certificates.total_standard_income_tax,
+        // tax_certificates.total_paye, tax_certificates.total_tax, tax_certificates.total_uif, tax_certificates.total_sdl,
+        // tax_reconciliations.sars_year,
+        // tax_reconciliations.tax_reconciliation_period_code,
+        // tax_reconciliations.employer_name, tax_reconciliations.employer_paye_number,
+        // tax_reconciliations.employer_sdl_number, tax_reconciliations.employer_uif_number,
+        // tax_reconciliations.employer_sic_code, tax_reconciliations.employer_eti_status_code,
+        // tax_reconciliations.employer_special_economic_zone_code,
+        // tax_reconciliations.employer_diplomatic_indemnity,
+        // tax_reconciliations.employer_address_unit, tax_reconciliations.employer_address_complex,
+        // tax_reconciliations.employer_address_street_number, tax_reconciliations.employer_address_street_name,
+        // tax_reconciliations.employer_address_suburb, tax_reconciliations.employer_address_city,
+        // tax_reconciliations.employer_address_postal_code, tax_reconciliations.employer_address_country_code,
+        // employer_country.name AS employer_country_name,
+        // tax_reconciliations.employer_contact_person_first_name,
+        // tax_reconciliations.employer_contact_person_last_name,
+        // tax_reconciliations.employer_contact_person_position,
+        // tax_reconciliations.employer_contact_person_tel_number,
+        // tax_reconciliations.employer_contact_person_fax_number,
+        // tax_reconciliations.employer_contact_person_cell_number,
+        // tax_reconciliations.employer_contact_person_email_address,
+        // tax_reconciliations.note, tax_reconciliations.generated_on,
+        // tax_certificate_types.name AS tax_certificate_type_name,
+        // tax_reconciliation_periods.name AS period_name
+        // FROM
+        // tax_certificates
+        // LEFT JOIN
+        // tax_reconciliations ON tax_reconciliations.id = tax_certificates.tax_reconciliation_id
+        // LEFT JOIN
+        // tax_reconciliation_periods ON tax_reconciliation_periods.code = tax_reconciliations.tax_reconciliation_period_code
+        // LEFT JOIN
+        // employees ON employees.id = tax_certificates.employee_id
+        // LEFT JOIN
+        // countries AS employer_country ON employer_country.code = tax_reconciliations.employer_address_country_code
+        // LEFT JOIN
+        // countries AS employee_country ON employee_country.code = tax_certificates.employee_residential_address_country_code
+        // LEFT JOIN
+        // tax_certificate_types ON tax_certificate_types.code = tax_certificates.tax_certificate_type_code
+        // LEFT JOIN
+        // tax_certificate_items ON tax_certificate_items.tax_certificate_id = tax_certificates.id 
+        // WHERE
+        // tax_certificate_items.sars_code = \'3702\' AND tax_certificates.id = $1;';
+
         $sqlResult = $db->paramQuery($sqlQuery, [$data['taxCertificateId']]);
         if (!$sqlResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
