@@ -48,10 +48,16 @@ app.panel.PayslipsPayeOverDeductionsCredit = function (config) {
 
     lx.EventEmitter.call(this);
 
-    // Function to load the payrun data
+    // ---------------------------
+    // Loads the entire payrun
+    // ---------------------------
+
     function loadPayrun(payrunId, payslips) {
 
         loader.show(false);
+
+        /* Calls the getPayeOverDeductionCredit() function to calculate the tax correction and to retrieve the 
+        PAYE Over Deduction for each payslip. */
 
         lx.sendJSON({
             url: 'exec.php?c=Payrun&fn=getPayeOverDeductionCredit',
@@ -62,60 +68,95 @@ app.panel.PayslipsPayeOverDeductionsCredit = function (config) {
             onSuccess: function (responseText) {
                 loader.hide();
                 var response = JSON.parse(responseText);
-
-                // Check that the response is ok
+                //console.log(response)
+                // Executes if an error occurred
                 if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Loading Payrun Failed',
                         message: response.error
                     });
-                    return; // Exit early if error
+                    return;
                 }
 
                 // Now use the payslips array passed in, which is already available
                 let payslipsData = [];
                 let payslips = response.payrun.payslips;
+                // let OD = response.payrun.OverDeductionCredit || {};
+                let ODC = response.payrun.newODC || {};
+                let ODDebit = response.payrun.OverDeductionDebit || {};
+                //Loops through each payslip in the payrun
                 payslips.forEach(payslip => {
+
+                    //Initilize the variables
                     let payeAmount = 0;
                     let overDeductionAmount = 0;
-                    let taxCorrectionAmount = 0;
+                    let overDeductionDebitAmount = 0;
 
-                    // Loop through the items array of the current payslip
+                    //Loops through each item in the payslip
                     payslip.items.forEach(item => {
-                        // Check if the description is 'PAYE' or similar
                         if (item.description && item.description.toUpperCase() === "PAYE") {
-                            payeAmount += item.amount || 0; // Add the amount for PAYE, default to 0 if missing
+                            payeAmount += item.amount || 0;
                         }
+                        // else if(item.description === "PAYE OD Debit"){
+                        //     odd = item.amount || 0;
+                        // }else if(item.description === "PAYE OD Credit Balance"){
+                        //     odb += item.amount || 0;
+                        // }
                     });
 
-                    // Check if taxOverDeduction exists and is a number
-                    // Include the taxOverDeduction amount
-                    if (typeof payslip.taxOverDeduction === 'number') {
-                        overDeductionAmount = payslip.taxOverDeduction;
+                    //Loops through each payslips overdeduction and retrieves the amount where the payslip ID's match
+                    // if (OD && typeof OD === 'object') {
+                    //     let employeeId = payslip.employee.id; // top-level key
+                    //     let payslipId = payslip.id; 
+                    //     if (OD.hasOwnProperty(employeeId) && OD[employeeId].hasOwnProperty(payslipId)) {
+                    //         overDeductionAmount = Number(OD[employeeId][payslipId]);
+                    //     } else {
+                    //         overDeductionAmount = 0;
+                    //     }
+                    // }
+                    if (ODC && typeof ODC === 'object') {
+                        let employeeId = payslip.employee.id; // top-level key
+                        let payslipId = payslip.id;
+                        if (ODC.hasOwnProperty(employeeId) && ODC[employeeId].hasOwnProperty(payslipId)) {
+                            overDeductionAmount = Number(ODC[employeeId][payslipId]);
+                        } else {
+                            overDeductionAmount = 0;
+                        }
                     }
 
-                    // Check if taxCorrectionAmount exists and is a number
-                    // Include the taxCorrectionAmount amount
-                    if (typeof payslip.taxCorrection === 'number') {
-                        taxCorrectionAmount = Math.abs(payslip.taxCorrection); // Use the absolute value to ensure it's positive
+                    //Loops through each payslips Over Deduction Debit and retrievs the amount where the payslips ID's match
+                    if (ODDebit && typeof ODDebit === 'object') {
+                        let employeeId = payslip.employee.id; // top-level key
+                        let payslipId = payslip.id;
+                        if (ODDebit.hasOwnProperty(employeeId) && ODDebit[employeeId].hasOwnProperty(payslipId)) {
+                            overDeductionDebitAmount = Number(ODDebit[employeeId][payslipId]);
+                        } else {
+                            overDeductionDebitAmount = 0;
+                        }
                     }
 
-                    // Subtract tax correction from PAYE, but don't let it go below 0
-                    let adjustedPayeAmount = Math.max(payeAmount - taxCorrectionAmount, 0); // Ensures PAYE doesn't go below 0
+                    // // Subtracts Over Deduction Debit amount from PAYE, but don't let it go below 0
+                    let adjustedPayeAmount = Math.max(payeAmount - overDeductionDebitAmount, 0); // Ensures PAYE doesn't go below 0
 
-                    let taxCorrectionDisplay = `-${lx.util.formatCurrency(taxCorrectionAmount)}`; // Format with negative sign
-                    // Only add to the grid if taxCorrectionAmount is greater than 0
-                    if (taxCorrectionAmount > 0) {
-                        payslipsData.push({
-                            id: payslip.id,
-                            employeeName: payslip.employee.name,
-                            period: `${payslip.fromDate} to ${payslip.toDate}`,
-                            payeAmount: lx.util.formatCurrency(payeAmount), // Format PAYE amount
-                            overDeductionAmount: lx.util.formatCurrency(overDeductionAmount),
-                            taxCorrectionAmount: taxCorrectionDisplay,
-                            adjustedPayeAmount: lx.util.formatCurrency(adjustedPayeAmount)
-                        });
+                    let ODDebitDisplay = overDeductionDebitAmount;
+                    if (ODDebitDisplay <= 0) {
+                        ODDebitDisplay = `${lx.util.formatCurrency(overDeductionDebitAmount)}`;
+                    } else {
+                        ODDebitDisplay = `-${lx.util.formatCurrency(overDeductionDebitAmount)}`;
                     }
+
+                    //let ODDebitDisplay = `-${lx.util.formatCurrency( overDeductionDebitAmount)}`; // Format with negative sign
+
+                    payslipsData.push({
+                        empID: payslip.employee.id,
+                        id: payslip.id,
+                        employeeName: payslip.employee.name,
+                        period: `${payslip.fromDate} to ${payslip.toDate}`,
+                        payeAmount: lx.util.formatCurrency(payeAmount), // Format PAYE amount
+                        overDeductionAmount: lx.util.formatCurrency(overDeductionAmount),
+                        taxCorrectionAmount: ODDebitDisplay,
+                        adjustedPayeAmount: lx.util.formatCurrency(adjustedPayeAmount)
+                    });
                 });
 
                 // Add the rows to the grid only if there are valid payslips
@@ -131,57 +172,130 @@ app.panel.PayslipsPayeOverDeductionsCredit = function (config) {
         });
     }
 
+    // ---------------------------
+    // Helper function section
+    // ---------------------------  
+
+    // Helper function to update overdeductionAmount values in all rows below the edited row.
+    function propagateOverDeductionDelta(rowIndex, oldValue, newValue) {
+
+        // Parse numeric values.
+        let oldVal = lx.util.parseCurrency(oldValue);
+        let newVal = lx.util.parseCurrency(newValue);
+
+        // Compute difference between new and old value.
+        let delta = newVal - oldVal;
+
+        //Checks if the edited payslip employeeID matches with the employee id of the payslips that needs to be updated.
+        let editedRow = payslipsGrid.getRow(rowIndex);
+        let editedEmpID = editedRow.empID;
+        for (let i = rowIndex + 1; i < payslipsGrid.getRowCount(); i++) {
+            let row = payslipsGrid.getRow(i);
+            if (row.empID !== editedEmpID) {
+                break;
+            }
+            //Gets the updated balance amount.
+            let currentOD = lx.util.parseCurrency(row['overDeductionAmount']);
+            let updatedOD = currentOD + delta;
+
+            // Update row object and grid
+            row['overDeductionAmount'] = lx.util.formatCurrency(updatedOD);
+            payslipsGrid.updateRow(i, row);
+        }
+    }
+
+    /*rowIndex : The row index of the cell to edit.
+      colIndex : The column index of the cell to edit.
+      focus : Should the component be focussed after being created.*/
+
     // Function to start editing a text cell
-    //
-    // rowIndex         The row index of the cell to edit.
-    // colIndex         The column index of the cell to edit.
-    // focus            Should the component be focussed after being created.
     function editCell(rowIndex, colIndex, focus) {
+
+        // Variable that stores information about the grid
         let record = payslipsGrid.getRow(rowIndex);
         let cell = payslipsGrid.getCellContainer(rowIndex, colIndex);
         let dataIndex = payslipsGrid.getColumnDataIndex(colIndex);
         let newComponent = null;
-
         cell.innerHTML = '';
         cell.style.overflow = 'visible';
 
+        // a reuasble function that contains the overdeduction calculation function, to be used in multiple click events
+        function handleEdit(updateGridRow) {
+
+            // Storing the old,new, and currency formatted overdeduction values.
+            let oldValue = record['taxCorrectionAmount'];
+            let Value = newComponent.getValue();
+            let newValue = Value.replace(/[,\s]/g, '');
+            let numericNewValue = lx.util.parseCurrency(newValue);
+            //let newValue = newComponent.getValue();
+            //let numericNewValue = lx.util.parseCurrency(newValue);
+            let numericOverDeduction = lx.util.parseCurrency(record['overDeductionAmount']);
+
+            // Validation: The Debit amount must not exceed current overDeductionAmount.
+            if (Math.abs(numericNewValue) > numericOverDeduction) {
+
+                //Message panel: ineffiecent balance
+                new lx.component.Messagebox({
+                    message:
+                        'Inceffiecent credit balance!',
+                    buttons: [
+                        { name: 'back', label: 'back', isCancel: true, style: 'text' }
+                    ],
+                    onClose: function (closeEvent) {
+
+                        if (closeEvent.button === 'back') {
+                            newComponent.setValue(record['taxCorrectionAmount']);
+                            record['taxCorrectionAmount'] = formatDebit(oldValue);
+                            payslipsGrid.updateRow(rowIndex, record);
+                            cell.style.overflow = 'hidden';
+                        }
+                    }
+                })
+                return;
+            };
+            // Format the new value to currency
+            record['taxCorrectionAmount'] = formatDebit(newValue);
+
+            // Recalculate PAYE Payable for this row
+            recalculateRow(record);
+
+            // Updates overdeduction balance in all rows below
+            propagateOverDeductionDelta(rowIndex, oldValue, record['taxCorrectionAmount']);
+
+            // Update the current row in grid
+            if (updateGridRow) {
+                payslipsGrid.updateRow(rowIndex, record);
+            }
+            cell.style.overflow = 'hidden';
+        }
+
         // Create the edit component depending on the dataIndex
-        if (dataIndex === 'emailAddress') {
+        if (dataIndex === 'taxCorrectionAmount') {
             newComponent = new lx.component.Textbox({
                 renderTo: cell,
                 label: null
             });
         }
-
-        // Add blur event handler
+        // Blur event
         newComponent.addEventListener('blur', function () {
-            // Update the row and destroy the component before moving to the next
-            record[payslipsGrid.getColumnDataIndex(colIndex)] = newComponent.getValue();
-            cell.style.overflow = 'hidden';
+            handleEdit(true);
             newComponent.destroy();
-            payslipsGrid.updateRow(rowIndex, record);
         });
 
-        // Add keydown handler
+        // Enter key
         newComponent.addEventListener('keydown', function (event) {
             if (event.key === 13) {
-                // Update the row and destroy the component before moving to the next
-                record[payslipsGrid.getColumnDataIndex(colIndex)] = newComponent.getValue();
-                cell.style.overflow = 'hidden';
-                newComponent.focus();
+                handleEdit(true);
                 newComponent.destroy();
-                payslipsGrid.updateRow(rowIndex, record);
             }
             else if (event.key === 9) {
-                // Update the row and destroy the component before moving to the next
-                record[payslipsGrid.getColumnDataIndex(colIndex)] = newComponent.getValue();
-                cell.style.overflow = 'hidden';
+                handleEdit(false);
                 newComponent.focus();
                 newComponent.destroy();
                 payslipsGrid.updateRow(rowIndex, record);
 
                 // Edit the next cell
-                if (dataIndex === 'emailAddress') {
+                if (dataIndex === 'taxCorrectionAmount') {
                     // Are there rows left to edit?
                     if (rowIndex + 1 < payslipsGrid.getRowCount()) {
                         // Edit the next row
@@ -194,7 +308,6 @@ app.panel.PayslipsPayeOverDeductionsCredit = function (config) {
         if (focus === true) newComponent.focus();
         newComponent.setValue(record[payslipsGrid.getColumnDataIndex(colIndex)]);
     }
-
 
     //
     // PUBLIC FUNCTIONS
@@ -295,12 +408,12 @@ app.panel.PayslipsPayeOverDeductionsCredit = function (config) {
                 { dataIndex: 'period', name: 'Period', width: '180px' },
                 { dataIndex: 'employeeName', name: 'Employee' },
                 { dataIndex: 'payeAmount', name: 'PAYE' },
-                { dataIndex: 'overDeductionAmount', name: 'PAYE Over-Deduction' },
-                { dataIndex: 'taxCorrectionAmount', name: 'PAYE Correction' },
+                { dataIndex: 'overDeductionAmount', name: 'PAYE Over-Deduction Credit' },
+                { dataIndex: 'taxCorrectionAmount', name: 'PAYE Over-Deduction Debit' },
                 { dataIndex: 'adjustedPayeAmount', name: 'PAYE Payable' },
             ],
 
-            // onCellClick: payslipsGridCellClickEventHandler,
+            onCellClick: payslipsGridCellClickEventHandler,
             onRowSelect: payslipsGridRowSelectEventHandler,
             onRowDeselect: payslipsGridRowSelectEventHandler,
             onSelectAllRows: payslipsGridRowSelectEventHandler,
@@ -427,18 +540,10 @@ app.panel.PayslipsPayeOverDeductionsCredit = function (config) {
         let dataIndex = payslipsGrid.getColumnDataIndex(clickEvent.columnIndex);
 
         // Depending on the column clicked
-        if (dataIndex === 'emailAddress') {
+        if (dataIndex === 'taxCorrectionAmount') {
             editCell(clickEvent.rowIndex, clickEvent.columnIndex, true);
         }
-        else if (dataIndex === 'download') {
-            lx.sendForm({
-                url: 'exec.php?c=Payslip&fn=downloadPayslip',
-                target: '_blank',
-                data: {
-                    payslipId: parseInt(payslipsGrid.getRow(clickEvent.rowIndex).id)
-                }
-            });
-        }
+
     }
 
     // payslipsGrid row select event handler
@@ -450,13 +555,12 @@ app.panel.PayslipsPayeOverDeductionsCredit = function (config) {
         me.fireEvent('cancel', { srcPanel: me });
     }
 
-    // Update button click event handler
+    // // Update button click event handler
     function updateBtnClickEventHandler() {
-        // For every selected item in the row
-        //var items = [];
-        var selectItems = [];
 
+        var selectItems = [];
         for (let rowIndex = 0; rowIndex < payslipsGrid.getRowCount(); rowIndex++) {
+
             // Get the row details
             let row = payslipsGrid.getRow(rowIndex);
 
@@ -465,15 +569,14 @@ app.panel.PayslipsPayeOverDeductionsCredit = function (config) {
 
             // Is the row selected?
             if (payslipsGrid.rowIsSelected(rowIndex) === true) {
-                // Set the item details
                 let item = ({
-                    payslipId: row.id, // Remember the payslip ID
+                    payslipId: row.id,
                     id: null,
                     category: {
                         code: 'DEDU'
                     },
                     type: {
-                        code: '2001',
+                        code: '2010',
                         unitCode: 'FIXE'
                     },
                     providentFund: {
@@ -485,24 +588,73 @@ app.panel.PayslipsPayeOverDeductionsCredit = function (config) {
                     loan: {
                         id: null
                     },
-                    description: 'PAYE Correction',
+                    description: 'PAYE OD Debit',
                     accrualDate: null,
                     autoCalculate: false,
                     units: null,
                     rate: null,
-                    amount: lx.util.parseCurrency(row.taxCorrectionAmount),
+                    amount: lx.util.parseCurrency(Math.abs(row.taxCorrectionAmount)),
                     includeInNettPay: false
                 });
-                // Add the item to the array
-                selectItems.push(item);
-            }
 
+                // Add the item to the array
+                if (item.amount > 0) {
+                    selectItems.push(item);
+                }
+            }
         }
+        //console.log(selectItems);
         me.fireEvent('update', { srcPanel: me, items: selectItems });
         app.route.popState();
     }
 
+    // Formats numbers to currency
+    function formatDebit(value) {
+        let numericValue = parseFloat(value);
+        if (isNaN(numericValue)) numericValue = 0;
+        if (numericValue === 0) {
+            return "0.00";
+        }
+        numericValue = -Math.abs(numericValue);
+        return numericValue.toFixed(2);
+    }
+    function recalculateRow(record) {
+        // Clean PAYE value
+        let payeRaw = record['payeAmount'].toString().replace(/\s/g, '');
+        let payeValue = parseFloat(payeRaw) || 0;
 
+        // Current debit value
+        let debitValue = parseFloat(record['taxCorrectionAmount']) || 0;
+
+        // Convert debit to positive for comparison
+        let actualDebit = debitValue * -1;
+
+        // If debit exceeds PAYE, correct it
+        if (actualDebit > payeValue) {
+            actualDebit = payeValue;
+            debitValue = -actualDebit;
+
+            // Update the record with corrected debit
+            record['taxCorrectionAmount'] = debitValue.toFixed(2);
+        }
+
+        // Calculate payable
+        let payableValue = payeValue - actualDebit;
+
+        record['adjustedPayeAmount'] = lx.util.formatCurrency(payableValue);
+    }
+    // function recalculateRow(record) {
+    //     // Clean PAYE value (remove thousand spaces)
+    //     let payeRaw = record['payeAmount'].toString().replace(/\s/g, '');
+    //     let payeValue = parseFloat(payeRaw) || 0;
+
+    //     // Debit already formatted
+    //     let debitValue = parseFloat(record['taxCorrectionAmount']) || 0;
+
+    //     // Calculate PAYE Payable
+    //     let payableValue = payeValue -(debitValue * -1);
+    //     record['adjustedPayeAmount'] = lx.util.formatCurrency(payableValue);
+    // }
 
     //
     // INITIALIZE OBJECT
