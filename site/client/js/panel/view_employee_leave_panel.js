@@ -17,49 +17,53 @@
 //
 //  onDestroy           This event is fired just before the panel is destroyed.
 //
-app.panel.ViewEmployeeLeave = function(config) {
-    
+app.panel.ViewEmployeeLeave = function (config) {
+
     //
     // PRIVATE VARIABLES
     //
-    
+
     var me = this;
     var confirmDestroy = null;
-    
+
     var el = null;
     var filterContainerEl = null;
     var startDate = null;
     var endDate = null;
-    
+
     var loaderContainerEl = null;
     var contentContainerEl = null;
     var loader = null;
     var leaveTypes = [];
-    
+    var employeeDetails = [];
+    var subscribedLeaveTypes = [];
+
+    var exportPdfBtn = null;
+
 
     //
     // OBJECT EXTENSIONS
     //
-    
+
     lx.EventEmitter.call(this);
-    
-    
+
+
     //
     // PRIVATE FUNCTIONS
     //
-    
+
     // reloadLeaveType
     function reloadLeaveType(leaveTypeId) {
-        
+
         let typeContainerEl = null;
         let currentLeaveTypeIndex = null;
         for (var i = 0; i < leaveTypes.length; i++) {
-            if(leaveTypes[i].leaveTypeId === leaveTypeId) {
+            if (leaveTypes[i].leaveTypeId === leaveTypeId) {
                 typeContainerEl = leaveTypes[i].typeContainerEl;
                 currentLeaveTypeIndex = i;
             }
         }
-        
+
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=getLeaveTypeList',
             data: {
@@ -67,24 +71,25 @@ app.panel.ViewEmployeeLeave = function(config) {
                 startDate: (startDate.getValue().trim() !== '' ? startDate.getValue().trim() : null),
                 endDate: (endDate.getValue().trim() !== '' ? endDate.getValue().trim() : null)
             },
-            onSuccess: function( jsonResult ) {
+            onSuccess: function (jsonResult) {
                 var result = JSON.parse(jsonResult);
-                
+
                 // Check if the function was successful.
-                if( result.ok !== true ) {
+                if (result.ok !== true) {
                     new lx.component.Messagebox({
                         message: 'Unable to load leave types.'
                     });
-                    
+
                     return;
                 }
-                
+
                 // Add leave type sections
-                for( let i = 0; i < result.leaveTypes.length; i++ ) {
-                    
+                //subscribedLeaveTypes = [];
+                for (let i = 0; i < result.leaveTypes.length; i++) {
+
                     if (result.leaveTypes[i].id === leaveTypeId) {
                         typeContainerEl.innerHTML = '';
-                        
+
                         // Create the type's heading bar
                         let typeHeadingEl = lx.createElement('DIV', {
                             parent: typeContainerEl,
@@ -100,7 +105,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                                 borderColor: '#DFDFDF'
                             }
                         });
-                        
+
                         // Create the type's heading bar
                         let leaveHeadingContainerEl = lx.createElement('DIV', {
                             parent: typeHeadingEl,
@@ -110,7 +115,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                                 flexDirection: 'row',
                             }
                         });
-                        
+
                         // Create the menu dropdown button
                         let subscribeCheckbox = new lx.component.Checkbox({
                             renderTo: leaveHeadingContainerEl,
@@ -122,13 +127,13 @@ app.panel.ViewEmployeeLeave = function(config) {
                         leaveTypes[currentLeaveTypeIndex].leaveTypeId = result.leaveTypes[i].id;
                         leaveTypes[currentLeaveTypeIndex].subscribeCheckboxEl = subscribeCheckbox;
                         leaveTypes[currentLeaveTypeIndex].typeContainerEl = typeContainerEl;
-                        if( result.leaveTypes[i].isSubscribed === false ) {
+                        if (result.leaveTypes[i].isSubscribed === false) {
                             subscribeCheckbox.setValue(false);
                         }
                         else {
                             subscribeCheckbox.setValue(true);
                         }
-                        
+
                         // Create the type's heading bar
                         lx.createElement('DIV', {
                             parent: leaveHeadingContainerEl,
@@ -139,7 +144,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                             },
                             innerHTML: result.leaveTypes[i].name
                         });
-                        
+
                         // Create the menu dropdown button
                         let typeDropDownBtn = new lx.component.DropdownButton({
                             renderTo: typeHeadingEl,
@@ -147,7 +152,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                             label: '<i class="fa fa-ellipsis-v"></i>',
                             dropdownAlignment: 'right'
                         });
-                        
+
                         // Create the menuDropDownBtnAddEl element
                         let typeDropDownBtnAllocateEl = lx.createElement('DIV', {
                             parent: typeDropDownBtn.getContainer(),
@@ -161,7 +166,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                             innerHTML: '<i class="fa fa-fw fa-pencil-alt" style="margin-right: 15px; font-size: 12px;"></i><span style="font-size: 14px;">Allocate</span>'
                         });
                         typeDropDownBtnAllocateEl.addEventListener('click', typeDropDownBtnAllocatetElClickEventHandler.bind(me, result.leaveTypes[i].id));
-                        
+
                         let typeDropDownBtnResetEl = lx.createElement('DIV', {
                             parent: typeDropDownBtn.getContainer(),
                             className: 'list-item',
@@ -174,19 +179,22 @@ app.panel.ViewEmployeeLeave = function(config) {
                             innerHTML: '<i class="fas fa-reply" style="margin-right: 15px; font-size: 12px;"></i><span style="font-size: 14px;">Reset</span>'
                         });
                         typeDropDownBtnResetEl.addEventListener('click', menuDropDownBtnLeaveActionElClickEventHandler.bind(me, result.leaveTypes[i].id));
-                        
+
                         if (result.leaveTypes[i].leave.length === 0) {
-                            if( result.leaveTypes[i].isSubscribed === false ) {
+                            if (result.leaveTypes[i].isSubscribed === false) {
                                 lx.createElement('DIV', {
                                     parent: typeContainerEl,
                                     style: {
                                         boxSizing: 'border-box',
                                         width: '100%',
                                         padding: '15px 15px'
-                                        
+
                                     },
                                     innerHTML: 'The employee does not have any leave of this type.'
                                 });
+                                subscribedLeaveTypes = subscribedLeaveTypes.filter(item =>
+                                    item.LeaveType !== result.leaveTypes[i].name
+                                );
                             }
                             else {
                                 lx.createElement('DIV', {
@@ -195,11 +203,12 @@ app.panel.ViewEmployeeLeave = function(config) {
                                         boxSizing: 'border-box',
                                         width: '100%',
                                         padding: '15px 15px'
-                                        
+
                                     },
                                     innerHTML: 'The employee does not have any leave of this type for the specified period.'
                                 });
                             }
+                            //console.log(subscribedLeaveTypes)
                             continue;
                         }
                         let typeItemEl = lx.createElement('DIV', {
@@ -209,35 +218,35 @@ app.panel.ViewEmployeeLeave = function(config) {
                                 padding: '0px 0px 1px 0px', // Hack required to allow the grid to fire the scroll event on Chrome browsers
                                 width: '100%',
                                 // padding: '10px 15px'
-                                
+
                             },
                             // innerHTML: ruleText
                         });
-                        
+
                         let leaveGrid = new lx.component.Grid({
                             renderTo: typeItemEl,
                             autoSize: true,
                             borderWidth: '0px',
-                            
+
                             columns: [
-                                {dataIndex: 'date', name: 'Date', width: '120px', padding: '0px 0px 0px 15px'},
-                                {dataIndex: 'description', name: 'Description'},
-                                {dataIndex: 'source', name: 'Source', width: '120px'},
-                                {dataIndex: 'unit', name: 'Amount', width: '120px', alignment: 'right'},
-                                {dataIndex: 'balance', name: 'Balance', width: '120px', alignment: 'right', padding: '0px 15px 0px 0px'}
+                                { dataIndex: 'date', name: 'Date', width: '120px', padding: '0px 0px 0px 15px' },
+                                { dataIndex: 'description', name: 'Description' },
+                                { dataIndex: 'source', name: 'Source', width: '120px' },
+                                { dataIndex: 'unit', name: 'Amount', width: '120px', alignment: 'right' },
+                                { dataIndex: 'balance', name: 'Balance', width: '120px', alignment: 'right', padding: '0px 15px 0px 0px' }
                             ]
                         });
-                        
+
                         let leave = [];
-                        for( let j = 0; j < result.leaveTypes[i].leave.length; j++ ) {
-                            
+                        for (let j = 0; j < result.leaveTypes[i].leave.length; j++) {
+
                             if (result.leaveTypes[i].leave[j].date === null) {
                                 continue;
                             }
-                            
+
                             let unit = '';
                             let unitType = '';
-                            if(result.leaveTypes[i].leaveUnitCode === 'DAYS') {
+                            if (result.leaveTypes[i].leaveUnitCode === 'DAYS') {
                                 unit = result.leaveTypes[i].leave[j].days + ' Days';
                                 unitType = 'd';
                             }
@@ -245,10 +254,10 @@ app.panel.ViewEmployeeLeave = function(config) {
                                 unit = result.leaveTypes[i].leave[j].hours + ' Hours';
                                 unitType = 'h';
                             }
-                            
+
                             let units = lx.util.formatLeaveUnits(unit, unitType);
                             let balance = lx.util.formatLeaveUnits(result.leaveTypes[i].leave[j].balance, unitType);
-                            if(result.leaveTypes[i].leave[j].date === null) {
+                            if (result.leaveTypes[i].leave[j].date === null) {
                                 units = '';
                                 balance = '';
                             }
@@ -259,18 +268,25 @@ app.panel.ViewEmployeeLeave = function(config) {
                                 unit: units,
                                 balance: balance
                             });
-                            
+
                         }
                         leaveGrid.clear();
-                        leaveGrid.addRows( leave );
+                        leaveGrid.addRows(leave);
+                        if (result.leaveTypes[i].isSubscribed === true) {
+                            subscribedLeaveTypes.push({
+                                LeaveType: result.leaveTypes[i].name,
+                                leaveDetails: leave
+                            })
+                        }
+                        //console.log(subscribedLeaveTypes)
                         break;
                     }
                 }
             }
         });
-        
+
     }
-    
+
     // Function to load leave types
     function loadLeaveTypes() {
         leaveTypes = [];
@@ -281,21 +297,22 @@ app.panel.ViewEmployeeLeave = function(config) {
                 startDate: (startDate.getValue().trim() !== '' ? startDate.getValue().trim() : null),
                 endDate: (endDate.getValue().trim() !== '' ? endDate.getValue().trim() : null)
             },
-            onSuccess: function( jsonResult ) {
+            onSuccess: function (jsonResult) {
                 var result = JSON.parse(jsonResult);
-                
+
                 // Check if the function was successful.
-                if( result.ok !== true ) {
+                if (result.ok !== true) {
                     new lx.component.Messagebox({
                         message: 'Unable to load leave types.'
                     });
-                    
+
                     return;
                 }
-                
+
+                subscribedLeaveTypes = [];
                 // Add leave type sections
-                for( let i = 0; i < result.leaveTypes.length; i++ ) {
-                    
+                for (let i = 0; i < result.leaveTypes.length; i++) {
+
                     // Create the type's container
                     let typeContainerEl = lx.createElement('DIV', {
                         parent: contentContainerEl,
@@ -311,7 +328,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                             minWidth: '532px'
                         }
                     });
-                    
+
                     // Create the type's heading bar
                     let typeHeadingEl = lx.createElement('DIV', {
                         parent: typeContainerEl,
@@ -327,7 +344,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                             borderColor: '#DFDFDF'
                         }
                     });
-                    
+
                     // Create the type's heading bar
                     let leaveHeadingContainerEl = lx.createElement('DIV', {
                         parent: typeHeadingEl,
@@ -337,7 +354,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                             flexDirection: 'row',
                         }
                     });
-                    
+
                     // Create the menu dropdown button
                     let subscribeCheckbox = new lx.component.Checkbox({
                         renderTo: leaveHeadingContainerEl,
@@ -358,7 +375,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                         subscribeCheckboxEl: subscribeCheckbox,
                         typeContainerEl: typeContainerEl
                     });
-                    
+
                     // Create the type's heading bar
                     lx.createElement('DIV', {
                         parent: leaveHeadingContainerEl,
@@ -369,7 +386,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                         },
                         innerHTML: result.leaveTypes[i].name
                     });
-                    
+
                     // Create the menu dropdown button
                     let typeDropDownBtn = new lx.component.DropdownButton({
                         renderTo: typeHeadingEl,
@@ -377,7 +394,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                         label: '<i class="fa fa-ellipsis-v"></i>',
                         dropdownAlignment: 'right'
                     });
-                    
+
                     // Create the menuDropDownBtnAddEl element
                     let typeDropDownBtnAllocateEl = lx.createElement('DIV', {
                         parent: typeDropDownBtn.getContainer(),
@@ -391,7 +408,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                         innerHTML: '<i class="fa fa-fw fa-pencil-alt" style="margin-right: 15px; font-size: 12px;"></i><span style="font-size: 14px;">Allocate</span>'
                     });
                     typeDropDownBtnAllocateEl.addEventListener('click', typeDropDownBtnAllocatetElClickEventHandler.bind(me, result.leaveTypes[i].id));
-                    
+
                     let typeDropDownBtnResetEl = lx.createElement('DIV', {
                         parent: typeDropDownBtn.getContainer(),
                         className: 'list-item',
@@ -404,16 +421,16 @@ app.panel.ViewEmployeeLeave = function(config) {
                         innerHTML: '<i class="fas fa-reply" style="margin-right: 15px; font-size: 12px;"></i><span style="font-size: 14px;">Reset</span>'
                     });
                     typeDropDownBtnResetEl.addEventListener('click', menuDropDownBtnLeaveActionElClickEventHandler.bind(me, result.leaveTypes[i].id));
-                    
+
                     if (result.leaveTypes[i].leave.length === 0) {
-                        if( result.leaveTypes[i].isSubscribed === false ) {
+                        if (result.leaveTypes[i].isSubscribed === false) {
                             lx.createElement('DIV', {
                                 parent: typeContainerEl,
                                 style: {
                                     boxSizing: 'border-box',
                                     width: '100%',
                                     padding: '15px 15px'
-                                    
+
                                 },
                                 innerHTML: 'The employee does not have any leave of this type.'
                             });
@@ -425,7 +442,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                                     boxSizing: 'border-box',
                                     width: '100%',
                                     padding: '15px 15px'
-                                    
+
                                 },
                                 innerHTML: 'The employee does not have any leave of this type for the specified period.'
                             });
@@ -438,35 +455,35 @@ app.panel.ViewEmployeeLeave = function(config) {
                             boxSizing: 'border-box',
                             width: '100%',
                             // padding: '10px 15px'
-                            
+
                         },
                         // innerHTML: ruleText
                     });
-                    
+
                     let leaveGrid = new lx.component.Grid({
                         renderTo: typeItemEl,
                         autoSize: true,
                         borderWidth: '0px',
-                        
+
                         columns: [
-                            {dataIndex: 'date', name: 'Date', width: '120px', padding: '0px 0px 0px 15px'},
-                            {dataIndex: 'description', name: 'Description'},
-                            {dataIndex: 'source', name: 'Source', width: '120px'},
-                            {dataIndex: 'unit', name: 'Amount', width: '120px', alignment: 'right'},
-                            {dataIndex: 'balance', name: 'Balance', width: '120px', alignment: 'right', padding: '0px 15px 0px 0px'}
+                            { dataIndex: 'date', name: 'Date', width: '120px', padding: '0px 0px 0px 15px' },
+                            { dataIndex: 'description', name: 'Description' },
+                            { dataIndex: 'source', name: 'Source', width: '120px' },
+                            { dataIndex: 'unit', name: 'Amount', width: '120px', alignment: 'right' },
+                            { dataIndex: 'balance', name: 'Balance', width: '120px', alignment: 'right', padding: '0px 15px 0px 0px' }
                         ]
                     });
-                    
+
                     let leave = [];
-                    for( let j = 0; j < result.leaveTypes[i].leave.length; j++ ) {
-                        
+                    for (let j = 0; j < result.leaveTypes[i].leave.length; j++) {
+
                         if (result.leaveTypes[i].leave[j].date === null) {
                             continue;
                         }
-                        
+
                         let unit = '';
                         let unitType = '';
-                        if(result.leaveTypes[i].leaveUnitCode === 'DAYS') {
+                        if (result.leaveTypes[i].leaveUnitCode === 'DAYS') {
                             unit = result.leaveTypes[i].leave[j].days + ' Days';
                             unitType = 'd';
                         }
@@ -474,10 +491,10 @@ app.panel.ViewEmployeeLeave = function(config) {
                             unit = result.leaveTypes[i].leave[j].hours + ' Hours';
                             unitType = 'h';
                         }
-                        
+
                         let units = lx.util.formatLeaveUnits(unit, unitType);
                         let balance = lx.util.formatLeaveUnits(result.leaveTypes[i].leave[j].balance, unitType);
-                        if(result.leaveTypes[i].leave[j].date === null) {
+                        if (result.leaveTypes[i].leave[j].date === null) {
                             units = '';
                             balance = '';
                         }
@@ -488,21 +505,28 @@ app.panel.ViewEmployeeLeave = function(config) {
                             unit: units,
                             balance: balance
                         });
-                        
+
                     }
                     leaveGrid.clear();
-                    leaveGrid.addRows( leave );
+                    leaveGrid.addRows(leave);
+                    if (result.leaveTypes[i].isSubscribed === true) {
+                        subscribedLeaveTypes.push({
+                            LeaveType: result.leaveTypes[i].name,
+                            leaveDetails: leave
+                        })
+                    }
                 }
+                //console.log(subscribedLeaveTypes);
             }
         });
     }
-    
-    
+
+
     //
     // PUBLIC FUNCTIONS
     //
-    
-    me.init = function( config ) {
+
+    me.init = function (config) {
         // Initialize component config
         var compConfig = {
             renderTo: null,
@@ -511,20 +535,27 @@ app.panel.ViewEmployeeLeave = function(config) {
             flex: '1 1 100%',
             show: false
         };
-        
+
         // Parse user config
-        if( typeof config !== 'undefined' && config !== null ) {
-            for( var property in config ) {
-                if( config.hasOwnProperty(property) ) compConfig[property] = config[property];
+        if (typeof config !== 'undefined' && config !== null) {
+            for (var property in config) {
+                if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
-        
+
         // Attach external event handlers
-        if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
-        
+        if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
+
         // Initialize state
         confirmDestroy = false;
-        
+        employeeDetails = [];
+        employeeDetails.push({
+            Name: compConfig.fullname,
+            Surname: compConfig.lastname,
+            EmploymentDate: compConfig.employmentDate,
+        })
+        //console.log(`ID: ${compConfig.employeeId},\n name: ${compConfig.employeeName},\n fullname: ${compConfig.fullname},\n lastname: ${compConfig.lastname},\n EMPDate: ${compConfig.employmentDate},\n`)
+
         // Create root element
         el = lx.createElement('DIV', {
             parent: compConfig.renderTo,
@@ -540,12 +571,12 @@ app.panel.ViewEmployeeLeave = function(config) {
                 backgroundColor: '#F4F5F6'
             }
         });
-        
-        
+
+
         //
         // FILTER SECTION
         //
-        
+
         // Container for dipslaying filters
         filterContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -564,7 +595,7 @@ app.panel.ViewEmployeeLeave = function(config) {
                 padding: '15px 20px'
             }
         });
-        
+
         // The start date for the leave to be displayed
         startDate = new lx.component.DatePicker({
             renderTo: filterContainerEl,
@@ -573,10 +604,10 @@ app.panel.ViewEmployeeLeave = function(config) {
             labelWidth: '70px',
             width: '210px',
             margin: '0px 0px 0px auto',
-            
+
             onChange: filterOnChangeEvent
         });
-        
+
         // The end date for the leave to be displayed
         endDate = new lx.component.DatePicker({
             renderTo: filterContainerEl,
@@ -585,49 +616,64 @@ app.panel.ViewEmployeeLeave = function(config) {
             labelWidth: '65px',
             width: '210px',
             margin: '0px 0px 0px 20px',
-            
+
             onChange: filterOnChangeEvent
         });
-        
         var date = new Date();
-        var firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-        var lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-        
-        // Set the default start date
-        var month = '' + ((lastDay.getMonth() % 12) + 1);
-        var day = '' + firstDay.getDate();
-        var year = firstDay.getFullYear() - 1;
-            
-        if (month.length < 2) {
-            month = '0' + month;
-        }
-        if (day.length < 2) {
-            day = '0' + day;
-        }
-        startDate.setValue(year + '-' + month + '-' + day);
-        
-        // Set the default end date
-        // month = '' + (lastDay.getMonth() + 1);
-        // day = '' + lastDay.getDate();
-        // year = lastDay.getFullYear();
-        month = '' + (date.getMonth() + 1);
-        day = '' + date.getDate();
-        year = date.getFullYear();
-        
-        if (month.length < 2) {
-            month = '0' + month;
-        }
-        if (day.length < 2) {
-            day = '0' + day;
-        }
-        endDate.setValue(year + '-' + month + '-' + day);
-        
-        
-        
+
+        // Start date
+        var startYear = date.getFullYear();
+        var startMonth = date.getMonth();
+
+        var startMonthStr = ('0' + (startMonth + 1)).slice(-2);
+
+        var startDateStr = startYear + '-' + startMonthStr + '-01';
+
+        startDate.setValue(startDateStr);
+
+        // End date
+        var endDateObj = new Date(startYear + 1, startMonth + 3, 0);
+
+        var endYear = endDateObj.getFullYear();
+        var endMonth = ('0' + (endDateObj.getMonth() + 1)).slice(-2);
+        var endDay = ('0' + endDateObj.getDate()).slice(-2);
+
+        var endDateStr = endYear + '-' + endMonth + '-' + endDay;
+
+        endDate.setValue(endDateStr);
+        //    var date = new Date();
+
+        //     // Start date (already correct)
+        //     var startYear = date.getFullYear();
+        //     var startMonth = date.getMonth(); // 0-based
+
+        //     var startDateStr = `${startYear}-${String(startMonth + 1).padStart(2, '0')}-01`;
+        //     startDate.setValue(startDateStr);
+
+        //     // 👉 End date logic
+        //     // Go 1 year forward, then set day = 0 of next month
+        //     // (this gives last day of previous month)
+        //     var endDateObj = new Date(startYear + 1, startMonth + 3, 0);
+
+        //     var endYear = endDateObj.getFullYear();
+        //     var endMonth = String(endDateObj.getMonth() + 1).padStart(2, '0');
+        //     var endDay = String(endDateObj.getDate()).padStart(2, '0');
+
+        //     endDate.setValue(`${endYear}-${endMonth}-${endDay}`);
+
+        exportPdfBtn = new lx.component.Button({
+            renderTo: filterContainerEl,
+            label: 'PDF Export',
+            width: '130px',
+            margin: '0px 10px 0px 80px',
+
+            onClick: exportPdfBtnOnClickEventHandler
+        });
+
         //
         // CONTENT SECTION
         //
-        
+
         // Create loaderContainerEl
         loaderContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -638,12 +684,12 @@ app.panel.ViewEmployeeLeave = function(config) {
                 overflow: 'hidden'
             }
         });
-        
+
         // Create our loader
         loader = new lx.component.Loader({
             renderTo: loaderContainerEl
         });
-        
+
         // Create the content container
         contentContainerEl = lx.createElement('DIV', {
             parent: loaderContainerEl,
@@ -658,88 +704,88 @@ app.panel.ViewEmployeeLeave = function(config) {
                 padding: '0px 15px 15px 15px'
             }
         });
-        
+
         // Load leave types
         loadLeaveTypes();
-        
+
         // If show is set to true show the panel.
-        if( compConfig.show === true ) me.show();
+        if (compConfig.show === true) me.show();
     };
-    
+
     // Function to set the renderTo target of the panel.
     //
     // renderTo         The new DOM element to render this component to.
-    me.setRenderTarget = function(renderTo) {
+    me.setRenderTarget = function (renderTo) {
         // Remove it from its current target
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         // Add it to the new renderTo element
-        renderTo.appendChild( el );
+        renderTo.appendChild(el);
     };
-    
+
     // Function to show the panel
-    me.show = function() {
-        lx.applyStyle(el, {display: 'flex'});
+    me.show = function () {
+        lx.applyStyle(el, { display: 'flex' });
     };
-    
+
     // Function to hide the panel
-    me.hide = function() {
-        lx.applyStyle(el, {display: 'none'});
+    me.hide = function () {
+        lx.applyStyle(el, { display: 'none' });
     };
-    
+
     // Function to set focus to the panel.
-    me.focus = function() {
+    me.focus = function () {
     };
-    
+
     // Function to destroy the panel and all its contents.
     //
     // NOTE: Must return true if the panel was destroyed successfully and false if the panel was not destroyed.
-    me.destroy = function() {
+    me.destroy = function () {
         // If there is a onDestroy event run that before destroying the panel
         me.fireEvent('destroy', null);
-        
+
         // Remove the panel from its parent
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         return true;
     };
-    
-    
+
+
     //
     // EVENT HANDLERS
     //
-    
+
     function menuDropDownBtnLeaveActionElClickEventHandler(leaveTypeId) {
         // Get the name of the leave type being reset.
         let leaveTypeName = '';
-        for( var i = 0; i < leaveTypes.length; i++ ) {
-            if( leaveTypes[i].leaveTypeId === leaveTypeId ) {
+        for (var i = 0; i < leaveTypes.length; i++) {
+            if (leaveTypes[i].leaveTypeId === leaveTypeId) {
                 leaveTypeName = leaveTypes[i].name;
                 break;
             }
         }
-        
+
         new lx.component.Messagebox({
             title: 'Reset Leave',
-            message: 
+            message:
                 'Are you sure you want to reset the employee\'s leave for the \'' + leaveTypeName + '\' type?',
             buttons: [
-                {name: 'cancel', label: 'Cancel', isCancel: true, style: 'text'},
-                {name: 'reset', label: 'Reset', isDefault: true}
+                { name: 'cancel', label: 'Cancel', isCancel: true, style: 'text' },
+                { name: 'reset', label: 'Reset', isDefault: true }
             ],
-            onClose: function( closeEvent ) {
+            onClose: function (closeEvent) {
                 // Should the payrun be processed?
-                if( closeEvent.button === 'reset' ) {
+                if (closeEvent.button === 'reset') {
                     lx.sendJSON({
                         url: 'exec.php?c=Employee&fn=resetLeave',
                         data: {
                             leaveTypeId: leaveTypeId,
                             employeeId: config.employeeId
                         },
-                        onSuccess: function( responseText ) {
+                        onSuccess: function (responseText) {
                             var response = JSON.parse(responseText);
-                            
-                            if( response.ok !== true ) {
+
+                            if (response.ok !== true) {
                                 new lx.component.Messagebox({
                                     title: 'Employee leave',
                                     message: response.error
@@ -756,30 +802,30 @@ app.panel.ViewEmployeeLeave = function(config) {
             }
         });
     }
-    
+
     function subscribeCheckboxChangeEventHandler(leaveTypeId) {
         // Find the leave type to subscribe to.
         let leaveType = null;
         for (var i = 0; i < leaveTypes.length; i++) {
-            if(leaveTypes[i].leaveTypeId === leaveTypeId){
+            if (leaveTypes[i].leaveTypeId === leaveTypeId) {
                 leaveType = leaveTypes[i];
                 break;
             }
         }
-        
+
         // Check that the leave type was found.
-        if( leaveType === null ) {
+        if (leaveType === null) {
             let action = '';
-            if( leaveTypes[i].subscribeCheckboxEl.getValue() === true ) action = 'disable';
+            if (leaveTypes[i].subscribeCheckboxEl.getValue() === true) action = 'disable';
             else action = 'enable';
-            
+
             new lx.component.Messagebox({
                 message: 'Failed to ' + action + ' leave type for employee.'
             });
-            
+
             return;
         }
-        
+
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=subscribeLeave',
             data: {
@@ -787,10 +833,10 @@ app.panel.ViewEmployeeLeave = function(config) {
                 employeeId: config.employeeId,
                 unsubscribe: leaveType.subscribeCheckboxEl.getValue()
             },
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Employee leave',
                         message: response.error
@@ -799,9 +845,9 @@ app.panel.ViewEmployeeLeave = function(config) {
                 reloadLeaveType(leaveTypeId);
             }
         });
-        
+
     }
-    
+
     // typeDropDownBtnAllocatetEl click event handler
     function typeDropDownBtnAllocatetElClickEventHandler(leaveTypeId) {
         // Create a modal window
@@ -810,52 +856,67 @@ app.panel.ViewEmployeeLeave = function(config) {
             maxWidth: '450px',
             maxHeight: '434px'
         });
-        
+
         // Create the editAddressDetailsPanel panel
         var editLeaveTypePanel = new app.panel.AllocateEmployeeLeave({
             renderTo: viewLeaveTypeModel.getContainer(),
             show: true,
             leaveTypeId: leaveTypeId,
             employeeId: config.employeeId,
-            
-            onCancel: function() {
+
+            onCancel: function () {
                 app.route.popState();
             },
-            onSave: function() {
+            onSave: function () {
                 app.route.popState();
                 contentContainerEl.innerHTML = '';
                 loadLeaveTypes();
             }
         });
-        
+
         // Add destroy event listener to modal to destroy the contained panel.
-        viewLeaveTypeModel.addEventListener('destroy', function() {
+        viewLeaveTypeModel.addEventListener('destroy', function () {
             editLeaveTypePanel.destroy();
         });
-        
+
         // Create a route entry for the panel
         var state = {
             modal: viewLeaveTypeModel
         };
-        app.route.pushState(state, function( state ) {
+        app.route.pushState(state, function (state) {
             state.modal.destroy();
         });
-        
+
         // Show the modal window and focus on the panel
         viewLeaveTypeModel.show();
     }
-    
+
+    function exportPdfBtnOnClickEventHandler() {
+
+        // Open the report in a new tab
+        lx.sendForm({
+            url: 'exec.php?c=Report&fn=runEmployeeLeaveSummaryPdfReport',
+            target: '_blank',
+            data: {
+                Pdfdetails: subscribedLeaveTypes,
+                Employee: employeeDetails,
+                startDate: startDate.getValue(),
+                endDate: endDate.getValue()
+            }
+        });
+    }
+
     // The event that is fire when a filter is changed
     function filterOnChangeEvent() {
         contentContainerEl.innerHTML = '';
         loadLeaveTypes();
     }
-    
-    
-    
+
+
+
     //
     // INITIALIZE OBJECT
     //
-    
-    me.init( config );
+
+    me.init(config);
 };

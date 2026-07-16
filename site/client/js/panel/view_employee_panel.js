@@ -18,22 +18,22 @@
 //
 //  onDestroy           This event is fired just before the panel is destroyed.
 //
-app.panel.ViewEmployee = function(config) {
-    
+app.panel.ViewEmployee = function (config) {
+
     //
     // PRIVATE VARIABLES
     //
-    
+
     var me = this;
     var confirmDestroy = null;
-    
+
     var el = null;
-    
+
     var titleContainerEl = null;
     var titleBackEl = null;
     var titleTextEl = null;
     var employeBtn = null;
-    
+
     var loaderContainerEl = null;
     var tabContainerEl = null;
     var tabMarkerEl = null;
@@ -49,7 +49,7 @@ app.panel.ViewEmployee = function(config) {
     var tabAttendanceItemEl = null;
     var contentContainerEl = null;
     var loader = null;
-    
+
     var detailsPanel = null;
     var earningsPanel = null;
     var retirementFundsPanel = null;
@@ -58,42 +58,45 @@ app.panel.ViewEmployee = function(config) {
     var payslipsPanel = null;
     var taxCertificatePanel = null;
     var loansPanel = null;
-    var documentsPanel  = null;
-    var attendancePanel  = null;
-    
+    var documentsPanel = null;
+    var attendancePanel = null;
+
     var employeeId = null;
     var employeeName = null;
+    var fullname = null;
+    var lastname = null;
+    var employmentDate = null;
     var refreshEmployees = false;
-    
+
 
     //
     // OBJECT EXTENSIONS
     //
-    
+
     lx.EventEmitter.call(this);
-    
-    
+
+
     //
     // PRIVATE FUNCTIONS
     //
-    
+
     function loadEmployeeStatus() {
-        
+
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=getEmploymentStatus',
             data: {
                 employeeId: config.employeeId
             },
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Loading Employee Status Failed',
                         message: response.error
                     });
                 }
-                
+
                 if (response.employeeStatus === 'EMPL') {
                     employeBtn.setLabel('End Employment');
                     employeBtn.removeEventListener('click', employeeEmployBtnClickEventHandler);
@@ -107,13 +110,13 @@ app.panel.ViewEmployee = function(config) {
             }
         });
     }
-    
-    
+
+
     //
     // PUBLIC FUNCTIONS
     //
-    
-    me.init = function( config ) {
+
+    me.init = function (config) {
         // Initialize component config
         var compConfig = {
             renderTo: null,
@@ -121,26 +124,32 @@ app.panel.ViewEmployee = function(config) {
             height: '100%',
             flex: '1 1 100%',
             show: false,
-            
+
             employeeId: null,
-            employeeName: null
+            employeeName: null,
+            fullname: null,
+            lastname: null,
+            employmentDate: null,
         };
-        
+
         // Parse user config
-        if( typeof config !== 'undefined' && config !== null ) {
-            for( var property in config ) {
-                if( config.hasOwnProperty(property) ) compConfig[property] = config[property];
+        if (typeof config !== 'undefined' && config !== null) {
+            for (var property in config) {
+                if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
-        
+
         // Attach external event handlers
-        if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
-        
+        if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
+
         // Initialize state
         confirmDestroy = false;
         employeeId = compConfig.employeeId;
         employeeName = compConfig.employeeName;
-        
+        fullname = compConfig.fullname;
+        lastname = compConfig.lastname;
+        employmentDate = compConfig.employmentDate;
+
         // Create root element
         el = lx.createElement('DIV', {
             parent: compConfig.renderTo,
@@ -156,12 +165,12 @@ app.panel.ViewEmployee = function(config) {
                 backgroundColor: '#F4F5F6'
             }
         });
-        
-        
+
+
         //
         // TITLE SECTION
         //
-        
+
         titleContainerEl = lx.createElement('DIV', {
             parent: el,
             style: {
@@ -178,7 +187,7 @@ app.panel.ViewEmployee = function(config) {
                 flex: '0 0 auto'
             }
         });
-        
+
         // Create the titleBackEl element
         titleBackEl = lx.createElement('DIV', {
             parent: titleContainerEl,
@@ -191,10 +200,10 @@ app.panel.ViewEmployee = function(config) {
                 cursor: 'pointer'
             }
         });
-        titleBackEl.appendChild( lx.icon.create('left_arrow', '#444D5A', 18, 1.2) );
+        titleBackEl.appendChild(lx.icon.create('left_arrow', '#444D5A', 18, 1.2));
         titleBackEl.addEventListener('click', titleBackElClickEventHandler);
-        titleContainerEl.appendChild( titleBackEl );
-        
+        titleContainerEl.appendChild(titleBackEl);
+
         // Create the title text element
         titleTextEl = lx.createElement('DIV', {
             parent: titleContainerEl,
@@ -205,8 +214,8 @@ app.panel.ViewEmployee = function(config) {
             },
             innerHTML: 'Employee: ' + compConfig.employeeName
         });
-        
-        
+
+
         // Create the employeBtn component
         employeBtn = new lx.component.Button({
             renderTo: titleContainerEl,
@@ -214,15 +223,15 @@ app.panel.ViewEmployee = function(config) {
             height: '32px',
             width: '140px',
             margin: '0px 20px 0px auto',
-            
+
             // onClick: employeBtnClickEventHandler
         });
-        
-        
+
+
         //
         // CONTENT SECTION
         //
-        
+
         // Create loaderContainerEl
         loaderContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -236,12 +245,12 @@ app.panel.ViewEmployee = function(config) {
                 overflow: 'hidden'
             }
         });
-        
+
         // Create our loader
         loader = new lx.component.Loader({
             renderTo: loaderContainerEl
         });
-        
+
         // Create the tabContainerEl element
         tabContainerEl = lx.createElement('DIV', {
             parent: loaderContainerEl,
@@ -255,7 +264,7 @@ app.panel.ViewEmployee = function(config) {
                 flex: '0 0 auto'
             }
         });
-        
+
         // Create tabDetailsItemEl element
         tabDetailsItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -269,7 +278,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Details'
         });
         tabDetailsItemEl.addEventListener('click', tabDetailsItemElClickEventHandler);
-        
+
         // Create tabEarningsItemEl element
         tabEarningsItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -283,7 +292,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Earnings / Deductions'
         });
         tabEarningsItemEl.addEventListener('click', tabEarningsItemElClickEventHandler);
-        
+
         // Create tabRetirementFundsItemEl element
         tabRetirementFundsItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -297,7 +306,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Retirement Funds'
         });
         tabRetirementFundsItemEl.addEventListener('click', tabRetirementFundsItemElClickEventHandler);
-        
+
         // Create tabLeaveItemEl element
         tabLeaveItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -311,7 +320,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Leave'
         });
         tabLeaveItemEl.addEventListener('click', tabLeaveItemElClickEventHandler);
-        
+
         // Create tabLeaveRequestsItemEl element
         tabLeaveRequestsItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -325,7 +334,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Leave Requests'
         });
         tabLeaveRequestsItemEl.addEventListener('click', tabLeaveRequestsItemElClickEventHandler);
-        
+
         // Create tabPayslipItemEl element
         tabPayslipItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -339,7 +348,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Payslips'
         });
         tabPayslipItemEl.addEventListener('click', tabPayslipItemElClickEventHandler);
-        
+
         // Create tabIrp5ItemEl element
         tabIrp5ItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -353,7 +362,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Tax Certificates'
         });
         tabIrp5ItemEl.addEventListener('click', tabIrp5ItemElClickEventHandler);
-        
+
         // Create tabLoansItemEl element
         tabLoansItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -367,7 +376,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Loans'
         });
         tabLoansItemEl.addEventListener('click', tabLoansItemElClickEventHandler);
-        
+
         // Create tabDocumentsItemEl element
         tabDocumentsItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -381,7 +390,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Documents'
         });
         tabDocumentsItemEl.addEventListener('click', tabDocumentsItemElClickEventHandler);
-        
+
         // Create tabAttendanceItemEl element
         tabAttendanceItemEl = lx.createElement('DIV', {
             parent: tabContainerEl,
@@ -395,7 +404,7 @@ app.panel.ViewEmployee = function(config) {
             innerHTML: 'Attendance History'
         });
         tabAttendanceItemEl.addEventListener('click', tabAttendanceItemElClickEventHandler);
-        
+
         // Create the tabMarkerEl element
         tabMarkerEl = lx.createElement('DIV', {
             parent: tabDetailsItemEl,
@@ -412,7 +421,7 @@ app.panel.ViewEmployee = function(config) {
                 borderWidth: '1px',
             }
         });
-        
+
         // Create the content container
         contentContainerEl = lx.createElement('DIV', {
             parent: loaderContainerEl,
@@ -428,129 +437,132 @@ app.panel.ViewEmployee = function(config) {
                 zIndex: 1
             }
         });
-        
-        
+
+
         //
         // CREATE SUB PANELS
         //
-        
+
         detailsPanel = new app.panel.ViewEmployeeDetails({
             renderTo: contentContainerEl,
             show: true,
-            
+
             employeeId: employeeId,
-            
-            onUpdate:  function( event ) {
+
+            onUpdate: function (event) {
                 refreshEmployees = event.refreshEmployees;
-                if( refreshEmployees ) {
+                if (refreshEmployees) {
                     titleTextEl.innerHTML = 'Employee: ' + event.employeeName;
                 }
             }
         });
-        
+
         earningsPanel = new app.panel.ViewEmployeeEarnings({
             renderTo: contentContainerEl,
             employeeId: employeeId,
             mainPanel: me
         });
-        
+
         retirementFundsPanel = new app.panel.ViewEmployeeRetirementFunds({
             renderTo: contentContainerEl,
             employeeId: employeeId,
             mainPanel: me
         });
-        
+
         leavePanel = new app.panel.ViewEmployeeLeave({
             renderTo: contentContainerEl,
-            employeeId: employeeId
+            employeeId: employeeId,
+            fullname: fullname,
+            lastname: lastname,
+            employmentDate: employmentDate,
         });
-        
+
         leaveRequestsPanel = new app.panel.ListEmployeeLeaveRequests({
             renderTo: contentContainerEl,
             viewEmployeePanel: me,
             employeeId: employeeId,
             employeeAlias: employeeName
         });
-        
+
         payslipsPanel = new app.panel.ListPayslips({
             renderTo: contentContainerEl,
             employeeId: employeeId,
             viewEmployeePanel: me,
             employeeName: compConfig.employeeName
         });
-        
+
         taxCertificatePanel = new app.panel.ListEmployeeTaxCertificate({
             renderTo: contentContainerEl,
             employeeId: employeeId,
             viewEmployeePanel: me,
             employeeName: compConfig.employeeName
         });
-        
+
         loansPanel = new app.panel.ListEmployeeLoans({
             renderTo: contentContainerEl,
             employeeId: employeeId,
             viewEmployeePanel: me,
             employeeName: compConfig.employeeName
         });
-        
+
         documentsPanel = new app.panel.ListEmployeeDocuments({
             renderTo: contentContainerEl,
             employeeId: employeeId,
             viewEmployeePanel: me,
             employeeName: compConfig.employeeName
         });
-        
+
         attendancePanel = new app.panel.ListEmployeeAttendance({
             renderTo: contentContainerEl,
             employeeId: employeeId,
             viewEmployeePanel: me,
             employeeName: compConfig.employeeName
         });
-        
+
         loadEmployeeStatus();
         // If show is set to true show the panel.
-        if( compConfig.show === true ) me.show();
+        if (compConfig.show === true) me.show();
     };
-    
+
     // Function to set the renderTo target of the panel.
     //
     // renderTo         The new DOM element to render this component to.
-    me.setRenderTarget = function(renderTo) {
+    me.setRenderTarget = function (renderTo) {
         // Remove it from its current target
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         // Add it to the new renderTo element
-        renderTo.appendChild( el );
+        renderTo.appendChild(el);
     };
-    
+
     // Function to show the panel
-    me.show = function() {
-        lx.applyStyle(el, {display: 'flex'});
+    me.show = function () {
+        lx.applyStyle(el, { display: 'flex' });
     };
-    
+
     // Function to hide the panel
-    me.hide = function() {
-        lx.applyStyle(el, {display: 'none'});
+    me.hide = function () {
+        lx.applyStyle(el, { display: 'none' });
     };
-    
+
     // Function to set focus to the panel.
-    me.focus = function() {
+    me.focus = function () {
     };
-    
+
     // Function to destroy the panel and all its contents.
     //
     // NOTE: Must return true if the panel was destroyed successfully and false if the panel was not destroyed.
-    me.destroy = function() {
+    me.destroy = function () {
         // If there is a onDestroy event run that before destroying the panel
-        me.fireEvent('destroy', {srcPanel: me, refreshEmployees: refreshEmployees});
-        
+        me.fireEvent('destroy', { srcPanel: me, refreshEmployees: refreshEmployees });
+
         // Remove the panel from its parent
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         return true;
     };
-    
-    me.getPanels = function() {
+
+    me.getPanels = function () {
         let panels = null;
         panels = {
             detailsPanel: detailsPanel,
@@ -562,33 +574,33 @@ app.panel.ViewEmployee = function(config) {
             taxCertificatePanel: taxCertificatePanel,
             loansPanel: loansPanel
         };
-        
+
         return panels;
     };
-    
-    
+
+
     //
     // EVENT HANDLERS
     //
-    
-    function employeeDismissBtnClickEventHandler(){
+
+    function employeeDismissBtnClickEventHandler() {
         // Create a modal window
         var dismissEmployeeModal = new lx.component.ModalWindow({
             margin: '40px',
             maxWidth: '500px',
             maxHeight: '300px'
         });
-        
+
         // Create the editCompanyDetails panel
         var dismissEmployeePanel = new app.panel.DismissEmployee({
             renderTo: dismissEmployeeModal.getContainer(),
             show: true,
             employeeId: config.employeeId,
-            
-            onCancel: function() {
+
+            onCancel: function () {
                 app.route.popState();
             },
-            onDismiss: function() {
+            onDismiss: function () {
                 app.route.popState();
                 loadEmployeeStatus();
                 detailsPanel.destroy();
@@ -601,62 +613,62 @@ app.panel.ViewEmployee = function(config) {
                 earningsPanel = new app.panel.ViewEmployeeEarnings({
                     renderTo: contentContainerEl,
                     employeeId: employeeId,
-                    
+
                 });
                 refreshEmployees = true;
             }
         });
-        
+
         // Add destroy event listener to modal to destroy the contained panel.
-        dismissEmployeeModal.addEventListener('destroy', function() {
+        dismissEmployeeModal.addEventListener('destroy', function () {
             dismissEmployeePanel.destroy();
         });
-        
+
         // Create a route entry for the panel
         var state = {
             modal: dismissEmployeeModal
         };
-        app.route.pushState(state, function( state ) {
+        app.route.pushState(state, function (state) {
             state.modal.destroy();
         });
-        
+
         dismissEmployeeModal.show();
         dismissEmployeePanel.focus();
     }
-    
-    function employeeEmployBtnClickEventHandler(){
+
+    function employeeEmployBtnClickEventHandler() {
         // Check if the employee limit has been reached
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=getLimit',
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 let response = JSON.parse(responseText);
-                
+
                 // Was the employee limit reached?
-                if( (response.limit.employeeLimit !== null) && (response.limit.employeeCount >= response.limit.employeeLimit) ) {
+                if ((response.limit.employeeLimit !== null) && (response.limit.employeeCount >= response.limit.employeeLimit)) {
                     new lx.component.Messagebox({
                         title: 'Adding Employee Failed',
                         message: 'Unable to employ the specified employee. Your company is limited to ' + response.limit.employeeLimit + ' employees.'
                     });
                     return;
                 }
-                
+
                 // Create a modal window
                 var employEmployeeModal = new lx.component.ModalWindow({
                     margin: '40px',
                     maxWidth: '500px',
                     maxHeight: '232px'
                 });
-                
+
                 // Create the editCompanyDetails panel
                 var employEmployeePanel = new app.panel.EmployEmployee({
                     renderTo: employEmployeeModal.getContainer(),
                     show: true,
                     employeeId: config.employeeId,
-                    
-                    onCancel: function() {
+
+                    onCancel: function () {
                         app.route.popState();
                     },
-                    onEmploy: function() {
+                    onEmploy: function () {
                         app.route.popState();
                         loadEmployeeStatus();
                         detailsPanel.destroy();
@@ -669,38 +681,38 @@ app.panel.ViewEmployee = function(config) {
                         earningsPanel = new app.panel.ViewEmployeeEarnings({
                             renderTo: contentContainerEl,
                             employeeId: employeeId,
-                            
+
                         });
                         refreshEmployees = true;
                     }
                 });
-                
+
                 // Add destroy event listener to modal to destroy the contained panel.
-                employEmployeeModal.addEventListener('destroy', function() {
+                employEmployeeModal.addEventListener('destroy', function () {
                     employEmployeePanel.destroy();
                 });
-                
+
                 // Create a route entry for the panel
                 var state = {
                     modal: employEmployeeModal
                 };
-                app.route.pushState(state, function( state ) {
+                app.route.pushState(state, function (state) {
                     state.modal.destroy();
                 });
-                
+
                 employEmployeeModal.show();
                 employEmployeePanel.focus();
             }
         });
-        
+
         return;
     }
-    
+
     // titleBackEl click event handler
     function titleBackElClickEventHandler() {
         app.route.popState();
     }
-    
+
     // tabDetailsItemEl click event handler
     function tabDetailsItemElClickEventHandler() {
         earningsPanel.hide();
@@ -713,10 +725,10 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.hide();
         documentsPanel.hide();
         attendancePanel.hide();
-        
-        tabDetailsItemEl.appendChild( tabMarkerEl );
+
+        tabDetailsItemEl.appendChild(tabMarkerEl);
     }
-    
+
     // tabDetailsItemEl click event handler
     function tabEarningsItemElClickEventHandler() {
         detailsPanel.hide();
@@ -729,10 +741,10 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.hide();
         documentsPanel.hide();
         attendancePanel.hide();
-        
-        tabEarningsItemEl.appendChild( tabMarkerEl );
+
+        tabEarningsItemEl.appendChild(tabMarkerEl);
     }
-    
+
     // tabLeaveItemEl click event handler
     function tabLeaveItemElClickEventHandler() {
         detailsPanel.hide();
@@ -745,10 +757,10 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.hide();
         documentsPanel.hide();
         attendancePanel.hide();
-        
-        tabLeaveItemEl.appendChild( tabMarkerEl );
+
+        tabLeaveItemEl.appendChild(tabMarkerEl);
     }
-    
+
     // tabLeaveItemEl click event handler
     function tabLeaveRequestsItemElClickEventHandler() {
         detailsPanel.hide();
@@ -761,10 +773,10 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.hide();
         documentsPanel.hide();
         attendancePanel.hide();
-        
-        tabLeaveRequestsItemEl.appendChild( tabMarkerEl );
+
+        tabLeaveRequestsItemEl.appendChild(tabMarkerEl);
     }
-    
+
     // tabLeaveItemEl click event handler
     function tabRetirementFundsItemElClickEventHandler() {
         detailsPanel.hide();
@@ -777,10 +789,10 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.hide();
         documentsPanel.hide();
         attendancePanel.hide();
-        
-        tabRetirementFundsItemEl.appendChild( tabMarkerEl );
+
+        tabRetirementFundsItemEl.appendChild(tabMarkerEl);
     }
-    
+
     // tabPayslipItemEl click event handler
     function tabPayslipItemElClickEventHandler() {
         detailsPanel.hide();
@@ -793,10 +805,10 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.hide();
         documentsPanel.hide();
         attendancePanel.hide();
-        
-        tabPayslipItemEl.appendChild( tabMarkerEl );
+
+        tabPayslipItemEl.appendChild(tabMarkerEl);
     }
-    
+
     // tabIrp5ItemEl click event handler
     function tabIrp5ItemElClickEventHandler() {
         detailsPanel.hide();
@@ -809,10 +821,10 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.hide();
         documentsPanel.hide();
         attendancePanel.hide();
-        
-        tabIrp5ItemEl.appendChild( tabMarkerEl );
+
+        tabIrp5ItemEl.appendChild(tabMarkerEl);
     }
-    
+
     // tabLoansItemEl click event handler
     function tabLoansItemElClickEventHandler() {
         detailsPanel.hide();
@@ -825,10 +837,10 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.show();
         documentsPanel.hide();
         attendancePanel.hide();
-        
-        tabLoansItemEl.appendChild( tabMarkerEl );
+
+        tabLoansItemEl.appendChild(tabMarkerEl);
     }
-    
+
     // tabDocumentsItemEl click event handler
     function tabDocumentsItemElClickEventHandler() {
         detailsPanel.hide();
@@ -841,10 +853,10 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.hide();
         documentsPanel.show();
         attendancePanel.hide();
-        
-        tabDocumentsItemEl.appendChild( tabMarkerEl );
+
+        tabDocumentsItemEl.appendChild(tabMarkerEl);
     }
-    
+
     // tabAttendanceItemEl click event handler
     function tabAttendanceItemElClickEventHandler() {
         detailsPanel.hide();
@@ -857,14 +869,14 @@ app.panel.ViewEmployee = function(config) {
         loansPanel.hide();
         documentsPanel.hide();
         attendancePanel.show();
-        
-        tabAttendanceItemEl.appendChild( tabMarkerEl );
+
+        tabAttendanceItemEl.appendChild(tabMarkerEl);
     }
-    
-    
+
+
     //
     // INITIALIZE OBJECT
     //
-    
-    me.init( config );
+
+    me.init(config);
 };
