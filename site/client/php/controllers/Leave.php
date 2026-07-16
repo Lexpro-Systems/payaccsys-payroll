@@ -255,6 +255,8 @@ class Leave extends Controller
                 'days' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
                 'cycleType' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
                 'reset' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
+                'resetInterval' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => false],
+                'carryOver' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => false]
             ]);
             if ($validationResult !== true) {
                 echo (json_encode(['ok' => false, 'error' => $validationResult]));
@@ -297,21 +299,29 @@ class Leave extends Controller
             if ($list['reset'] === 'ACCR') {
                 $resetAccrued = true;
                 $resetTaken = false;
+                $resetInterval = $list['resetInterval'];
+                $carryOverInterval = $list['carryOver'];
             } else if ($list['reset'] === 'TAKE') {
                 $resetAccrued = false;
                 $resetTaken = true;
+                $resetInterval = $list['resetInterval'];
+                $carryOverInterval = $list['carryOver'];
             } else if ($list['reset'] === 'BOTH') {
                 $resetAccrued = true;
                 $resetTaken = true;
+                $resetInterval = $list['resetInterval'];
+                $carryOverInterval = $list['carryOver'];
             } else if ($list['reset'] === 'NONE') {
                 $resetAccrued = false;
                 $resetTaken = false;
+                $resetInterval = 0;
+                $carryOverInterval = 0;
             }
             $sqlQuery =
                 'INSERT INTO leave_type_rules( ' .
                 'leave_type_id, start_month, accrual_interval, leave_accrual_type_code,  ' .
-                'amount, reset_accrued, reset_taken) ' .
-                'VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id';
+                'amount, reset_accrued, reset_taken, reset_interval, carry_over_interval) ' .
+                'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id';
 
             $sqlResult = $db->paramQuery($sqlQuery, [
                 $leaveTypeId,       // leave_type_id
@@ -320,7 +330,9 @@ class Leave extends Controller
                 $list['cycleType'],         // leave_accrual_type_code
                 $list['amount'],            // amount
                 $resetAccrued,              // reset_accrued
-                $resetTaken                 // reset_taken
+                $resetTaken,            // reset_taken
+                $resetInterval,
+                $carryOverInterval
             ]);
 
             if (!$sqlResult->isValid()) {
@@ -383,6 +395,8 @@ class Leave extends Controller
                 'days' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
                 'cycleType' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
                 'reset' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
+                'resetInterval' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => false],
+                'carryOverInterval' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => false]
             ]);
             if ($validationResult !== true) {
                 echo (json_encode(['ok' => false, 'error' => $validationResult]));
@@ -442,24 +456,35 @@ class Leave extends Controller
 
                 $resetAccrued = null;
                 $resetTaken = null;
+                $resetInterval = 0;
+                $carryOverInterval = 0;
+
                 if ($list['reset'] === 'ACCR') {
                     $resetAccrued = true;
                     $resetTaken = false;
+                    $resetInterval = $list['resetInterval'];
+                    $carryOverInterval = $list['carryOverInterval'];
                 } else if ($list['reset'] === 'TAKE') {
                     $resetAccrued = false;
                     $resetTaken = true;
+                    $resetInterval = $list['resetInterval'];
+                    $carryOverInterval = $list['carryOverInterval'];
                 } else if ($list['reset'] === 'BOTH') {
                     $resetAccrued = true;
                     $resetTaken = true;
+                    $resetInterval = $list['resetInterval'];
+                    $carryOverInterval = $list['carryOverInterval'];
                 } else if ($list['reset'] === 'NONE') {
                     $resetAccrued = false;
                     $resetTaken = false;
+                    $resetInterval = 0;
+                    $carryOverInterval = 0;
                 }
                 $sqlQuery =
                     'INSERT INTO leave_type_rules( ' .
                     'leave_type_id, start_month, accrual_interval, leave_accrual_type_code,  ' .
-                    'amount, reset_accrued, reset_taken) ' .
-                    'VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id';
+                    'amount, reset_accrued, reset_taken, reset_interval, carry_over_interval) ' .
+                    'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id';
 
                 $sqlResult = $db->paramQuery($sqlQuery, [
                     $data['leaveTypeId'],       // leave_type_id
@@ -468,7 +493,9 @@ class Leave extends Controller
                     $list['cycleType'],         // leave_accrual_type_code
                     $list['amount'],            // amount
                     $resetAccrued,              // reset_accrued
-                    $resetTaken                 // reset_taken
+                    $resetTaken,                 // reset_taken
+                    $resetInterval,
+                    $carryOverInterval
                 ]);
 
                 if (!$sqlResult->isValid()) {
@@ -483,6 +510,9 @@ class Leave extends Controller
 
                 $resetAccrued = null;
                 $resetTaken = null;
+                $resetInterval = 0;
+                $carryOverInterval = 0;
+
                 if ($list['reset'] === 'ACCR') {
                     $resetAccrued = true;
                     $resetTaken = false;
@@ -495,6 +525,13 @@ class Leave extends Controller
                 } else if ($list['reset'] === 'NONE') {
                     $resetAccrued = false;
                     $resetTaken = false;
+                }
+                if ($list['reset'] !== 'NONE') {
+                    $resetInterval = $list['resetInterval'];
+                    $carryOverInterval = $list['carryOverInterval'];
+                } else {
+                    $resetInterval = 0;
+                    $carryOverInterval = 0;
                 }
 
                 // Build the query to update the client
@@ -542,6 +579,18 @@ class Leave extends Controller
                     $updateQuery = $updateQuery . 'reset_taken = $' . $updateCount;
                     $updateValues[] = $resetTaken;
                 }
+
+                //Fields should always update to ensure correct values in db
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'reset_interval = $' . $updateCount;
+                $updateValues[] = $resetInterval;
+
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'carry_over_interval = $' . $updateCount;
+                $updateValues[] = $carryOverInterval;
+
 
                 // Set where clause
                 $updateCount++;
@@ -645,7 +694,7 @@ class Leave extends Controller
             'SELECT ' .
             'id, leave_type_id, start_month, accrual_interval, ' .
             'leave_accrual_type_code, amount, ' .
-            'reset_accrued, reset_taken ' .
+            'reset_accrued, reset_taken, reset_interval, carry_over_interval ' .
             'FROM ' .
             'leave_type_rules ' .
             'WHERE ' .
@@ -671,7 +720,9 @@ class Leave extends Controller
                 ],
                 'amount' => $sqlRow['amount'],
                 'resetAccrued' => $sqlRow['reset_accrued'],
-                'resetTaken' => $sqlRow['reset_taken']
+                'resetTaken' => $sqlRow['reset_taken'],
+                'resetInterval' => $sqlRow['reset_interval'],
+                'carryOverInterval' => $sqlRow['carry_over_interval']
             ];
         }
 
@@ -741,7 +792,9 @@ class Leave extends Controller
             'leave_accrual_type_code, ' .
             'amount, ' .
             'reset_accrued, ' .
-            'reset_taken ' .
+            'reset_taken, ' .
+            'reset_interval, ' .
+            'carry_over_interval ' .
             'FROM ' .
             'leave_type_rules ' .
             'ORDER BY ' .
@@ -774,7 +827,9 @@ class Leave extends Controller
                 ],
                 'amount' => $sqlRow['amount'],
                 'resetAccrued' => $sqlRow['reset_accrued'],
-                'resetTaken' => $sqlRow['reset_taken']
+                'resetTaken' => $sqlRow['reset_taken'],
+                'resetInterval' => $sqlRow['reset_interval'],
+                'carryOverInterval' => $sqlRow['carry_over_interval']
             ];
         }
 
@@ -811,12 +866,16 @@ class Leave extends Controller
 
         $fromDate = date("Y-m-d", strtotime("-1 months"));
         $toDate = date('Y-m-d');
+        $NewToDate = (new DateTime(date('Y-m-d')))
+            ->modify('+23 months')
+            ->modify('last day of this month')
+            ->format('Y-m-d');
 
         // Get the leave data
         $leaveData = \LeaveUtil\getLeaveBalances(
             $data['employeeId'],
             $fromDate,
-            $toDate,
+            $NewToDate,
             null,
             $db
         );
@@ -843,6 +902,173 @@ class Leave extends Controller
 
         // Send result
         echo (json_encode(['ok' => true, 'balances' => $balances]));
+        return true;
+    }
+
+
+    // Function to get leave taken by all employees of all leave types
+
+    function getCompanyLeaveCalendarItems($data, $user, $db)
+    {
+        // Validate data
+        $validationResult = Json::validate($data, [
+            'fromDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => false],
+            'toDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => false],
+            'leaveTypeId' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true]
+        ]);
+
+        if ($validationResult !== true) {
+            echo json_encode([
+                'ok' => false,
+                'error' => $validationResult
+            ]);
+
+            return false;
+        }
+
+        // Check values and asign defaults if necessary
+        $fromDate = $data['fromDate'] ?? null;
+        $toDate = $data['toDate'] ?? null;
+        $leaveTypeId = '0';
+
+        if (isset($data['leaveTypeId']) && $data['leaveTypeId'] !== '') {
+            $leaveTypeId = (int)$data['leaveTypeId'];
+        }
+
+        // If no dates are provided, default to current month's first and last day.
+        if ($fromDate === null || $fromDate === '') {
+            $fromDate = date('Y-m-01');
+        }
+
+        if ($toDate === null || $toDate === '') {
+            $toDate = date('Y-m-t');
+        }
+
+        if (strtotime($fromDate) === false || strtotime($toDate) === false) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Invalid Start Date or End Date.'
+            ]);
+            return false;
+        }
+
+        //
+        //BUILD QUERY
+        //
+
+        $companyCalLeaveTypeQuery = '';
+        $leaveCalendarItems = [];
+        $queryValues = [$fromDate, $toDate];
+
+        $hasLeaveFilterValue = ($leaveTypeId !== '0' && $leaveTypeId !== 0);
+
+        if ($hasLeaveFilterValue) {
+            $queryValues[] = $leaveTypeId;
+        }
+
+        // Load all leave requests
+        $companyCalLeaveTypeQuery =
+            'WITH leave_request_stats AS( ' .
+            'SELECT ' .
+            'leave_request_id, ' .
+            'leave_date, ' .
+            'day_fraction AS day, ' .
+            'leave_hours AS hours ' .
+            'FROM ' .
+            'leave_request_items ' .
+            ') ' .
+            'SELECT ' .
+            'leave_requests.id AS request_id, ' .
+            //'leave_requests.added_on, ' .
+            'leave_requests.employee_id, ' .
+            'leave_requests.leave_type_id, ' .
+            //'leave_requests.leave_request_status_code, ' .
+            //'leave_requests.status_updated_on, ' .
+            //'leave_requests.status_updated_by_user_id, ' .
+            //'leave_requests.added_on, ' .
+            //'leave_requests.added_by_user_type_code, ' .
+            //'leave_requests.added_by_user_id, ' .
+            'leave_types.name AS leave_type_name, ' .
+            //'leave_types.leave_unit_code, ' .
+            'employees.alias AS employee_name, ' .
+            'employees.last_name AS last_name, ' .
+            'leave_request_stats.day AS day, ' .
+            'leave_request_stats.hours, ' .
+            'leave_request_stats.leave_date AS leave_date ' .
+            'FROM ' .
+            'leave_requests ' .
+            'JOIN ' .
+            'employees ON employees.id = leave_requests.employee_id ' .
+            'JOIN ' .
+            'leave_request_stats ON leave_request_stats.leave_request_id = leave_requests.id ' .
+            'JOIN ' .
+            'leave_types ON leave_types.id = leave_requests.leave_type_id ' .
+            'WHERE ' .
+            'leave_requests.leave_request_status_code = \'APPR\' AND ' .
+            'leave_request_stats.leave_date >= $1 AND leave_request_stats.leave_date <= $2 ';
+
+        if ($hasLeaveFilterValue) {
+            $companyCalLeaveTypeQuery .= 'AND leave_requests.leave_type_id = $3 ';
+        }
+
+        $companyCalLeaveTypeQuery .=
+            'UNION ALL ' .
+
+            'SELECT ' .
+            'leave.id AS request_id, ' .
+            //'leave_requests.added_on, ' .
+            'leave.employee_id, ' .
+            'leave.leave_type_id, ' .
+            'leave_types.name AS leave_type_name, ' .
+            'employees.alias AS employee_name, ' .
+            'employees.last_name AS last_name, ' .
+            'ABS(leave.days) AS day, ' .
+            'ABS(leave.hours) AS hours, ' .
+            'leave.date AS leave_date ' .
+            'FROM leave ' .
+            'JOIN employees ON employees.id = leave.employee_id ' .
+            'JOIN leave_types ON leave_types.id = leave.leave_type_id ' .
+            'WHERE ' .
+            'leave.description = \'Leave Taken\' AND ' .
+            'leave.leave_source_type_code = \'MANU\' AND ' .
+            'leave.date >= $1 AND leave.date <= $2 ';
+
+        if ($hasLeaveFilterValue) {
+            $companyCalLeaveTypeQuery .= 'AND leave.leave_type_id = $3 ';
+        }
+
+        $companyCalLeaveTypeQuery .=
+            'ORDER BY ' .
+            'leave_date ASC, ' .
+            'last_name ASC ';
+
+        $companyCalLeaveTypeResult = $db->paramQuery($companyCalLeaveTypeQuery, $queryValues);
+
+        if (!$companyCalLeaveTypeResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        while ($row = $companyCalLeaveTypeResult->fetchAssociative()) {
+
+            $leaveDate = new DateTime($row['leave_date']);
+
+            $leaveCalendarItems[] = [
+                'requestId' => $row['request_id'],
+                'leaveTypeId' => $row['leave_type_id'],
+                'leaveTypeName' => $row['leave_type_name'],
+                'employeeId' => $row['employee_id'],
+                'employeeName' => trim($row['employee_name'] . ' ' . $row['last_name']),
+                'leaveDate' => $leaveDate->format('Y-m-d'),
+                'hours' => $row['hours'],
+                'days' => $row['day']
+            ];
+        }
+        echo json_encode([
+            'ok' => true,
+            'leaveCalendarItems' => $leaveCalendarItems
+        ]);
+
         return true;
     }
 
@@ -894,7 +1120,6 @@ class Leave extends Controller
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
             return false;
         }
-
 
         //
         // BUILD QUERY
@@ -1045,7 +1270,7 @@ class Leave extends Controller
                 'statusCode' => $sqlRow['leave_request_status_code'],
                 'statusName' => $sqlRow['leave_request_status_name'],
                 'statusUpdatedOn' => $sqlRow['status_updated_on'],
-                'addedOn' => $sqlRow['added_on'],
+                //'addedOn' => $sqlRow['added_on'],
                 'totalDays' => number_format(floatval($sqlRow['num_days']), 2, '.', ''),
                 'dayFraction' => number_format(floatval($sqlRow['day_fraction']), 2, '.', ''),
                 'totalHours' => $sqlRow['num_hours'],
@@ -1476,10 +1701,7 @@ class Leave extends Controller
                 $mail->isSMTP();
                 $mail->Host = CONF_SMTP_HOST;
                 $mail->Port = CONF_SMTP_PORT;
-                $mail->charSet = 'UTF-8';
-                $mail->SMTPAuth = true;
-                $mail->Username = CONF_SMTP_USERNAME;
-                $mail->Password = CONF_SMTP_PASSW;
+                $mail->CharSet = 'UTF-8';
 
                 // Create template
                 $mailText = file_get_contents(CONF_SYSTEM_DIR . 'email_templates/leave_request.html');
@@ -1726,10 +1948,7 @@ class Leave extends Controller
         $mail->isSMTP();
         $mail->Host = CONF_SMTP_HOST;
         $mail->Port = CONF_SMTP_PORT;
-        $mail->charSet = 'UTF-8';
-        $mail->SMTPAuth = true;
-        $mail->Username = CONF_SMTP_USERNAME;
-        $mail->Password = CONF_SMTP_PASSW;
+        $mail->CharSet = 'UTF-8';
 
         // Create template
         $mailText = file_get_contents(CONF_SYSTEM_DIR . 'email_templates/leave_request.html');
@@ -2333,6 +2552,7 @@ class Leave extends Controller
         $leaveUnitCode = $sqlRow['leave_unit_code'];
         $days = $sqlRow['num_days'];
         $dayFraction = $sqlRow['day_fraction'];
+        $leaveStartDate = $sqlRow['start_date'];
         $hours = $sqlRow['num_hours'];
 
         $leaveDescription = '';
@@ -2418,7 +2638,9 @@ class Leave extends Controller
                     $action,                            // leave_action_code
                     $hours,                             // hours
                     $days,                              // days
-                    date('Y-m-d'),                      // date
+                    $leaveStartDate,                    /*Julian recommended to keep the fromdate and approvel dates together for now, until a problem arise with a client and it becomes a priority task.
+                                                             Task: Alicia requested that the fromDate of the leave dates be displayed in the Date column of the leave table */
+                    //date('Y-m-d'),                      // date
                     $employeeId,                        // employee_id
                     $leaveTypeId,                       // leave_type_id
                     'MANU',                             // leave_source_type_code
@@ -2444,7 +2666,8 @@ class Leave extends Controller
                     $action,                            // leave_action_code
                     $hours,                             // hours
                     $days,                              // days
-                    date('Y-m-d'),                      // date
+                    $leaveStartDate,
+                    //date('Y-m-d'),                      // date
                     $employeeId,                        // employee_id
                     $leaveTypeId,                       // leave_type_id
                     'MANU',                             // leave_source_type_code
@@ -2470,10 +2693,7 @@ class Leave extends Controller
             $mail->isSMTP();
             $mail->Host = CONF_SMTP_HOST;
             $mail->Port = CONF_SMTP_PORT;
-            $mail->charSet = 'UTF-8';
-            $mail->SMTPAuth = true;
-            $mail->Username = CONF_SMTP_USERNAME;
-            $mail->Password = CONF_SMTP_PASSW;
+            $mail->CharSet = 'UTF-8';
 
             // Create template
             $mailText = file_get_contents(CONF_SYSTEM_DIR . 'email_templates/leave_request_status_update_notification.html');
