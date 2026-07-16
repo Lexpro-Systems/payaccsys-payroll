@@ -786,6 +786,7 @@ class TaxReconciliation extends Controller
                     } else if ($itemRow['payslip_item_type_code'] === '2000') {
                         $totalPaye = $totalPaye + $amount;
                     } else if ($itemRow['payslip_item_type_code'] === '2001') {
+                        // $sarsItems[] = ['code' => '4102', 'amount' => $amount];
                         $totalPaye = $totalPaye + $amount;
                     } else if ($itemRow['payslip_item_type_code'] === '2002') {
                         $totalUif = $totalUif + $amount;
@@ -805,6 +806,11 @@ class TaxReconciliation extends Controller
                         $totalDeductions = $totalDeductions + $amount;
                     } else if ($itemRow['payslip_item_type_code'] === '2008') {
                         // Employee loans aren's reflected on the reconciliation
+                    } else if ($itemRow['payslip_item_type_code'] === '2010') {
+                    } else if ($itemRow['payslip_item_type_code'] === '2010') {
+                        // $sarsItems[] = ['code' => '4102', 'amount' => $amount];
+                        $totalPaye = $totalPaye - $amount;
+                        $totalPaye = $totalPaye - $amount;
                     } else if ($itemRow['payslip_item_type_code'] === '3001') {
                         $totalUif = $totalUif + $amount;
                     } else if ($itemRow['payslip_item_type_code'] === '3002') {
@@ -865,13 +871,15 @@ class TaxReconciliation extends Controller
                     } else if ($itemRow['payslip_item_type_code'] === '5001') {
                         // Calculate the reimbursive travel allowance limit
                         $reimbursiveLimit = \PayslipUtil\getTravelAllowancePrescribedRate(new DateTime($payslipRow['to_date'])) * $itemRow['units'];
-
+                        $limitAmount = (int) round($amount * 100);
+                        $limitReimbursiveLimit = (int) round($reimbursiveLimit * 100);
                         // Is the amount under the limit?
-                        if ($amount <= $reimbursiveLimit) {
+                        if ($limitAmount <= $limitReimbursiveLimit) {
                             // Add reimbursive travel allowance
                             $sarsItems[] = ['code' => '3703', 'amount' => $amount];
                         } else {
                             // Add reimbursive travel allowance
+                            error_log("Amount: {$amount}, Thershold: {$reimbursiveLimit} , Code: 3702");
                             $sarsItems[] = ['code' => '3702', 'amount' => $reimbursiveLimit];
                             $sarsItems[] = ['code' => '3722', 'amount' => ($amount - $reimbursiveLimit)];
                         }
@@ -2951,11 +2959,22 @@ class TaxReconciliation extends Controller
                 ]);
             }
 
+            // 2025-05-06 Ray King
             // Is there income to add?
             if (doubleval($sqlRow['total_taxable_income']) > 0.009) {
+
+                $tax_income = 0;
+                $key = array_search('3702', $rowContent) + 1;
+
+                if ($key >= 0) {
+                    $tax_income = $rowContent[$key];
+                }
+
+                //$tax_income = $sqlRow['total_taxable_income'] + floatval($tax_income); //code 3702
+                $tax_income = $sqlRow['total_taxable_income'];
                 $rowContent = array_merge($rowContent, [
                     '3699',
-                    number_format(floor($sqlRow['total_taxable_income']), 0, '', '')
+                    number_format(floor($tax_income), 0, '', '')
                 ]);
             }
 
@@ -5460,6 +5479,7 @@ class TaxReconciliation extends Controller
                     } else if ($itemRow['payslip_item_type_code'] === '2007') {
                         $hasDeductionItem = true;
                     } else if ($itemRow['payslip_item_type_code'] === '2008') {
+                    } else if ($itemRow['payslip_item_type_code'] === '2010') {
                         // Employee loan deductions aren't reflected on the reconciliation
                     } else if ($itemRow['payslip_item_type_code'] === '3001') {
                     } else if ($itemRow['payslip_item_type_code'] === '3002') {
