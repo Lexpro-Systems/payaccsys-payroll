@@ -133,7 +133,7 @@ function getEmployeeDetailsData($data, $user, $db)
         if ($whereClause === '')
             $whereClause = 'WHERE ';
         else
-            $whereClause = $whereClause . 'AND ';
+            $whereClause = $whereClause . ' AND ';
         $sqlParams[] = $data['departmentId'];
         $whereClause = $whereClause . ' departments.id = $' . count($sqlParams);
     }
@@ -143,7 +143,7 @@ function getEmployeeDetailsData($data, $user, $db)
         if ($whereClause === '')
             $whereClause = 'WHERE ';
         else
-            $whereClause = $whereClause . 'AND ';
+            $whereClause = $whereClause . ' AND ';
         $sqlParams[] = $data['departmentName'];
         $whereClause = $whereClause . ' departments.name = $' . count($sqlParams);
     }
@@ -154,7 +154,7 @@ function getEmployeeDetailsData($data, $user, $db)
             if ($whereClause === '') {
                 $whereClause = 'WHERE ';
             } else {
-                $whereClause = $whereClause . 'AND ';
+                $whereClause = $whereClause . ' AND ';
             }
 
             if ($data['employeeStatus'] === 'employed') {
@@ -479,7 +479,7 @@ function getDetailedPayrollData($data, $user, $db)
         if ($whereClause === '')
             $whereClause = 'WHERE ';
         else
-            $whereClause = $whereClause . 'AND ';
+            $whereClause = $whereClause . ' AND ';
         $sqlParams[] = $data['departmentId'];
         $whereClause = $whereClause . ' departments.id = $' . count($sqlParams);
     }
@@ -489,7 +489,7 @@ function getDetailedPayrollData($data, $user, $db)
         if ($whereClause === '')
             $whereClause = 'WHERE ';
         else
-            $whereClause = $whereClause . 'AND ';
+            $whereClause = $whereClause . ' AND ';
         $sqlParams[] = $data['departmentName'];
         $whereClause = $whereClause . ' departments.name = $' . count($sqlParams);
     }
@@ -500,7 +500,7 @@ function getDetailedPayrollData($data, $user, $db)
             if ($whereClause === '') {
                 $whereClause = 'WHERE ';
             } else {
-                $whereClause = $whereClause . 'AND ';
+                $whereClause = $whereClause . ' AND ';
             }
 
             if ($data['employeeStatus'] === 'employed') {
