@@ -18,15 +18,15 @@
 //
 //                      srcComponent    The source component for the event.
 //
-app.panel.Main = function(config) {
-    
+app.panel.Main = function (config) {
+
     //
     // PRIVATE letIABLES
     //
-    
+
     let me = this;
     let confirmDestroy = null;
-    
+
     let el = null;
     let panelContainerEl = null;
     var bottomMenuContainerEl = null;
@@ -39,42 +39,42 @@ app.panel.Main = function(config) {
     var mobileMenuLightboxEl = null;
     var mobileMenuContainerEl = null;
     var mobileMenuPanel = null;
-    
-    
+
+
     //
     // OBJECT EXTENSIONS
     //
-    
+
     lx.component.Panel.call(this, config);
-    
-    
+
+
     //
     // PRIVATE FUNCTIONS
     //
-    
-    
+
+
     //
     // PUBLIC FUNCTIONS
     //
-    
-    me.init = function( config ) {
+
+    me.init = function (config) {
         // Initialize component config
         let compConfig = {
         };
-        
+
         // Parse user config
-        if( typeof config !== 'undefined' && config !== null ) {
-            for( let property in config ) {
-                if( config.hasOwnProperty(property) ) compConfig[property] = config[property];
+        if (typeof config !== 'undefined' && config !== null) {
+            for (let property in config) {
+                if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
-        
+
         // Attach external event handlers
-        if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
-        
+        if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
+
         // Initialize state
         confirmDestroy = false;
-        
+
         // Create root element
         el = lx.createElement('DIV', {
             parent: me.getContainer(),
@@ -89,7 +89,7 @@ app.panel.Main = function(config) {
                 backgroundColor: '#F0F2F3'
             }
         });
-        
+
         // Create the side menu container
         var sideMenuContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -101,14 +101,14 @@ app.panel.Main = function(config) {
                 backgroundColor: '#AAAAFF'
             }
         });
-        
+
         // Create the side menu panel
         var sideMenuPanel = new app.panel.MobileMenu({
             renderTo: sideMenuContainerEl,
             isMobile: false
         });
         sideMenuPanel.show();
-        
+
         // Create the main container
         var verticalContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -125,24 +125,24 @@ app.panel.Main = function(config) {
                 // boxShadow: '0px 1px 6px 0px rgba(0, 0, 0, 0.5)'
             }
         });
-        
+
         // Create the panel container
-        // panelContainerEl = lx.createElement('DIV', {
-        //     parent: verticalContainerEl,
-        //     style: {
-        //         position: 'relative',
-        //         height: '0px',              // This is required for Safari to work.
-        //         flex: '1 1 auto',
-        //         overflow: 'hidden',
-        //         // backgroundColor: app.panelBackgroundColor,
-        //         backgroundPosition: 'right center',
-        //         backgroundRepeat: 'no-repeat',
-        //         backgroundAttachment: 'fixed',
-        //         backgroundSize: 'cover',
-        //         backgroundImage: 'url(gfx/background.png)'
-        //     }
-        // });
-        
+        panelContainerEl = lx.createElement('DIV', {
+            parent: verticalContainerEl,
+            style: {
+                position: 'relative',
+                height: '0px',              // This is required for Safari to work.
+                flex: '1 1 auto',
+                overflow: 'hidden',
+                // backgroundColor: app.panelBackgroundColor,
+                backgroundPosition: 'right center',
+                backgroundRepeat: 'no-repeat',
+                backgroundAttachment: 'fixed',
+                backgroundSize: 'cover',
+                backgroundImage: 'url(gfx/background.png)'
+            }
+        });
+
         // Create the bottom menu container
         bottomMenuContainerEl = lx.createElement('DIV', {
             parent: verticalContainerEl,
@@ -158,7 +158,7 @@ app.panel.Main = function(config) {
                 borderWidth: '1px 0px 0px 0px'
             }
         });
-        
+
         // Create the bottom menu item container
         bottomMenuItemContainerEl = lx.createElement('DIV', {
             parent: bottomMenuContainerEl,
@@ -175,7 +175,7 @@ app.panel.Main = function(config) {
                 borderWidth: '3px 0px 0px 0px'
             }
         });
-        
+
         // Create bottom menu payslips element
         bottomMenuPayslipsEl = lx.createElement('DIV', {
             parent: bottomMenuItemContainerEl,
@@ -193,7 +193,7 @@ app.panel.Main = function(config) {
             innerHTML: '<i class="fa fa-scroll" style="font-size: 17px;"></i><br /><span style="font-size: 10px;">Payslips</span>'
         });
         bottomMenuPayslipsEl.addEventListener('click', bottomMenuPayslipsElClickEventHandler);
-        
+
         // // Create bottom menu leave element
         // bottomMenuLeaveEl = lx.createElement('DIV', {
         //     parent: bottomMenuItemContainerEl,
@@ -211,7 +211,7 @@ app.panel.Main = function(config) {
         //     innerHTML: '<i class="fa fa-calendar" style="font-size: 17px;"></i><br /><span style="font-size: 10px;">Leave</span>'
         // });
         // // bottomMenuLeaveEl.addEventListener('click', bottomMenuLeaveElClickEventHandler);
-        
+
         // Create bottom menu home element
         bottomMenuHomeEl = lx.createElement('DIV', {
             parent: bottomMenuItemContainerEl,
@@ -229,7 +229,7 @@ app.panel.Main = function(config) {
             innerHTML: '<i class="fa fa-home" style="font-size: 17px;"></i><br /><span style="font-size: 10px;">Home</span>'
         });
         bottomMenuHomeEl.addEventListener('click', bottomMenuHomeElClickEventHandler);
-        
+
         // // Create bottom menu profile element
         // bottomMenuProfileEl = lx.createElement('DIV', {
         //     parent: bottomMenuItemContainerEl,
@@ -248,7 +248,7 @@ app.panel.Main = function(config) {
         //     innerHTML: '<i class="fa fa-user" style="font-size: 17px;"></i><br /><span style="font-size: 10px;">Profile</span>'
         // });
         // // bottomMenuProfileEl.addEventListener('click', bottomMenuProfileElClickEventHandler);
-        
+
         // Create menu more element
         bottomMenuMoreEl = lx.createElement('DIV', {
             parent: bottomMenuItemContainerEl,
@@ -264,7 +264,7 @@ app.panel.Main = function(config) {
             innerHTML: '<i class="fa fa-bars" style="font-size: 17px;"></i><br /><span style="font-size: 10px;">More</span>'
         });
         bottomMenuMoreEl.addEventListener('click', bottomMenuMoreElClickEventHandler);
-        
+
         // Create the mobile menu lightbox
         mobileMenuLightboxEl = lx.createElement('DIV', {
             parent: panelContainerEl,
@@ -283,7 +283,7 @@ app.panel.Main = function(config) {
             }
         });
         mobileMenuLightboxEl.addEventListener('click', mobileMenuLightboxElClickEventHandler);
-        
+
         // Create the mobile menu container
         mobileMenuContainerEl = lx.createElement('DIV', {
             parent: panelContainerEl,
@@ -301,7 +301,7 @@ app.panel.Main = function(config) {
                 transition: 'right 0.2s 0.0s ease-out'
             }
         });
-        
+
         // Create the mobile menu panel
         mobileMenuPanel = new app.panel.MobileMenu({
             renderTo: mobileMenuContainerEl,
@@ -309,22 +309,22 @@ app.panel.Main = function(config) {
         });
         mobileMenuPanel.show();
         mobileMenuPanel.focus();
-        
+
         // Remember that were adding an active panel
         app.addActivePanel();
-        
+
         // Create the home panel
         let homePanel = new app.panel.Home({
             renderTo: panelContainerEl
         });
-        
+
         // Set and push the state
         let state = {
             panel: homePanel
         };
-        app.route.pushState(state, function( state ) {
+        app.route.pushState(state, function (state) {
             // Make certain there is always at least one active panel
-            if( app.getActivePanelCount() > 1 ) {
+            if (app.getActivePanelCount() > 1) {
                 state.panel.destroy();
                 app.removeActivePanel();
             }
@@ -332,98 +332,98 @@ app.panel.Main = function(config) {
                 app.route.pauseNavigation();
             }
         });
-        
+
         // Display the home panel
         homePanel.show();
         homePanel.focus();
     };
-    
+
     // Function to set focus to the panel.
-    me.focus = function() {
+    me.focus = function () {
     };
-    
+
     // Function to get the container
     me.panelGetContainer = me.getContainer;
-    me.getContainer = function() {
+    me.getContainer = function () {
         return me.panelGetContainer();
     };
-    
+
     // Function to get the panel container
-    me.getPanelContainer = function() {
+    me.getPanelContainer = function () {
         return panelContainerEl;
     };
-    
+
     // Function to show the mobile menu
-    me.showMobileMenu = function() {
+    me.showMobileMenu = function () {
         // If the menu is already visible do nothing
-        if( mobileMenuContainerEl.style.right === '0px' ) return;
-        
-        lx.applyStyle(mobileMenuContainerEl, {right: '0px'});
-        
-        lx.applyStyle(mobileMenuContainerEl, {visibility: 'visible'});
-        lx.applyStyle(mobileMenuLightboxEl, {visibility: 'visible'});
-        window.setTimeout(function() {
-            lx.applyStyle(mobileMenuLightboxEl, {backgroundColor: 'rgba(0, 0, 0, 0.5)'});
+        if (mobileMenuContainerEl.style.right === '0px') return;
+
+        lx.applyStyle(mobileMenuContainerEl, { right: '0px' });
+
+        lx.applyStyle(mobileMenuContainerEl, { visibility: 'visible' });
+        lx.applyStyle(mobileMenuLightboxEl, { visibility: 'visible' });
+        window.setTimeout(function () {
+            lx.applyStyle(mobileMenuLightboxEl, { backgroundColor: 'rgba(0, 0, 0, 0.5)' });
         }, 5);
     };
-    
+
     // Function to hide the mobile menu
-    me.hideMobileMenu = function() {
+    me.hideMobileMenu = function () {
         // If the menu is already hidden do nothing
-        if( mobileMenuContainerEl.style.right !== '0px' ) return;
-        
-        lx.applyStyle(mobileMenuContainerEl, {right: '-300px'});
-        
+        if (mobileMenuContainerEl.style.right !== '0px') return;
+
+        lx.applyStyle(mobileMenuContainerEl, { right: '-300px' });
+
         mobileMenuLightboxEl.addEventListener('transitionend', mobileMenuLightboxElTransitionendEventHandler);
-        lx.applyStyle(mobileMenuLightboxEl, {backgroundColor: 'rgba(0, 0, 0, 0.0)'});
+        lx.applyStyle(mobileMenuLightboxEl, { backgroundColor: 'rgba(0, 0, 0, 0.0)' });
     };
-    
-    
+
+
     //
     // EVENT HANDLERS
     //
-    
+
     // bottomMenuMoreEl click event handler
     function bottomMenuMoreElClickEventHandler() {
-        if( mobileMenuContainerEl.style.right !== '0px' ) me.showMobileMenu();
+        if (mobileMenuContainerEl.style.right !== '0px') me.showMobileMenu();
         else me.hideMobileMenu();
     }
-    
+
     // mobileMenuLightboxEl click event handler
     function mobileMenuLightboxElClickEventHandler() {
         me.hideMobileMenu();
     }
-    
+
     // mobilemenuLightBoxEl transitionend event handler
     function mobileMenuLightboxElTransitionendEventHandler() {
-        lx.applyStyle(mobileMenuContainerEl, {visibility: 'hidden'});
-        lx.applyStyle(mobileMenuLightboxEl, {visibility: 'hidden'});
+        lx.applyStyle(mobileMenuContainerEl, { visibility: 'hidden' });
+        lx.applyStyle(mobileMenuLightboxEl, { visibility: 'hidden' });
         mobileMenuLightboxEl.removeEventListener('transitionend', mobileMenuLightboxElTransitionendEventHandler);
     }
-    
+
     // bottomMenuPayslipsEl click event handler
     function bottomMenuPayslipsElClickEventHandler() {
         // Hide the mobile menu
         me.hideMobileMenu();
-        
+
         // Remember that were adding an active panel
         app.route.continueNavigation();
         app.addActivePanel();
-        
+
         // Open the panel as the first panel (all other panel are discarded)
-        app.route.navigateTo(0, function() {
+        app.route.navigateTo(0, function () {
             // Create the payslips panel
             let payslipsPanel = new app.panel.Payslips({
                 renderTo: app.mainPanel.getPanelContainer()
             });
-            
+
             // Set and push the state
             let state = {
                 panel: payslipsPanel
             };
-            app.route.pushState(state, function( state ) {
+            app.route.pushState(state, function (state) {
                 // Make certain there is always at least one active panel
-                if( app.getActivePanelCount() > 1 ) {
+                if (app.getActivePanelCount() > 1) {
                     state.panel.destroy();
                     app.removeActivePanel();
                 }
@@ -431,36 +431,36 @@ app.panel.Main = function(config) {
                     app.route.pauseNavigation();
                 }
             });
-            
+
             // Display the payslips panel
             payslipsPanel.show();
             payslipsPanel.focus();
         });
     }
-    
+
     // bottomMenuHomeEl click event handler
     function bottomMenuHomeElClickEventHandler() {
         // Hide the mobile menu
         me.hideMobileMenu();
-        
+
         // Remember that were adding an active panel
         app.route.continueNavigation();
         app.addActivePanel();
-        
+
         // Open the panel as the first panel (all other panel are discarded)
-        app.route.navigateTo(0, function() {
+        app.route.navigateTo(0, function () {
             // Create the home panel
             let homePanel = new app.panel.Home({
                 renderTo: app.mainPanel.getPanelContainer()
             });
-            
+
             // Set and push the state
             let state = {
                 panel: homePanel
             };
-            app.route.pushState(state, function( state ) {
+            app.route.pushState(state, function (state) {
                 // Make certain there is always at least one active panel
-                if( app.getActivePanelCount() > 1 ) {
+                if (app.getActivePanelCount() > 1) {
                     state.panel.destroy();
                     app.removeActivePanel();
                 }
@@ -468,17 +468,17 @@ app.panel.Main = function(config) {
                     app.route.pauseNavigation();
                 }
             });
-            
+
             // Display the home panel
             homePanel.show();
             homePanel.focus();
         });
     }
-    
-    
+
+
     //
     // INITIALIZE OBJECT
     //
-    
-    me.init( config );
+
+    me.init(config);
 };
