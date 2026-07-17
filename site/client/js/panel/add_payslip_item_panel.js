@@ -45,6 +45,11 @@ app.panel.AddPayslipItem = function (config) {
     var itemAutoCheck = null;
     var itemPartOfNettPayContainer = null;
     var itemPartOfNettPayCheck = null;
+
+    var availableODBalance = config.availableODBalance || 0; //Sends available Over Deduction balance from edit_payslip_panel.js
+    var itemCreditAmountDisplay = null;
+    var itemCreditAmountDisplayContainer = null;
+
     var itemAmountTxt = null;
 
     var buttonContainerEl = null;
@@ -97,6 +102,17 @@ app.panel.AddPayslipItem = function (config) {
             }
         });
     }
+
+
+
+    // Helper function to refresh label to ensure current balance is displayed
+    function updateODBalanceDisplay() {
+
+        itemCreditAmountDisplay.setValue(
+            '  R ' + availableODBalance.toFixed(2)
+        );
+    }
+
 
 
     //
@@ -209,6 +225,7 @@ app.panel.AddPayslipItem = function (config) {
             },
 
             onChange: itemTypeSelectChangeEventHandler
+
         });
 
         // Create the itemCategoryDisplay component
@@ -264,12 +281,35 @@ app.panel.AddPayslipItem = function (config) {
             margin: '0px 0px 0px 0px'
         });
 
+        // Create item section to display available credit balance
+        itemCreditAmountDisplayContainer = lx.createElement('DIV', {
+            parent: itemSectionEl,
+            style: {
+                display: 'none',
+                margin: '15px 0px 0px 0px',
+                fontSize: '11px',
+                color: '#666',
+                fontStyle: 'italic'
+            }
+        });
+
+        // Create the label component for available balance
+        itemCreditAmountDisplay = new lx.component.Display({
+            renderTo: itemCreditAmountDisplayContainer,
+            label: 'Available Over Deduction Balance:',
+            margin: '0px 0px 2px 0px'
+        });
+
+
+
         // Create the itemAmountTxt component
         itemAmountTxt = new lx.component.Textbox({
             renderTo: itemSectionEl,
             label: 'Amount',
             margin: '15px 0px 0px 0px'
         });
+
+
 
 
         //
@@ -399,6 +439,13 @@ app.panel.AddPayslipItem = function (config) {
         // Set the description to the selected item types name
         itemDescriptionTxt.setValue(selectedItemType.name);
 
+
+        // Set placeholder text to display available balance
+        //itemAmountTxt.setValue(null);
+        //console.log(itemAmountTxt.getValue());
+        // itemAmountTxt.setPlaceholder(selectedItemType.name);
+
+
         // Enable or disable accrual date depending on the isOnceOff vlag of the item type.
         if (selectedItemType.isOnceOff === true) {
             itemAccrualDate.setValue(payslipToDate);
@@ -419,6 +466,8 @@ app.panel.AddPayslipItem = function (config) {
             itemAutoCheck.disable();
             itemAutoCheck.setValue(false);
             itemAmountTxt.enable();
+            // itemAmountTxt.setValue(null);
+            // itemAmountTxt.setPlaceholder(selectedItemType.name);
         }
 
         // Set the whether the item is part of nett pay
@@ -438,6 +487,20 @@ app.panel.AddPayslipItem = function (config) {
         }
         else {
             lx.applyStyle(itemPartOfNettPayContainer, { display: 'none' });
+        }
+
+        // Is an OD Debit item being added?
+        if (selectedItemType.code === '2010') {
+            //Debugging:
+            //console.log("Entered if...");
+
+            lx.applyStyle(itemCreditAmountDisplayContainer, { display: 'flex' });
+
+            updateODBalanceDisplay();
+            itemAmountTxt.setValue(''); // clear textbox to ensure old value isn't validated
+        }
+        else {
+            lx.applyStyle(itemCreditAmountDisplayContainer, { display: 'none' });
         }
     }
 
@@ -486,7 +549,24 @@ app.panel.AddPayslipItem = function (config) {
 
         // Get the amount.  If the amount is empty change it to null
         var amount = itemAmountTxt.getValue();
+
         if (amount === '') amount = null;
+
+        if (selectedItemType.code === '2010') {
+
+            var validationResult = validateODDebitAmount(selectedItemType, amount);
+
+            if (!validationResult.valid) {
+                return;
+            }
+
+            amount = validationResult.amount;
+        }
+
+        // //Validate OD debit amount
+        // if(!validateODDebitAmount(selectedItemType, amount)){
+        //     return;
+        // }
 
         var units = null;
         var rate = null;
@@ -526,14 +606,62 @@ app.panel.AddPayslipItem = function (config) {
             includeInNettPay: itemPartOfNettPayCheck.getValue()
         });
 
-        // Fire the event to add the item
         me.fireEvent('add', { srcPanel: me, items: items });
+
     }
 
     // itemAutoCheck change event handler
     function itemAutoCheckChangeEventHandler() {
         if (itemAutoCheck.getValue() === true) itemAmountTxt.disable();
         else itemAmountTxt.enable();
+    }
+
+    function validateODDebitAmount(selectedItemType, amount) {
+
+        // Only validate OD Debit items
+        if (selectedItemType.code !== '2010') return true;
+
+        var entered = Math.abs(lx.util.parseCurrency(itemAmountTxt.getValue())) || 0; //to get value from textbox
+
+        // If no credit available
+        if (availableODBalance <= 0) {
+
+            new lx.component.Messagebox({
+                title: 'No Available Credit',
+                message: 'There is no PAYE over-deduction credit available. An OD Debit item cannot be added.'
+            });
+
+            return {
+                valid: false,
+                amount: 0
+            };
+        }
+
+        if (entered > availableODBalance) {
+
+            new lx.component.Messagebox({
+                title: 'Invalid Amount',
+                message: 'Cannot exceed available credit of R ' + availableODBalance.toFixed(2) + '.',
+                onClose: function () {
+
+                    itemAmountTxt.setValue(
+                        lx.util.formatCurrency(availableODBalance)
+                    );
+
+                    itemAmountTxt.focus();
+                }
+            });
+
+            return {
+                valid: false,
+                amount: availableODBalance
+            };
+        }
+
+        return {
+            valid: true,
+            amount: entered
+        };
     }
 
     //
