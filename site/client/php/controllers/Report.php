@@ -6097,6 +6097,7 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
             'filterType' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false],
             'payrunId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
             'payslipItem' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
+            'payslipItemText' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
             'startDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => true],
             'endDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => true],
             'format' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false]
@@ -6111,6 +6112,11 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
         if ($reportData['ok'] !== true) {
             echo (json_encode(['ok' => false, 'error' => $reportData['error']]));
             return false;
+        }
+
+        $payslipItemText = isset($data['payslipItemText']) ? trim($data['payslipItemText']) : '';
+        if ($payslipItemText === '') {
+            $payslipItemText = 'Amount';
         }
 
         // Don't return employee data if on;y a summary should be displayed
@@ -6136,10 +6142,10 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
                 "ID/PASSPORT NUMBER",
                 "CELL NUMBER",
                 "EMAIL ADDRESS",
-                "AMOUNT EARNED"
+                "AMOUNT"
             ];
 
-            $writer = $this->writeReport($data, strtolower(preg_replace('/[^A-Za-z0-9]/', '_', $user['companyAlias'])) . '_' . $data['detail'] . '_payslip_items_specified_report_' . Util::sanitizeFileName($reportData['payrunName']), $headers);
+            $writer = $this->writeReport($data, strtolower(preg_replace('/[^A-Za-z0-9]/', '_', $user['companyAlias'])) . '_' . $data['detail'] . '_payslip_items_specified_report_' . $payslipItemText . '_' . Util::sanitizeFileName($reportData['payrunName']), $headers);
 
             for ($i = 0; $i < count($reportData['employees']); $i++) {
                 // if ($data['format'] === 'csv') {
@@ -6259,6 +6265,7 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
             'filterType' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false],
             'payrunId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
             'payslipItem' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
+            'payslipItemText' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
             'startDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => true],
             'endDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => true]
         ]);
@@ -6274,7 +6281,12 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
             return false;
         }
 
-        // Don't return employee data if on;y a summary should be displayed
+        $payslipItemText = isset($data['payslipItemText']) ? trim($data['payslipItemText']) : '';
+        if ($payslipItemText === '') {
+            $payslipItemText = 'Amount';
+        }
+
+        // Don't return employee data if only a summary should be displayed
         if ($data['detail'] === 'summary') {
             $reportData['employees'] = [];
         }
@@ -6313,7 +6325,7 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
         ];
 
         // Set report name
-        $reportName = $user['companyAlias'] . ' - Payslip Items Report (Specified): ' . str_replace('_', ' ', $reportData['payrunName']);
+        $reportName = $user['companyAlias'] . ' - Payslip Items Report (Specified): ' . $payslipItemText . ' - ' . str_replace('_', ' ', $reportData['payrunName']);
 
         // Add columns (widths are percentages). Note that the number of columns should correspond to
         // the number of elements in each row.
@@ -6326,7 +6338,7 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
         $reportCols[] = ['name' => 'Cell Number',             'width' =>  9 / 100, 'alignment' => 'L'];
         $reportCols[] = ['name' => 'Email Address',           'width' => 20 / 100, 'alignment' => 'L'];
         // $reportCols [] = [ 'name' => 'Hours Worked',            'width' => 10/100, 'alignment' => 'R' ];
-        $reportCols [] = [ 'name' => 'Amount Earned',           'width' => 10/100, 'alignment' => 'R' ];
+        $reportCols [] = [ 'name' => 'Amount',           'width' => 10/100, 'alignment' => 'R' ];
 
         // Create the PDF document
         $pdfPageOrientation = 'L'; // 'P' for portrait, 'L' for landscape
@@ -6356,7 +6368,7 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
         }
 
         // Create the file name for the report
-        $fileName = strtolower(preg_replace('/[^A-Za-z0-9]/', '_', $user['companyAlias'])) . '_ayslip_items_report_specified_' . date('Ymd') . '.pdf';
+        $fileName = strtolower(preg_replace('/[^A-Za-z0-9]/', '_', $user['companyAlias'])) . '_Payslip_items_report_specified_' . date('Ymd') . '.pdf';
 
         // Close and output PDF document
         $pdf->Output($fileName, 'I');
