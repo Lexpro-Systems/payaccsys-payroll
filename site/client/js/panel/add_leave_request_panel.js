@@ -174,7 +174,7 @@ app.panel.AddLeaveRequest = function (config) {
     }
 
     // Function to create a calendar month section
-    function createCalendarMonth(targetEl, year, month) {
+    function createCalendarMonth(targetEl, year, month, publicHolidays) {
         let dayEl = null;
         let numWeeks = 0;
 
@@ -226,7 +226,7 @@ app.panel.AddLeaveRequest = function (config) {
             });
         }
 
-        // For very posiible day in the month
+        //For very posiible day in the month
         for (let i = 1; i < 43; i++) {
             // Convert the calendar date to a string
             let calendarDate = calendarStart.getFullYear() + '-' +
@@ -257,9 +257,9 @@ app.panel.AddLeaveRequest = function (config) {
                     color = '#444D5A';
                 }
                 else {
-                    color = '#F08080';
+                    color = '#f76e05ff';
                     // backgroundColor = '#F4F5F6';
-                    border = 'solid 1px #F08080';
+                    border = 'solid 1px #f76e05ff';
                 }
             }
             else {
@@ -337,7 +337,7 @@ app.panel.AddLeaveRequest = function (config) {
         let currentDate = new Date();
         let thisYear = currentDate.getFullYear();
         let thisMonth = currentDate.getMonth();
-        let numMonthsListed = 14;
+        let numMonthsListed = 26;
 
         // Calculate the from date
         let startMonth = thisMonth - 1;
@@ -347,7 +347,7 @@ app.panel.AddLeaveRequest = function (config) {
             startYear = startYear - 1;
         }
         let fromDate = startYear + '-' + (startMonth > 9 ? '' : '0') + startMonth + '-01';
-
+        //console.log("FromDate: "+ fromDate);
         // Calculate the to date
         let endMonth = parseInt(startMonth) + numMonthsListed;
         let endYear = startYear;
@@ -356,6 +356,7 @@ app.panel.AddLeaveRequest = function (config) {
             endYear = endYear + 1;
         }
         let toDate = endYear + '-' + (endMonth > 9 ? '' : '0') + endMonth + '-01';
+        //console.log("ToDate: "+toDate);
 
         // Get the public holidays from the database
         lx.sendJSON({
@@ -379,7 +380,53 @@ app.panel.AddLeaveRequest = function (config) {
                 }
 
                 // Save the public holidays
-                publicHolidays = response.holidays;
+                //publicHolidays = response.holidays;
+
+                publicHolidays = [
+                    // 2026
+                    { name: "New Year’s Day", date: "2026-01-01" },
+                    { name: "Human Rights Day", date: "2026-03-21" },
+                    { name: "Good Friday", date: "2026-04-03" },
+                    { name: "Family Day", date: "2026-04-06" },
+                    { name: "Freedom Day", date: "2026-04-27" },
+                    { name: "Workers’ Day", date: "2026-05-01" },
+                    { name: "Youth Day", date: "2026-06-16" },
+                    { name: "National Women’s Day", date: "2026-08-09" },
+                    { name: "National Women’s Day moved", date: "2026-08-10" },
+                    { name: "Heritage Day", date: "2026-09-24" },
+                    { name: "Day of Reconciliation", date: "2026-12-16" },
+                    { name: "Christmas Day", date: "2026-12-25" },
+                    { name: "Day of Goodwill", date: "2026-12-26" },
+
+                    // 2027
+                    { name: "New Year’s Day", date: "2027-01-01" },
+                    { name: "Human Rights Day", date: "2027-03-21" },
+                    { name: "Human Rights Day moved", date: "2027-03-22" },
+                    { name: "Good Friday", date: "2027-03-26" },
+                    { name: "Family Day", date: "2027-03-29" },
+                    { name: "Freedom Day", date: "2027-04-27" },
+                    { name: "Workers’ Day", date: "2027-05-01" },
+                    { name: "Youth Day", date: "2027-06-16" },
+                    { name: "National Women’s Day", date: "2027-08-09" },
+                    { name: "Heritage Day", date: "2027-09-24" },
+                    { name: "Day of Reconciliation", date: "2027-12-16" },
+                    { name: "Christmas Day", date: "2027-12-25" },
+                    { name: "Day of Goodwill", date: "2027-12-26" },
+                    { name: "Day of Goodwill moved", date: "2027-12-27" },
+
+                    // 2028
+                    { name: "New Year’s Day", date: "2028-01-01" },
+                    { name: "Human Rights Day", date: "2028-03-21" },
+                    { name: "Good Friday", date: "2028-04-14" },
+                    { name: "Family Day", date: "2028-04-17" },
+                    { name: "Freedom Day", date: "2028-04-27" },
+                    { name: "Workers’ Day", date: "2028-05-01" },
+                    { name: "Youth Day", date: "2028-06-16" },
+                    { name: "National Women’s Day", date: "2028-08-09" },
+                    { name: "Heritage Day", date: "2028-09-24" },
+                    { name: "Day of Reconciliation", date: "2028-12-16" },
+                    { name: "Christmas Day", date: "2028-12-25" },
+                    { name: "Day of Goodwill", date: "2028-12-26" },]
 
                 // Adjust the start month since js dates use a zero based index for months
                 startMonth = startMonth - 1;
@@ -400,9 +447,9 @@ app.panel.AddLeaveRequest = function (config) {
                         },
                         innerHTML: monthNames[startMonth] + ' ' + startYear
                     });
-
+                    console.log("Response: " + publicHolidays)
                     // Add a calendar for the specified month and year
-                    let numWeeks = createCalendarMonth(calendarContainerEl, startYear, startMonth);
+                    let numWeeks = createCalendarMonth(calendarContainerEl, startYear, startMonth, publicHolidays);
 
                     // Calculate the amount that the calendar container should be scrolled to display
                     // the current month (we should scroll past the first two months)
