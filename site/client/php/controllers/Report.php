@@ -6208,10 +6208,10 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
                 "ID/PASSPORT NUMBER",
                 "CELL NUMBER",
                 "EMAIL ADDRESS",
-                "AMOUNT EARNED"
+                "AMOUNT"
             ];
 
-            $writer = $this->writeReport($data, strtolower(preg_replace('/[^A-Za-z0-9]/', '_', $user['companyAlias'])) . '_' . $data['detail'] . '_payslip_items_specified_report_' . Util::sanitizeFileName($reportData['payrunName']), $headers);
+            $writer = $this->writeReport($data, strtolower(preg_replace('/[^A-Za-z0-9]/', '_', $user['companyAlias'])) . '_' . $data['detail'] . '_payslip_items_specified_report_' . $payslipItemText . '_' . Util::sanitizeFileName($reportData['payrunName']), $headers);
 
             // if ($data['format'] === 'csv') {
             //     $totalOvertimeUnits = Util::currencyFormat($totalOvertimeUnits);
