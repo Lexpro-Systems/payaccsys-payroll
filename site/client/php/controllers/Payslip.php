@@ -519,12 +519,14 @@ class Payslip extends Controller
                 );
             }
 
-            // Encryption
-            if ((bool)$payslipRow['is_encrypted'] === true) {
-                $identityNumber = $payslipRow['id_number'] ?: $payslipRow['passport_number'];
-                if (!empty($identityNumber)) {
+             // Encryption
+            $identityNumber = trim((string)$payslipRow['id_number']) ?: trim((string)$payslipRow['passport_number']);
+
+            if ((bool)$payslipRow['is_encrypted'] === true && !empty($identityNumber)) {
                     $printer->enableEncryption($identityNumber);
                 }
+            else{
+                $printer->disableEncryption();
             }
 
             // Print the payslip
@@ -560,10 +562,10 @@ class Payslip extends Controller
 
             $passwordNotice = '';
 
-            if ((bool)$payslipRow['is_encrypted'] === true) {
+            if ((bool)$payslipRow['is_encrypted'] === true &&  !empty($identityNumber)) {
                 $passwordNotice =
                     '<b>Important:</b> This document is password protected.<br>' .
-                    'Use your South African ID number to open the payslip.<br><br>';
+                    'Use your South African ID number or passport number to open the payslip.<br><br>';
             }
 
 

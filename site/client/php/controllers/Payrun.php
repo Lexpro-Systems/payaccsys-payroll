@@ -3105,7 +3105,7 @@ class Payrun extends Controller
                     );
 
                     // Encrypt PDF
-                    $printer->enableEncryption($identityNumber);
+                    //$printer->enableEncryption($identityNumber);
                 }
             }
         }
@@ -3308,6 +3308,17 @@ class Payrun extends Controller
 
                 // Clear previous payslip printer details, if any
                 $printer->clear();
+
+                // Set encryption for this employee's payslip only (must be set per-iteration,
+                // since $printer is a single shared object reused across employees)
+                $identityNumber = $payslipRow['id_number'] ?: $payslipRow['passport_number'];
+                $shouldEncrypt = $encryptPayslips === true || (bool)$payslipRow['is_encrypted'] === true;
+
+                if ($shouldEncrypt && !empty($identityNumber)) {
+                    $printer->enableEncryption($identityNumber);
+                } else {
+                    $printer->disableEncryption();
+                }
 
                 // Set config of the pdf
                 $printer->setConfig($config);

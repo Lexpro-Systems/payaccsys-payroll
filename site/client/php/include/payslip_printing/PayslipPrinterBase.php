@@ -412,6 +412,12 @@ abstract class PayslipPrinterBase
         }
     }
 
+    public function disableEncryption(): void
+    {
+        $this->encrypt = false;
+        $this->encryptionPassword = null;
+    }
+
     // Output the document
     //
     // fileName             The name of the PDF file
@@ -419,14 +425,14 @@ abstract class PayslipPrinterBase
     public function output(string $fileName): bool
     {
         if ($this->pdf === null) return false;
-        if ($this->encrypt && !empty($this->encryptionPassword)) {
-            $this->pdf->SetProtection(
-                ['print'],
-                $this->encryptionPassword,
-                null,
-                3
-            );
-        }
+        // if ($this->encrypt && !empty($this->encryptionPassword)) {
+        //     $this->pdf->SetProtection(
+        //         ['print'],
+        //         $this->encryptionPassword,
+        //         null,
+        //         3
+        //     );
+        // }
 
         //Close and output PDF document
         $this->pdf->Output($fileName, 'I');
