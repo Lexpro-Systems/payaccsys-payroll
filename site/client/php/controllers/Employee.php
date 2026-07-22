@@ -1326,7 +1326,7 @@ class Employee extends Controller
             if ($whereClause === '')
                 $whereClause = 'WHERE ';
             else
-                $whereClause = $whereClause . 'AND ';
+            $whereClause = $whereClause . ' AND ';
             $sqlParams[] = $data['departmentId'];
             $whereClause = $whereClause . ' departments.id = $' . count($sqlParams);
         }
