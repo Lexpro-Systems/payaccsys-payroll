@@ -484,6 +484,7 @@ abstract class PayslipPrinterBase
         $this->employeeBankCode = '';
         $this->employeeCode = '';
         $this->employeePeriod = '';
+        $this->disableEncryption();
 
         $this->payslipFromDate = '';
         $this->payslipToDate = '';

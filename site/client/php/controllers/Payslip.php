@@ -561,11 +561,15 @@ class Payslip extends Controller
             $mail->addAttachment($filename, 'payslip_' . str_replace('-', '', $payslipRow['to_date']) . '.pdf');
 
             $passwordNotice = '';
+            $passwordNoticePlainText = '';
 
             if ((bool)$payslipRow['is_encrypted'] === true &&  !empty($identityNumber)) {
                 $passwordNotice =
                     '<b>Important:</b> This document is password protected.<br>' .
-                    'Use your South African ID number or passport number to open the payslip.<br><br>';
+                    'Use your South African ID number or your passport number to open the payslip.<br><br>';
+                $passwordNoticePlainText =
+                    "Important: This document is password protected.\r\n" .
+                    "Use your South African ID number or your passport number to open the payslip.\r\n\r\n";
             }
 
 
@@ -574,7 +578,6 @@ class Payslip extends Controller
                 'Dear ' . $payslipRow['alias'] . ',<br><br>' .
                 'Please find the attached payslip for <b>' . $payslipRow['full_names'] . ' ' . $payslipRow['last_name'] . '</b> for the period <b>' . $payslipRow['from_date'] . ' to ' . $payslipRow['to_date'] . '</b>.<br><br>' .
                 $passwordNotice .
-
                 'If you have any queries, please don\'t hesitate to contact us.<br><br>' .
                 'Regards,<br><br>' .
                 'HR Department,<br><br>' .
@@ -583,6 +586,7 @@ class Payslip extends Controller
             $plainTexBody =
                 "Dear " . $payslipRow['alias'] . ",\r\n\r\n" .
                 "Please find the attached payslip for " . $payslipRow['first_name'] . " " . $payslipRow['last_name'] . " for the period " . $payslipRow['from_date'] . " to " . $payslipRow['to_date'] . ".\r\n\r\n" .
+                $passwordNoticePlainText .
                 "If you have any queries, please don\'t hesitate to contact us.\r\n\r\n" .
                 "Regards,\r\n\r\n" .
                 "HR Department,\r\n\r\n" .

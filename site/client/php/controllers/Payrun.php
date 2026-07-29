@@ -3486,10 +3486,24 @@ class Payrun extends Controller
                 // Add the pasylip as an attachment
                 $mail->addAttachment($filename, 'payslip_' . str_replace('-', '', $payslipRow['to_date']) . '.pdf');
 
+                //If payslip is encrypted, add a notice to the email body
+                $passwordNotice = '';
+                $passwordNoticePlainText = '';
+
+                if ($shouldEncrypt && !empty($identityNumber)) {
+                    $passwordNotice =
+                        '<b>Important:</b> This document is password protected.<br>' .
+                        'Use your South African ID number or your passport number to open the payslip.<br><br>';
+                    $passwordNoticePlainText =
+                        "Important: This document is password protected.\r\n" .
+                        "Use your South African ID number or your passport number to open the payslip.\r\n\r\n";
+                }
+
                 // Set the email text
                 $htmlBody =
                     'Dear ' . $payslipRow['alias'] . ',<br><br>' .
                     'Please find the attached payslip for <b>' . $payslipRow['full_names'] . ' ' . $payslipRow['last_name'] . '</b> for the period <b>' . $payslipRow['from_date'] . ' to ' . $payslipRow['to_date'] . '</b>.<br><br>' .
+                    $passwordNotice .
                     'If you have any queries, please don\'t hesitate to contact us.<br><br>' .
                     'Regards,<br><br>' .
                     'HR Department,<br><br>' .
@@ -3498,6 +3512,7 @@ class Payrun extends Controller
                 $plainTexBody =
                     "Dear " . $payslipRow['alias'] . ",\r\n\r\n" .
                     "Please find the attached payslip for " . $payslipRow['full_names'] . " " . $payslipRow['last_name'] . " for the period " . $payslipRow['from_date'] . " to " . $payslipRow['to_date'] . ".\r\n\r\n" .
+                    $passwordNoticePlainText .
                     "If you have any queries, please don\'t hesitate to contact us.\r\n\r\n" .
                     "Regards,\r\n\r\n" .
                     "HR Department,\r\n\r\n" .
