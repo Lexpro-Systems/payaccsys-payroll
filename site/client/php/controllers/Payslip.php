@@ -491,7 +491,7 @@ class Payslip extends Controller
                 $description = $itemRow['description'];
 
                 // Is it an overtime item?
-                if ($itemRow['payslip_item_type_code'] == '1005') {
+                if ($itemRow['payslip_item_type_code'] == '1005' || $itemRow['payslip_item_type_code'] == '5008' || $itemRow['payslip_item_type_code'] == '5009') {
                     // Add the number of hours worked to the payslip item description
                     $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
                 }
@@ -1114,7 +1114,7 @@ class Payslip extends Controller
             $description = $itemRow['description'];
 
             // Is it an overtime item?
-            if ($itemRow['payslip_item_type_code'] == '1005') {
+            if ($itemRow['payslip_item_type_code'] == '1005' || $itemRow['payslip_item_type_code'] == '5008' || $itemRow['payslip_item_type_code'] == '5009') {
                 // Add the number of hours worked to the payslip item description
                 $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
             }
