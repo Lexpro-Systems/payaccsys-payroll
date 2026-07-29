@@ -1571,10 +1571,10 @@ app.panel.AddEmployeeWizard = function (config) {
 
         // console.log(workSchedule);
         // console.log(workDays);
-        console.log("bweeCustomDateDate", bweeCustomDateDate.getValue());
-        console.log("bweeCustomPaymentDayDate", bweeCustomPaymentDayDate.getValue());
-        console.log("payment_period_end_day", paymentPeriodEndDaySelect.getValue());
-        console.log("payment_day", paymentDaySelect.getValue());
+        // console.log("bweeCustomDateDate", bweeCustomDateDate.getValue());
+        // console.log("bweeCustomPaymentDayDate", bweeCustomPaymentDayDate.getValue());
+        // console.log("payment_period_end_day", paymentPeriodEndDaySelect.getValue());
+        // console.log("payment_day", paymentDaySelect.getValue());
         // Add the employee
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=add',

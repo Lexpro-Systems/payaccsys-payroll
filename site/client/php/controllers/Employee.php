@@ -1976,10 +1976,10 @@ class Employee extends Controller
             $workAddressCountryCode = $sqlRow['physical_address_country_code'];
         }
 
-        error_log("bweeCustomDateDate : " . $data['bweeCustomDateDate']);
-        error_log("bweeCustomPaymentDayDate : " . $data['bweeCustomPaymentDayDate']);
-        error_log("payment_period_end_day : " . $data['paymentPeriodEndDay']);
-        error_log("payment_day : " . $data['paymentDay']);
+        // error_log("bweeCustomDateDate : " . $data['bweeCustomDateDate']);
+        // error_log("bweeCustomPaymentDayDate : " . $data['bweeCustomPaymentDayDate']);
+        // error_log("payment_period_end_day : " . $data['paymentPeriodEndDay']);
+        // error_log("payment_day : " . $data['paymentDay']);
 
         // Build the query to insert the item.
         $sqlQuery =
