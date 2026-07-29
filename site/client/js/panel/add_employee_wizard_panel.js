@@ -49,6 +49,7 @@ app.panel.AddEmployeeWizard = function (config) {
 
     var codeMask = null;
     var formChanged = false;
+    var dayCheckboxPairs = [];
 
     var wizardPage1ContainerEl = null;
     var personalDetailsHeadingEl = null;
@@ -173,11 +174,25 @@ app.panel.AddEmployeeWizard = function (config) {
     let leaveTypeSectionEl = null;
     var leaveTypes = [];
 
+    var daysWorked = false;
+
     var wizardPage6ContainerEl = null;
     var workScheduleSectionEl = null;
     var workScheduleNoteDisplay = null;
     var workScheduleCb = null;
     var workScheduleContainerEl = null;
+    var daysWorkedSectionEl = null;
+    var daysWorkedTitleSectionEl = null;
+    var daysWorkedCBSectionEl = null;
+    var mondayDWCb = null;
+    var tuesdayDWCb = null;
+    var wednesdayDWCb = null;
+    var thursdayDWCb = null;
+    var fridayDWCb = null;
+    var saturdayDWCb = null;
+    var sundayDWCb = null;
+
+
     var mondayContainer = null;
     var mondayCb = null;
     var mondayHoursTxt = null;
@@ -206,6 +221,9 @@ app.panel.AddEmployeeWizard = function (config) {
     var sundayCb = null;
     var sundayHoursTxt = null;
     var sundayHoursLabel = null;
+    var selectWorkDaysTooltipEl = null;
+    var selectWorkDaysTooltip = null;
+    var selectWorkDaysInfoEl = null;
 
     var pageNum = 1;
     var numPages = 6;
@@ -1471,35 +1489,62 @@ app.panel.AddEmployeeWizard = function (config) {
         let saturdayValue = null;
         let sundayValue = null;
 
+        let mondayWd = false;
+        let tuesdayWd = false;
+        let wednesdayWd = false;
+        let thursdayWd = false;
+        let fridayWd = false;
+        let saturdayWd = false;
+        let sundayWd = false;
+        let wdEnableLeave = false;
+
         // Get all required values
+
         if (workScheduleCb.getValue()) {
             if (mondayCb.getValue()) {
                 mondayValue = mondayHoursTxt.getValue();
+                mondayWd = mondayCb.getValue()
             }
 
             if (tuesdayCb.getValue()) {
                 tuesdayValue = tuesdayHoursTxt.getValue();
+                tuesdayWd = tuesdayCb.getValue()
             }
 
             if (wednesdayCb.getValue()) {
                 wednesdayValue = wednesdayHoursTxt.getValue();
+                wednesdayWd = wednesdayCb.getValue()
             }
 
             if (thursdayCb.getValue()) {
                 thursdayValue = thursdayHoursTxt.getValue();
+                thursdayWd = thursdayCb.getValue()
             }
 
             if (fridayCb.getValue()) {
                 fridayValue = fridayHoursTxt.getValue();
+                fridayWd = fridayCb.getValue()
             }
 
             if (saturdayCb.getValue()) {
                 saturdayValue = saturdayHoursTxt.getValue();
+                saturdayWd = saturdayCb.getValue()
             }
 
             if (sundayCb.getValue()) {
                 sundayValue = sundayHoursTxt.getValue();
+                sundayWd = sundayCb.getValue()
             }
+        } else if ((workScheduleCb.getValue() == false) && daysWorked) {
+
+            mondayWd = mondayDWCb.getValue();
+            tuesdayWd = tuesdayDWCb.getValue();
+            wednesdayWd = wednesdayDWCb.getValue();
+            thursdayWd = thursdayDWCb.getValue();
+            fridayWd = fridayDWCb.getValue();
+            saturdayWd = saturdayDWCb.getValue();
+            sundayWd = sundayDWCb.getValue();
+            wdEnableLeave = true;
         }
 
         let workSchedule = {
@@ -1513,11 +1558,23 @@ app.panel.AddEmployeeWizard = function (config) {
             sundayHours: parseInt(sundayValue)
         };
 
+        let workDays = {
+            mondayWd: mondayWd,
+            tuesdayWd: tuesdayWd,
+            wednesdayWd: wednesdayWd,
+            thursdayWd: thursdayWd,
+            fridayWd: fridayWd,
+            saturdayWd: saturdayWd,
+            sundayWd: sundayWd,
+            wdEnableLeave: wdEnableLeave
+        };
+
+        // console.log(workSchedule);
+        // console.log(workDays);
         console.log("bweeCustomDateDate", bweeCustomDateDate.getValue());
         console.log("bweeCustomPaymentDayDate", bweeCustomPaymentDayDate.getValue());
         console.log("payment_period_end_day", paymentPeriodEndDaySelect.getValue());
         console.log("payment_day", paymentDaySelect.getValue());
-
         // Add the employee
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=add',
@@ -1603,7 +1660,8 @@ app.panel.AddEmployeeWizard = function (config) {
                 payslipItems: recurringItems,
                 retirmentFundItems: retirmentFundItems,
                 leave: leave,
-                workSchedule: workSchedule
+                workSchedule: workSchedule,
+                workDays: workDays
             },
             onSuccess: function (responseText) {
                 var response = JSON.parse(responseText);
@@ -4371,9 +4429,16 @@ app.panel.AddEmployeeWizard = function (config) {
                 fontSize: '14px'
             },
             innerHTML:
-                'The work schedule is used to calculate leave for employees where leave is earned on the number of days worked. ' +
-                'Please DO NOT select to use the work schedule for employees who receive a daily wage since the leave will be ' +
-                'calculated on the number of days specified on the payslip instead.'
+                'To calculate sick leave for the first six months of employment for employees not paid a daily wage, one of the following must be specified to indicate days worked:<br>' +
+                '- Work schedule<br>' +
+                '- Selected workdays<br>' +
+                'A work schedule is used where leave is earned based on days worked.<br>' +
+                'For employees paid a daily wage, leave is calculated from the days on the payslip, so no work schedule or workday selection is required.'
+
+            // innerHTML: 
+            //     'The work schedule is used to calculate leave for employees where leave is earned on the number of days worked. ' + 
+            //     'Please DO NOT select to use the work schedule for employees who receive a daily wage since the leave will be ' + 
+            //     'calculated on the number of days specified on the payslip instead.'
         });
 
         // Display the wheading
@@ -4402,16 +4467,178 @@ app.panel.AddEmployeeWizard = function (config) {
                 borderColor: '#DFDFDF',
                 borderWidth: '1px',
                 margin: '15px 0px 0px 0px',
-                padding: '15px'
+                padding: '10px'
+            }
+        });
+        daysWorkedSectionEl = lx.createElement('DIV', {
+            parent: workScheduleSectionEl,
+            style: {
+                backgroundColor: '#FFFFFF',
+                borderStyle: 'solid',
+                borderColor: '#D5D5D5',
+                // borderWidth: '2px',
+                // margin: '15px',
+                // padding: '15px'
+                borderWidth: '1px',
+                margin: '0px 0px 15px 0px',
+                //padding: '15px'
+                padding: '15px 15px 15px 12px',
+            }
+        });
+        daysWorkedTitleSectionEl = lx.createElement('DIV', {
+            parent: daysWorkedSectionEl,
+            style: {
+                backgroundColor: '#FFFFFF',
+                //margin: '15px',
+                margin: '0px 0px 10px 0px',
+                //padding: '15px'
+                padding: '0px',
+                display: 'flex',
+                alignItems: 'center'
+            },
+            textContent: 'Select workdays:',
+        });
+
+        // Create an info icon
+        let selectWorkDaysInfoEl = lx.createElement('DIV', {
+            parent: daysWorkedTitleSectionEl,
+            style: {
+                cursor: 'pointer',
+                display: 'flex',
+                width: '24px',
+                minWidth: '24px',
+                height: '24px',
+                minHeight: '24px',
+                margin: 'auto 0px auto 10px',
+                fontSize: '12px',
+                color: lx.style.global.backgroundColor,
+                backgroundColor: '#3B81EB',
+                borderRadius: '50%'
+            },
+            innerHTML: '<i class="fa fa-question" style="margin: auto auto;"></i>'
+        });
+
+        // Create the element used to position the tooltip
+        let selectWorkDaysTooltipEl = lx.createElement('DIV', {
+            parent: selectWorkDaysInfoEl,
+            style: {
+                position: 'relative',
+                margin: 'auto 0px 0px 0px',
+                width: '0px',
+                height: '0px'
             }
         });
 
+        // Create the tooltip component
+        let selectWorkDaysTooltip = new lx.component.Tooltip({
+            renderTo: selectWorkDaysTooltipEl,
+            alignment: 'topRight',
+            arrowOffset: '8px',
+            width: '170px',//'100%',
+            maxWidth: '170px',
+            margin: '5px 10px',
+            backgroundColor: '#3B81EB', // '#4885F4',
+            message:
+                '<span style="font-size: 12px;">' +
+                'If the employee does not receive a daily wage, please select their workdays.<br>' +
+                '</span>'
+        });
+        selectWorkDaysInfoEl.addEventListener('mouseenter', function () { selectWorkDaysTooltip.show(); });
+        selectWorkDaysInfoEl.addEventListener('mouseleave', function () { selectWorkDaysTooltip.hide(); });
+
+        daysWorkedCBSectionEl = lx.createElement('DIV', {
+            parent: daysWorkedSectionEl,
+            style: {
+                backgroundColor: '#FFFFFF',
+                //margin: '15px',
+                margin: '0px',
+                padding: '0px',
+                //padding: '15px',
+                display: 'flex',
+                gap: '10px',
+                alignItems: 'center'
+            }
+        });
+        mondayDWCb = new lx.component.Checkbox({
+            renderTo: daysWorkedCBSectionEl,
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Monday',
+            width: '100px',
+        });
+        tuesdayDWCb = new lx.component.Checkbox({
+            renderTo: daysWorkedCBSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Tuesday',
+            width: '100px',
+
+            //onChange: tuesdayCbOnChangeEventHandler
+        });
+
+        wednesdayDWCb = new lx.component.Checkbox({
+            renderTo: daysWorkedCBSectionEl,
+            margin: '0px 15px 0px 0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Wednesday',
+            width: '100px',
+
+        });
+
+        thursdayDWCb = new lx.component.Checkbox({
+            renderTo: daysWorkedCBSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Thursday',
+            width: '100px',
+
+        });
+
+        fridayDWCb = new lx.component.Checkbox({
+            renderTo: daysWorkedCBSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Friday',
+            width: '100px',
+
+        });
+
+        saturdayDWCb = new lx.component.Checkbox({
+            renderTo: daysWorkedCBSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Saturday',
+            width: '100px',
+
+        });
+
+        sundayDWCb = new lx.component.Checkbox({
+            renderTo: daysWorkedCBSectionEl,
+            //margin: '15px 0px 0px 0px',
+            margin: '0px',
+            // labelAlign: 'left',
+            labelAlign: 'right',
+            label: 'Sunday',
+            width: '100px',
+
+        });
+        console.log(mondayDWCb.getValue());
         workScheduleCb = new lx.component.Checkbox({
             renderTo: workScheduleSectionEl,
-            label: 'Use work schedule',
+            label: 'Use work schedule:',
             labelAlign: 'left',
             margin: '0px 0px 0px 0px',
-            labelWidth: '220px',
+            labelWidth: '130px',
             maxWidth: '500px',
             isChecked: false,
 
@@ -4433,14 +4660,12 @@ app.panel.AddEmployeeWizard = function (config) {
             }
         });
         mondayContainer.className = 'flex-row flex-justify-content flex-align-center';
-
         mondayCb = new lx.component.Checkbox({
             renderTo: mondayContainer,
             margin: '0px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Monday',
             width: '220px',
-
             onChange: mondayCbOnChangeEventHandler
         });
 
@@ -5105,7 +5330,6 @@ app.panel.AddEmployeeWizard = function (config) {
                 wizardNextBtn.showWarning('The payment period can not be empty.');
                 return;
             }
-
             let hasStandardEndDay = paymentPeriodEndDaySelect.getValue() !== null;
             let hasStandardPaymentDay = paymentDaySelect.getValue() !== null;
             let hasStandard = hasStandardEndDay || hasStandardPaymentDay;
@@ -5539,9 +5763,20 @@ app.panel.AddEmployeeWizard = function (config) {
                     break;
                 }
             }
+            daysWorked = (mondayDWCb.getValue() || tuesdayDWCb.getValue() || wednesdayDWCb.getValue() || thursdayDWCb.getValue() ||
+                fridayDWCb.getValue() || saturdayCb.getValue() || sundayCb.getValue());
+
+            // console.log("Work schedule: " + workScheduleCb.getValue());
+            if ((workScheduleCb.getValue() == false) && (daysWorked == false) && (hasDailyIncome == false)) {
+                wizardNextBtn.showWarning('Please select one or more workdays for sick leave.');
+                return;
+            }
+
+            //console.log("Work schedule: " + workScheduleCb.getValue());
 
             // Was the work schedule selected?
             if (workScheduleCb.getValue()) {
+
                 // Was no day selected?
                 if (!mondayCb.getValue() && !tuesdayCb.getValue() && !wednesdayCb.getValue() && !thursdayCb.getValue() &&
                     !fridayCb.getValue() && !saturdayCb.getValue() && !sundayCb.getValue()) {
@@ -5648,34 +5883,56 @@ app.panel.AddEmployeeWizard = function (config) {
                         title: '<i class="fas fa-exclamation-triangle" style="margin: 0px 15px 0px 0px;"></i>Work schedule not required',
                         message:
                             '<div style="text-align: left;">' +
-                            'You have selected to use the work schedule to calculate the employee&apos;s leave. However, ' +
-                            'since the employee earns a daily wage it is recommended not to enable the work schedule but ' +
-                            'that the number of days worked as specified on the payslip be used instead.' +
-                            '<br><br>Are you certain you wish to continue?' +
+                            'This employee earns a daily wage. Therfore a work schedule is not allowed.' +
                             '</div>'
                         ,
                         buttons: [
-                            { name: 'cancel', label: 'Cancel', style: 'text', isCancel: true },
-                            { name: 'continue', label: 'Continue', isDefault: true }
+                            { name: 'cancel', label: 'OK', style: 'text', isCancel: true },
                         ],
                         onClose: function (event) {
-                            if (event.button === 'continue') {
-                                // Add the employee
-                                addEmployee();
-                            }
-                            else {
-                                return;
-                            }
+                            return;
                         }
                     });
 
                 }
                 else {
                     // Add the employee
+                    // console.log("You have entered the Work Schedule branch!");
                     addEmployee();
                 }
             }
-            else {
+            else if ((workScheduleCb.getValue() == false) && (daysWorked == true)) {
+
+                if (hasDailyIncome) {
+                    new lx.component.Messagebox({
+                        title: '<i class="fas fa-exclamation-triangle" style="margin: 0px 15px 0px 0px;"></i>Workdays not required',
+                        message:
+                            '<div style="text-align: left;">' +
+                            'This employee earns a daily wage. Therfore selecting workdays is not allowed.' +
+                            '</div>'
+                        ,
+                        buttons: [
+                            { name: 'cancel', label: 'OK', style: 'text', isCancel: true },
+                        ],
+                        onClose: function (event) {
+                            return;
+                        }
+                    });
+                } else {
+                    // Add the employee
+                    // console.log("You have entered the Daysworked Branch.")
+                    addEmployee();
+                }
+
+                // if((workScheduleCb.getValue() == false) &&  !mondayDWCb.getValue() && !tuesdayDWCb.getValue() && !wednesdayDWCb.getValue() && !thursdayDWCb.getValue() && 
+                // !fridayDWCb.getValue() && !saturdayCb.getValue() && !sundayCb.getValue()){
+                // wizardNextBtn.showWarning('Please select one or more work days for sick leave.');
+                // return;
+                // }
+
+                // addEmployee();
+
+            } else {
                 // Get the leave items
                 let checkLeaveTypes = [];
                 for (let i = 0; i < leaveTypes.length; i++) {
@@ -5837,7 +6094,6 @@ app.panel.AddEmployeeWizard = function (config) {
     // paymentPeriodSelect change event handler
     function paymentPeriodSelectChangeEventHandler() {
         var days = [];
-
         // Show/hide bi-weekly options container
         if (paymentPeriodSelect.getValue() === 'BWEE') {
             if (bweeButtonsContainerEl) bweeButtonsContainerEl.style.display = 'flex';
@@ -6280,9 +6536,41 @@ app.panel.AddEmployeeWizard = function (config) {
     function workScheduleCbChangeEventHandler() {
         if (workScheduleCb.getValue() === false) {
             lx.applyStyle(workScheduleContainerEl, { display: 'none' });
+            lx.applyStyle(daysWorkedSectionEl, { display: 'block' });
         }
         else {
+            const dayCheckboxPairs = [
+                { source: mondayDWCb, target: mondayCb, handler: mondayCbOnChangeEventHandler },
+                { source: tuesdayDWCb, target: tuesdayCb, handler: tuesdayCbOnChangeEventHandler },
+                { source: wednesdayDWCb, target: wednesdayCb, handler: wednesdayCbOnChangeEventHandler },
+                { source: thursdayDWCb, target: thursdayCb, handler: thursdayCbOnChangeEventHandler },
+                { source: fridayDWCb, target: fridayCb, handler: fridayCbOnChangeEventHandler },
+                { source: saturdayDWCb, target: saturdayCb, handler: saturdayCbOnChangeEventHandler },
+                { source: sundayDWCb, target: sundayCb, handler: sundayCbOnChangeEventHandler }
+            ];
+            // if(mondayDWCb.getValue()) {
+            // mondayCb.setValue(true);
+            // mondayCbOnChangeEventHandler(mondayCb);
+            // }else{
+            //     mondayCb.setValue(false);
+            //     mondayCbOnChangeEventHandler(mondayCb)
+            // }
+            dayCheckboxPairs.forEach(pair => {
+                const shouldBeChecked = pair.source.getValue();
+
+                if (pair.target.getValue() !== shouldBeChecked) {
+                    // Value changed → triggers onChange automatically
+                    pair.target.setValue(shouldBeChecked);
+                    pair.handler(pair.target);
+                } else {
+                    // Value already the same → manually run logic
+                    pair.target.setValue(shouldBeChecked);
+                    pair.handler(pair.target);
+                }
+            });
+            lx.applyStyle(daysWorkedSectionEl, { display: 'none' });
             lx.applyStyle(workScheduleContainerEl, { display: 'block' });
+            //console.log(mondayDWCb.getValue());
         }
 
         formChanged = true;
