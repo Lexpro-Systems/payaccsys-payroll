@@ -29,7 +29,8 @@ class PayslipPrinter extends PayslipPrinterBase
             ['name' => 'logoX', 'description' => 'Logo X', 'type' => 'float', 'default' => 10],
             ['name' => 'logoY', 'description' => 'Logo Y', 'type' => 'float', 'default' => 10],
             ['name' => 'logoImageSize', 'description' => 'Logo Size (%)', 'type' => 'float', 'default' => 100],
-            ['name' => 'headingColor', 'description' => 'Heading Color', 'type' => 'color', 'default' => '#1B2C64'],
+            ['name' => 'headingColor', 'description' => 'Heading Colour', 'type' => 'color', 'default' => '#1B2C64'],
+            ['name' => 'headingTextColor', 'description' => 'Heading Text Colour', 'type' => 'color', 'default' => '#ffffff'],
             // ['name' => 'signatureImage', 'description' => 'Signature Image', 'type' => 'image'],
             // ['name' => 'signatureX', 'description' => 'Logo X', 'type' => 'float'],
             // ['name' => 'signatureY', 'description' => 'Logo Y', 'type' => 'float'],
@@ -130,6 +131,16 @@ class PayslipPrinter extends PayslipPrinterBase
             list($r, $g, $b) = sscanf($config['headingColor'], "#%02x%02x%02x");
         }
 
+        //Heading text colour rgb
+        $textR = 255;
+        $textG = 255;
+        $textB = 255;
+
+        if (isset($config['headingTextColor'])) {
+            list($textR, $textG, $textB) =
+                sscanf($config['headingTextColor'], '#%02x%02x%02x');
+        }
+
         // Top right heading
         $this->pdf->SetFont('helvetica', '', 15);
         $this->pdf->SetXY(150, 10);
@@ -156,7 +167,7 @@ class PayslipPrinter extends PayslipPrinterBase
 
         $this->pdf->Rect(10, 65, 190, 10, 'DF', array(), array($r, $g, $b));
         $this->pdf->SetXY(90, 65);
-        $this->pdf->SetTextColor(255, 255, 255);
+        $this->pdf->SetTextColor($textR, $textG, $textB);
         $this->pdf->SetFontSize(13);
         $this->pdf->Cell(30, 10, 'PAYSLIP - ' . strtoupper(date('F Y', strtotime($this->toDate))), 0, 1, 'C', 0, 1);
         // $this->pdf->Cell(0, 5, strtoupper(date('F Y', strtotime($this->toDate))), 0, 1, 'C', 0, 1);
@@ -165,7 +176,7 @@ class PayslipPrinter extends PayslipPrinterBase
 
         $this->pdf->Rect(10, 79, 190, 7, 'DF', array(), array($r, $g, $b));
         $this->pdf->SetXY(90, 79);
-        $this->pdf->SetTextColor(255, 255, 255);
+        $this->pdf->SetTextColor($textR, $textG, $textB);
         $this->pdf->SetFontSize(10);
         $this->pdf->SetXY(13, 77.6);
         $this->pdf->Cell(31, 10, 'PERSONAL DETAILS', 0, 1, 'C', 0, 1);
@@ -335,13 +346,13 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->SetFontSize(10);
         $this->pdf->Rect(10, 124, 95, 7, 'DF', array(), array($r, $g, $b));
         $this->pdf->SetXY(10, 122.6);
-        $this->pdf->SetTextColor(255, 255, 255);
+        $this->pdf->SetTextColor($textR, $textG, $textB);
         $this->pdf->Cell(21, 10, 'EARNINGS', 0, 1, 'C', 0, 1);
 
         $this->pdf->SetFontSize(10);
         $this->pdf->Rect(105, 124, 95, 7, 'DF', array(), array($r, $g, $b));
         $this->pdf->SetXY(105, 122.6);
-        $this->pdf->SetTextColor(255, 255, 255);
+        $this->pdf->SetTextColor($textR, $textG, $textB);
         $this->pdf->Cell(25, 10, 'DEDUCTIONS', 0, 1, 'C', 0, 1);
 
         $this->pdf->SetFont('helvetica', '', 8.5);
@@ -454,7 +465,7 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->SetFontSize(10);
         $this->pdf->Rect(10, $allowancesStart, 190, 7, 'DF', array(), array($r, $g, $b));
         $this->pdf->SetXY(10, $allowancesStart - 1.5);
-        $this->pdf->SetTextColor(255, 255, 255);
+        $this->pdf->SetTextColor($textR, $textG, $textB);
         $this->pdf->Cell(27, 10, 'ALLOWANCES', 0, 1, 'C', 0, 1);
         $this->pdf->SetFont('helvetica', 8.5);
 
@@ -468,7 +479,7 @@ class PayslipPrinter extends PayslipPrinterBase
                 $this->pdf->SetFontSize(10);
                 $this->pdf->Rect(10, $allowancesStart, 190, 7, 'DF', array(), array($r, $g, $b));
                 $this->pdf->SetXY(10, $allowancesStart - 1.5);
-                $this->pdf->SetTextColor(255, 255, 255);
+                $this->pdf->SetTextColor($textR, $textG, $textB);
                 $this->pdf->Cell(27, 10, 'ALLOWANCES', 0, 1, 'C', 0, 1);
                 $this->pdf->SetFont('helvetica', 8.5);
 
@@ -523,7 +534,7 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->SetFontSize(10);
         $this->pdf->Rect(10, $nettSalaryStart, 190, 7, 'DF', array(), array($r, $g, $b));
         $this->pdf->SetXY(10, $nettSalaryStart - 1.5);
-        $this->pdf->SetTextColor(255, 255, 255);
+        $this->pdf->SetTextColor($textR, $textG, $textB);
         $this->pdf->Cell(20, 10, 'NETT PAY', 0, 1, 'C', 0, 1);
         $this->pdf->SetFont('helvetica', 8.5);
 
@@ -537,7 +548,7 @@ class PayslipPrinter extends PayslipPrinterBase
                 $this->pdf->SetFontSize(10);
                 $this->pdf->Rect(10, $nettSalaryStart, 190, 7, 'DF', array(), array($r, $g, $b));
                 $this->pdf->SetXY(10, $nettSalaryStart - 1.5);
-                $this->pdf->SetTextColor(255, 255, 255);
+                $this->pdf->SetTextColor($textR, $textG, $textB);
                 $this->pdf->Cell(27, 10, 'NETT SALARY', 0, 1, 'C', 0, 1);
                 $this->pdf->SetFont('helvetica', 8.5);
 
@@ -602,7 +613,7 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->SetFontSize(10);
         $this->pdf->Rect(10, $companyContributionsStart, 190, 7, 'DF', array(), array($r, $g, $b));
         $this->pdf->SetXY(10, $companyContributionsStart - 1.5);
-        $this->pdf->SetTextColor(255, 255, 255);
+        $this->pdf->SetTextColor($textR, $textG, $textB);
         $this->pdf->Cell(50, 10, 'COMPANY CONTRIBUTIONS', 0, 1, 'C', 0, 1);
         $this->pdf->SetFont('helvetica', 8.5);
 
@@ -616,7 +627,7 @@ class PayslipPrinter extends PayslipPrinterBase
                 $this->pdf->SetFontSize(10);
                 $this->pdf->Rect(10, $companyContributionsStart, 190, 7, 'DF', array(), array($r, $g, $b));
                 $this->pdf->SetXY(10, $companyContributionsStart - 1.5);
-                $this->pdf->SetTextColor(255, 255, 255);
+                $this->pdf->SetTextColor($textR, $textG, $textB);
                 $this->pdf->Cell(50, 10, 'COMPANY CONTRIBUTIONS', 0, 1, 'C', 0, 1);
                 $this->pdf->SetFont('helvetica', 8.5);
 
@@ -668,7 +679,7 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->SetFontSize(10);
         $this->pdf->Rect(10, $fringeBenefitsStart, 190, 7, 'DF', array(), array($r, $g, $b));
         $this->pdf->SetXY(10, $fringeBenefitsStart - 1.5);
-        $this->pdf->SetTextColor(255, 255, 255);
+        $this->pdf->SetTextColor($textR, $textG, $textB);
         $this->pdf->Cell(34, 10, 'FRINGE BENEFITS', 0, 1, 'C', 0, 1);
         $this->pdf->SetFont('helvetica', 8.5);
 
@@ -682,7 +693,7 @@ class PayslipPrinter extends PayslipPrinterBase
                 $this->pdf->SetFontSize(10);
                 $this->pdf->Rect(10, $fringeBenefitsStart, 190, 7, 'DF', array(), array($r, $g, $b));
                 $this->pdf->SetXY(10, $fringeBenefitsStart - 1.5);
-                $this->pdf->SetTextColor(255, 255, 255);
+                $this->pdf->SetTextColor($textR, $textG, $textB);
                 $this->pdf->Cell(34, 10, 'FRINGE BENEFITS', 0, 1, 'C', 0, 1);
                 $this->pdf->SetFont('helvetica', 8.5);
 
@@ -737,7 +748,7 @@ class PayslipPrinter extends PayslipPrinterBase
             $this->pdf->SetFontSize(10);
             $this->pdf->Rect(10, $leave, 190, 7, 'DF', array(), array($r, $g, $b));
             $this->pdf->SetXY(10, $leave - 1.5);
-            $this->pdf->SetTextColor(255, 255, 255);
+            $this->pdf->SetTextColor($textR, $textG, $textB);
             $this->pdf->Cell(14, 10, 'LEAVE', 0, 1, 'C', 0, 1);
             $this->pdf->SetFont('helvetica', 8.5);
 
@@ -768,7 +779,7 @@ class PayslipPrinter extends PayslipPrinterBase
                     $this->pdf->SetFontSize(10);
                     $this->pdf->Rect(10, $leave, 190, 7, 'DF', array(), array($r, $g, $b));
                     $this->pdf->SetXY(10, $leave - 1.5);
-                    $this->pdf->SetTextColor(255, 255, 255);
+                    $this->pdf->SetTextColor($textR, $textG, $textB);
                     $this->pdf->Cell(14, 10, 'LEAVE', 0, 1, 'C', 0, 1);
                     $this->pdf->SetFont('helvetica', 8.5);
                     $this->pdf->SetFontSize(9);
