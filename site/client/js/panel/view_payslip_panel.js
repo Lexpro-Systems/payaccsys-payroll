@@ -122,10 +122,20 @@ app.panel.ViewPayslip = function(config) {
                     // Add the item to the earnings array
                     if (response.payslip.payslipItems[i].payslipCategoryCode === 'INCO') {
                         let description = response.payslip.payslipItems[i].description;
+
+                        //Is it hours worked?                     
+                        if( response.payslip.payslipItems[i].payslipItemTypeCode == '1001' ) {
+                            description = description + ' (' + response.payslip.payslipItems[i].units + ' hours @ ' + response.payslip.payslipItems[i].ratePerUnit + ' per hour)';
+                        }
+
+                        //Is it days worked?                     
+                        if( response.payslip.payslipItems[i].payslipItemTypeCode == '1002' ) {
+                            description = description + ' (' + response.payslip.payslipItems[i].units + ' days @ ' + response.payslip.payslipItems[i].ratePerUnit + ' per day)';
+                        }
                         
                         // Is it an overtime item?
                         if( response.payslip.payslipItems[i].payslipItemTypeCode == '1005' ) {
-                            description = description + ' (' + response.payslip.payslipItems[i].units + ' hours)';
+                            description = description + ' (' + response.payslip.payslipItems[i].units + ' hours @ ' + response.payslip.payslipItems[i].ratePerUnit + ' per hour)';
                         }
                         
                         // Add the item to the earnings array

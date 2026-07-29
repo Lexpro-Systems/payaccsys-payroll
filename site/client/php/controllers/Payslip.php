@@ -493,12 +493,17 @@ class Payslip extends Controller
                 // Is it an overtime item?
                 if ($itemRow['payslip_item_type_code'] == '1005') {
                     // Add the number of hours worked to the payslip item description
-                    $description = $description . ' (' . $hoursWorked . ' hours)';
+                    $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
                 }
 
                 // 2025-08-21 Add hours worked and hourly rate to description when unit_code is PHOU and item_type_code is 1001
                 if ($itemRow['payslip_item_type_code'] == '1001') {
                     $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                }
+                
+                // Add days worked and daily rate to description when unit_code is PDAY and item_type_code is 1002
+                if ($itemRow['payslip_item_type_code'] == '1002') {
+                    $description = $description . ' (' . $daysWorked . ' days @ ' . $itemRow['rate'] . ' per day)';
                 }
 
                 // Add the specified item details to the payslip printer
@@ -776,6 +781,7 @@ class Payslip extends Controller
                 'description' => $itemRow['description'],
                 'accrualDate' => $itemRow['accrual_date'],
                 'units' => $itemRow['units'],
+                'ratePerUnit' => $itemRow['rate'],
                 'rate' => $amount,
                 'total' => $itemRow['total'],
                 'includeInNettPay' => $itemRow['include_in_nett_pay']
@@ -1110,12 +1116,17 @@ class Payslip extends Controller
             // Is it an overtime item?
             if ($itemRow['payslip_item_type_code'] == '1005') {
                 // Add the number of hours worked to the payslip item description
-                $description = $description . ' (' . $hoursWorked . ' hours)';
+                $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
             }
 
             // 2025-08-21 Add hours worked and hourly rate to description when unit_code is PHOU and item_type_code is 1001
             if ($itemRow['payslip_item_type_code'] == '1001') {
                 $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+            }
+
+            // Add days worked and daily rate to description when unit_code is PDAY and item_type_code is 1002
+            if ($itemRow['payslip_item_type_code'] == '1002') {
+                $description = $description . ' (' . $daysWorked . ' days @ ' . $itemRow['rate'] . ' per day)';
             }
 
             // Add the specified item details to the payslip printer
