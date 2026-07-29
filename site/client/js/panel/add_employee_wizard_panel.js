@@ -1513,6 +1513,11 @@ app.panel.AddEmployeeWizard = function (config) {
             sundayHours: parseInt(sundayValue)
         };
 
+        console.log("bweeCustomDateDate", bweeCustomDateDate.getValue());
+        console.log("bweeCustomPaymentDayDate", bweeCustomPaymentDayDate.getValue());
+        console.log("payment_period_end_day", paymentPeriodEndDaySelect.getValue());
+        console.log("payment_day", paymentDaySelect.getValue());
+
         // Add the employee
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=add',
@@ -1536,8 +1541,12 @@ app.panel.AddEmployeeWizard = function (config) {
                 sendPayslipByEmail: true,
                 paymentMethodCode: paymentMethodSelect.getValue(),
                 paymentPeriodCode: paymentPeriodSelect.getValue(),
-                paymentPeriodEndDay: parseInt(paymentPeriodEndDaySelect.getValue()),
-                paymentDay: parseInt(paymentDaySelect.getValue()),
+                // paymentPeriodEndDay: parseInt(paymentPeriodEndDaySelect.getValue()),
+                // paymentDay: parseInt(paymentDaySelect.getValue()),
+                paymentPeriodEndDay: paymentPeriodEndDaySelect.getValue() === '' ? null : parseInt(paymentPeriodEndDaySelect.getValue(), 10),
+                paymentDay: paymentDaySelect.getValue() === '' ? null : parseInt(paymentDaySelect.getValue(), 10),
+                bweeCustomDateDate: bweeCustomDateDate.getValue() === '' ? null : bweeCustomDateDate.getValue(),
+                bweeCustomPaymentDayDate: bweeCustomPaymentDayDate.getValue() === '' ? null : bweeCustomPaymentDayDate.getValue(),
                 incomeTaxNumber: incomeTaxNumberTxt.getValue().trim(),
                 enablePayeCorrection: enablePayeCorrectionCb.getValue(),
                 incomeTaxDirective1: incomeTaxDirective1Txt.getValue().trim(),

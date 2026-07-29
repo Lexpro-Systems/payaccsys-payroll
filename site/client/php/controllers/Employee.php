@@ -1326,7 +1326,7 @@ class Employee extends Controller
             if ($whereClause === '')
                 $whereClause = 'WHERE ';
             else
-            $whereClause = $whereClause . ' AND ';
+                $whereClause = $whereClause . ' AND ';
             $sqlParams[] = $data['departmentId'];
             $whereClause = $whereClause . ' departments.id = $' . count($sqlParams);
         }
@@ -1609,6 +1609,8 @@ class Employee extends Controller
             'paymentPeriodCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false],
             'paymentPeriodEndDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
             'paymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'bweeCustomDateDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => true],
+            'bweeCustomPaymentDayDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => true],
             'incomeTaxNumber' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
             'enablePayeCorrection' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false],
             'sicCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false],
@@ -1974,6 +1976,11 @@ class Employee extends Controller
             $workAddressCountryCode = $sqlRow['physical_address_country_code'];
         }
 
+        error_log("bweeCustomDateDate : " . $data['bweeCustomDateDate']);
+        error_log("bweeCustomPaymentDayDate : " . $data['bweeCustomPaymentDayDate']);
+        error_log("payment_period_end_day : " . $data['paymentPeriodEndDay']);
+        error_log("payment_day : " . $data['paymentDay']);
+
         // Build the query to insert the item.
         $sqlQuery =
             'INSERT INTO ' .
@@ -2029,6 +2036,8 @@ class Employee extends Controller
             'payment_period_code, ' .
             'payment_period_end_day, ' .
             'payment_day, ' .
+            'bwee_custom_pped, ' .
+            'bwee_custom_payment_day, ' .
             'income_tax_number, ' .
             'enable_paye_correction, ' .
             'income_tax_directive_1, ' .
@@ -2054,7 +2063,7 @@ class Employee extends Controller
             '$31, $32, $33, $34, $35, $36, $37, $38, $39, $40, ' .
             '$41, $42, $43, $44, $45, $46, $47, $48, $49, $50, ' .
             '$51, $52, $53, $54, $55, $56, $57, $58, $59, $60, ' .
-            '$61, $62, $63, $64, $65, $66, $67, $68 ' .
+            '$61, $62, $63, $64, $65, $66, $67, $68, $69, $70 ' .
             ') ' .
             'RETURNING id, employment_position, employment_start_date;';
         $sqlResult = $db->paramQuery($sqlQuery, [
@@ -2109,6 +2118,8 @@ class Employee extends Controller
             $data['paymentPeriodCode'],             // payment_period_code
             $data['paymentPeriodEndDay'],           // payment_period_end_day
             $data['paymentDay'],                    // payment_day
+            $data['bweeCustomDateDate'],           // bwee_custom_date_date
+            $data['bweeCustomPaymentDayDate'],    // bwee_custom_payment_day_date
             $data['incomeTaxNumber'],               // income_tax_number
             $data['enablePayeCorrection'],          // enable_paye_correction
             $data['incomeTaxDirective1'],           // income_tax_directive_1
