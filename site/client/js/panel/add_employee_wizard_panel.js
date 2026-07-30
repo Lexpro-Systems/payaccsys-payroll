@@ -82,6 +82,17 @@ app.panel.AddEmployeeWizard = function (config) {
     var bweeCustomDateContainerEl = null;
     var bweeCustomDateDate = null;
     var bweeCustomPaymentDayDate = null;
+    var twiceMonthlyFirstBatchHeadingEl = null;
+    var twiceMonthlyFirstBatchContainerEl = null;
+    var twiceMonthlySelectFirstStartDay = null;
+    var twiceMonthlySelectFirstEndDay = null;
+    var twiceMonthlySelectFirstPaymentDayContainerEl = null;
+    var twiceMonthlySelectFirstPaymentDay = null;
+    var twiceMonthlySecondDateContainerEl = null;
+    var twiceMonthlySelectSecondStartDay = null;
+    var twiceMonthlySelectSecondEndDay = null;
+    var twiceMonthlySelectSecondPaymentDayContainerEl = null;
+    var twiceMonthlySelectSecondPaymentDay = null;
     var paymentPeriodEndDaySelectContainerEl = null;
     var paymentDaySelectContainerEl = null;
     var paymentPeriodEndDaySelect = null;
@@ -465,7 +476,7 @@ app.panel.AddEmployeeWizard = function (config) {
 
                 if (response.ok !== true) {
                     new lx.component.Messagebox({
-                        title: 'Loading Payment Methods Failed',
+                        title: 'Loading Payment Periods Failed',
                         message: response.error
                     });
                 }
@@ -2848,6 +2859,134 @@ app.panel.AddEmployeeWizard = function (config) {
 
             onChange: defaultOnChangeEventHandler
         });
+
+        // TWICE MONTHLY OPTION
+
+        twiceMonthlyFirstBatchHeadingEl = lx.createElement('DIV', {
+            parent: employmentDetailsSectionEl,
+            style: {
+                display: 'none',
+                boxSizing: 'border-box',
+                width: '100%',
+                margin: '24px 0px 8px 0px',
+                fontSize: '12px',
+                fontWeight: '600',
+                textAlign: 'left'
+            },
+            innerHTML: 'First Payment Period'
+        });
+
+         twiceMonthlyFirstBatchContainerEl = lx.createElement('DIV', {
+            parent: employmentDetailsSectionEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'none',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                columnGap: '24px',
+                rowGap: '16px',
+                width: '100%',
+                padding: '16px',
+                border: '1px solid #D9D9D9',
+                margin: '16px 0px 0px 0px'
+            }
+        });
+
+        //FIRST BATCH START DAY
+
+        let twiceMonthlyFirstStartDayContainerEl = lx.createElement('DIV', {
+            parent: twiceMonthlyFirstBatchContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                width: '100%'
+            }
+        });
+
+        twiceMonthlySelectFirstStartDay = new lx.component.Selectbox({
+            renderTo: twiceMonthlyFirstStartDayContainerEl,
+            label: 'First Payment Period Start *',
+            labelAlign: 'left',
+            margin: '0px 0px 0px 0px',
+            labelWidth: '220px',
+            maxWidth: '350px',
+
+            onChange: paymentPeriodSelectChangeEventHandler
+        });
+
+        //FIRST BATCH END DAY
+
+        let twiceMonthlyFirstEndDayContainerEl = lx.createElement('DIV', {
+            parent: twiceMonthlyFirstBatchContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                width: '100%'
+            }
+        });
+
+        twiceMonthlySelectFirstEndDay = new lx.component.Selectbox({
+            renderTo: twiceMonthlyFirstEndDayContainerEl,
+            label: 'First Payment Period End *',
+            labelAlign: 'left',
+            margin: '0px 0px 0px 0px',
+            labelWidth: '220px',
+            maxWidth: '350px',
+
+            onChange: paymentPeriodSelectChangeEventHandler
+        });
+
+        //FIRST BATCH PAYMENT DAY
+
+        twiceMonthlySelectFirstPaymentDayContainerEl = lx.createElement('DIV', {
+            parent: twiceMonthlyFirstBatchContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                width: '100%',
+                gridColumn: '1'
+            }
+        });
+
+        twiceMonthlySelectFirstPaymentDay = new lx.component.Selectbox({
+            renderTo: twiceMonthlySelectFirstPaymentDayContainerEl,
+            label: 'First Payment Day *',
+            labelAlign: 'left',
+            margin: '0px 0px 0px 0px',
+            labelWidth: '220px',
+            maxWidth: '350px',
+
+            onChange: defaultOnChangeEventHandler
+        });
+        
+        // SECOND BATCH START DAY
+
+        // var twiceMonthlyContainerEl = null;
+       
+        // var twiceMonthlySecondDateContainerEl = null;
+        // var twiceMonthlySelectSecondStartDate = null;
+        // var twiceMonthlySelectSecondEndDate = null;
+        // var twiceMonthlySelectSecondPaymentDate = null;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        //PAYMENT PERIOD END DAY SECTION
 
         paymentPeriodEndDaySelectContainerEl = new lx.createElement('DIV', {
             parent: employmentDetailsSectionEl,
@@ -6103,6 +6242,17 @@ app.panel.AddEmployeeWizard = function (config) {
             if (bweeCustomDateContainerEl) bweeCustomDateContainerEl.style.display = 'none';
             if (paymentPeriodEndDaySelectContainerEl) paymentPeriodEndDaySelectContainerEl.style.display = 'flex';
             if (paymentDaySelectContainerEl) paymentDaySelectContainerEl.style.display = 'flex';
+        }
+
+        //Show/hide "twice monthly" options container
+        const isTwiceMonthly =
+            paymentPeriodSelect.getValue() === 'TWMO';
+
+        if(isTwiceMonthly){
+            paymentPeriodEndDaySelectContainerEl.style.display = 'none';
+            paymentDaySelectContainerEl.style.display = 'none';
+            twiceMonthlyFirstBatchHeadingEl.style.display = 'block';
+            twiceMonthlyFirstBatchContainerEl.style.display = 'grid';
         }
 
         // Set the payment day values depending on the payment period
