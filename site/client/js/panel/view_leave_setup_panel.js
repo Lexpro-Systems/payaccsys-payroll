@@ -152,6 +152,16 @@ app.panel.ViewLeaveSetup = function (config) {
                                 ' ' + result.leaveTypes[i].leaveUnitCode.toLowerCase() + ' of leave for every ' + rule.accrualInterval +
                                 ' payslips received.';
                         }
+                        else if (rule.accrualType.code === 'PPES') {
+                            ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                                ' ' + result.leaveTypes[i].leaveUnitCode.toLowerCase() + ' of leave at the beginning of every ' +
+                                rule.accrualInterval + ' month cycle.';
+                        }
+                        else if (rule.accrualType.code === 'PPEE') {
+                            ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                                ' ' + result.leaveTypes[i].leaveUnitCode.toLowerCase() + ' of leave at the end of every ' +
+                                rule.accrualInterval + ' month cycle.';
+                        }
                         else if (rule.accrualType.code === 'DCST') {
                             ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
                                 ' ' + result.leaveTypes[i].leaveUnitCode.toLowerCase() +
