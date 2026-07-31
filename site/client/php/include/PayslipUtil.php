@@ -917,33 +917,71 @@ function getWeeklyPayslipPeriod(DateTime $date, DateTime $baseDate, int $dayOfWe
 //
 // date             A DateTime object giving the date to use when calculating the next payment date.
 // return           The next payment date as a DateTime object  
-function getNextBiWeeklyPaymentDate(DateTime $date, int $dayOfWeek): DateTime
+// function getNextBiWeeklyPaymentDate(DateTime $date, int $dayOfWeek): DateTime
+// {
+//     $returnDate = new DateTime($date->format('Y-m-d'));
+//     $returnDate->modify('+14 days');
+
+//     // file_put_contents('php://stderr', print_r(("\n" . 'date: ' . $date->format('Y-m-d')), TRUE));
+
+//     // Determine whether the payment date is in the first or second week
+//     $targetWeek = 2;
+//     if ($dayOfWeek > 6) {
+//         // $targetWeek = 2;
+//         $dayOfWeek -= 7;
+//     }
+
+//     $dayCount = 0;
+//     $numWeeksCounted = 0;
+//     while ($date < $returnDate) {
+//         // Go to the next day
+//         $date->modify('+1 day');
+//         $dayCount++;
+
+//         // Was the day found?
+//         if ($date->format('w') == $dayOfWeek) {
+//             // Add a week
+//             $numWeeksCounted++;
+
+//             // Have the correct number of weeks been counted?
+//             if ($numWeeksCounted >= $targetWeek) {
+//                 $returnDate = $date;
+//                 break;
+//             }
+//         }
+//     }
+
+//     return $returnDate;
+// }
+function getNextBiWeeklyPaymentDate(DateTime $date, ?int $dayOfWeek): DateTime
 {
     $returnDate = new DateTime($date->format('Y-m-d'));
     $returnDate->modify('+14 days');
 
-    // file_put_contents('php://stderr', print_r(("\n" . 'date: ' . $date->format('Y-m-d')), TRUE));
+    // Custom bi-weekly:
+    // Once the first payment date has been established,
+    // every subsequent payment is simply 14 days later.
+    if ($dayOfWeek === null) {
+        return $returnDate;
+    }
 
-    // Determine whether the payment date is in the first or second week
+    // Standard bi-weekly logic
+
     $targetWeek = 2;
     if ($dayOfWeek > 6) {
-        // $targetWeek = 2;
         $dayOfWeek -= 7;
     }
 
     $dayCount = 0;
     $numWeeksCounted = 0;
+
     while ($date < $returnDate) {
-        // Go to the next day
         $date->modify('+1 day');
         $dayCount++;
 
-        // Was the day found?
         if ($date->format('w') == $dayOfWeek) {
-            // Add a week
             $numWeeksCounted++;
 
-            // Have the correct number of weeks been counted?
             if ($numWeeksCounted >= $targetWeek) {
                 $returnDate = $date;
                 break;

@@ -7116,6 +7116,7 @@ class Payrun extends Controller
             'EXTRACT(YEAR FROM age($2, employees.date_of_birth)) AS employee_age, ' .
             'payment_period_code, ' .
             'payment_period_end_day, ' .
+            'bwee_custom_pped, ' .
             'employment_start_date, ' .
             'employment_end_date ' .
             'FROM ' .
@@ -7143,6 +7144,7 @@ class Payrun extends Controller
                 'age' => $sqlRow['employee_age'],
                 'paymentPeriod' => $sqlRow['payment_period_code'],
                 'paymentPeriodEndDay' => $sqlRow['payment_period_end_day'],
+                'bweeCustompped' => $sqlRow['bwee_custom_pped'],
                 'employmentStart' => $sqlRow['employment_start_date'],
                 'employmentEnd' => $sqlRow['employment_end_date'],
                 'payslips' => []
