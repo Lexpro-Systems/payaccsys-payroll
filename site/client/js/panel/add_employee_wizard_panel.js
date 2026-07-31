@@ -76,23 +76,28 @@ app.panel.AddEmployeeWizard = function (config) {
     var addDepartmentBtn = null;
     var paymentMethodSelect = null;
     var paymentPeriodSelect = null;
+
     var bweeButtonsContainerEl = null;
     var employmentDateBtn = null;
     var customDateBtn = null;
     var bweeCustomDateContainerEl = null;
     var bweeCustomDateDate = null;
     var bweeCustomPaymentDayDate = null;
+
     var twiceMonthlyFirstBatchHeadingEl = null;
     var twiceMonthlyFirstBatchContainerEl = null;
     var twiceMonthlySelectFirstStartDay = null;
-    var twiceMonthlySelectFirstEndDay = null;
+    var twiceMonthlySelectFirstEndDay = null; 
     var twiceMonthlySelectFirstPaymentDayContainerEl = null;
     var twiceMonthlySelectFirstPaymentDay = null;
-    var twiceMonthlySecondDateContainerEl = null;
+
+    var twiceMonthlySecondBatchHeadingEl = null;
+    var twiceMonthlySecondBatchContainerEl = null;
     var twiceMonthlySelectSecondStartDay = null;
     var twiceMonthlySelectSecondEndDay = null;
     var twiceMonthlySelectSecondPaymentDayContainerEl = null;
     var twiceMonthlySelectSecondPaymentDay = null;
+
     var paymentPeriodEndDaySelectContainerEl = null;
     var paymentDaySelectContainerEl = null;
     var paymentPeriodEndDaySelect = null;
@@ -1615,6 +1620,12 @@ app.panel.AddEmployeeWizard = function (config) {
                 paymentDay: paymentDaySelect.getValue() === '' ? null : parseInt(paymentDaySelect.getValue(), 10),
                 bweeCustomDateDate: bweeCustomDateDate.getValue() === '' ? null : bweeCustomDateDate.getValue(),
                 bweeCustomPaymentDayDate: bweeCustomPaymentDayDate.getValue() === '' ? null : bweeCustomPaymentDayDate.getValue(),
+                twiceMonthlySelectFirstStartDay: twiceMonthlySelectFirstStartDay.getValue() === '' ? null : parseInt(twiceMonthlySelectFirstStartDay.getValue(), 10),
+                twiceMonthlySelectFirstEndDay: twiceMonthlySelectFirstEndDay.getValue() === '' ? null : parseInt(twiceMonthlySelectFirstEndDay.getValue(), 10),
+                twiceMonthlySelectFirstPaymentDay: twiceMonthlySelectFirstPaymentDay.getValue() === '' ? null : parseInt(twiceMonthlySelectFirstPaymentDay.getValue(), 10),
+                twiceMonthlySelectSecondStartDay: twiceMonthlySelectSecondStartDay.getValue() === '' ? null : parseInt(twiceMonthlySelectSecondStartDay.getValue(), 10),
+                twiceMonthlySelectSecondEndDay: twiceMonthlySelectSecondEndDay.getValue() === '' ? null : parseInt(twiceMonthlySelectSecondEndDay.getValue(), 10),
+                twiceMonthlySelectSecondPaymentDay: twiceMonthlySelectSecondPaymentDay.getValue() === '' ? null : parseInt(twiceMonthlySelectSecondPaymentDay.getValue(), 10),
                 incomeTaxNumber: incomeTaxNumberTxt.getValue().trim(),
                 enablePayeCorrection: enablePayeCorrectionCb.getValue(),
                 incomeTaxDirective1: incomeTaxDirective1Txt.getValue().trim(),
@@ -2862,6 +2873,7 @@ app.panel.AddEmployeeWizard = function (config) {
 
         // TWICE MONTHLY OPTION
 
+        //FIRST PAYMENT PERIOD SECTION
         twiceMonthlyFirstBatchHeadingEl = lx.createElement('DIV', {
             parent: employmentDetailsSectionEl,
             style: {
@@ -2966,25 +2978,108 @@ app.panel.AddEmployeeWizard = function (config) {
         
         // SECOND BATCH START DAY
 
-        // var twiceMonthlyContainerEl = null;
-       
-        // var twiceMonthlySecondDateContainerEl = null;
-        // var twiceMonthlySelectSecondStartDate = null;
-        // var twiceMonthlySelectSecondEndDate = null;
-        // var twiceMonthlySelectSecondPaymentDate = null;
+        //SECOND PAYMENT PERIOD SECTION
+        twiceMonthlySecondBatchHeadingEl = lx.createElement('DIV', {
+            parent: employmentDetailsSectionEl,
+            style: {
+                display: 'none',
+                boxSizing: 'border-box',
+                width: '100%',
+                margin: '24px 0px 8px 0px',
+                fontSize: '12px',
+                fontWeight: '600',
+                textAlign: 'left'
+            },
+            innerHTML: 'Second Payment Period'
+        });
 
+         twiceMonthlySecondBatchContainerEl = lx.createElement('DIV', {
+            parent: employmentDetailsSectionEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'none',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                columnGap: '24px',
+                rowGap: '16px',
+                width: '100%',
+                padding: '16px',
+                border: '1px solid #D9D9D9',
+                margin: '16px 0px 0px 0px'
+            }
+        });
 
+        //SECOND BATCH START DAY
 
+        let twiceMonthlySecondStartDayContainerEl = lx.createElement('DIV', {
+            parent: twiceMonthlySecondBatchContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                width: '100%'
+            }
+        });
 
+        twiceMonthlySelectSecondStartDay = new lx.component.Selectbox({
+            renderTo: twiceMonthlySecondStartDayContainerEl,
+            label: 'Second Payment Period Start *',
+            labelAlign: 'left',
+            margin: '0px 0px 0px 0px',
+            labelWidth: '220px',
+            maxWidth: '350px',
 
+            onChange: defaultOnChangeEventHandler
+        });
 
+        //SECOND BATCH END DAY
 
+        let twiceMonthlySecondEndDayContainerEl = lx.createElement('DIV', {
+            parent: twiceMonthlySecondBatchContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                width: '100%'
+            }
+        });
 
+        twiceMonthlySelectSecondEndDay = new lx.component.Selectbox({
+            renderTo: twiceMonthlySecondEndDayContainerEl,
+            label: 'Second Payment Period End *',
+            labelAlign: 'left',
+            margin: '0px 0px 0px 0px',
+            labelWidth: '220px',
+            maxWidth: '350px',
 
+            onChange: defaultOnChangeEventHandler
+        });
 
+        //SECOND BATCH PAYMENT DAY
 
+        twiceMonthlySelectSecondPaymentDayContainerEl = lx.createElement('DIV', {
+            parent: twiceMonthlySecondBatchContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                width: '100%',
+                gridColumn: '1'
+            }
+        });
 
+        twiceMonthlySelectSecondPaymentDay = new lx.component.Selectbox({
+            renderTo: twiceMonthlySelectSecondPaymentDayContainerEl,
+            label: 'Second Payment Day *',
+            labelAlign: 'left',
+            margin: '0px 0px 0px 0px',
+            labelWidth: '220px',
+            maxWidth: '350px',
 
+            onChange: defaultOnChangeEventHandler
+        });
 
         //PAYMENT PERIOD END DAY SECTION
 
@@ -5478,34 +5573,79 @@ app.panel.AddEmployeeWizard = function (config) {
             let hasCustomPayDay = customPayDayVal !== '';
             let hasCustom = hasCustomEndDay || hasCustomPayDay;
 
-            if (!hasStandard && !hasCustom) {
-                wizardNextBtn.showWarning('Please specify either (Payment Period End Day and Payment Day) or (Custom Payment Period End Day and Custom Payment Day).');
-                return;
+            let isTwiceMonthly = paymentPeriodSelect.getValue() === "TWMO";
+            let isBWEE = paymentPeriodSelect.getValue() === "BWEE";
+
+            const isEmptySelect = select =>
+            select.getValue() === null || select.getValue() === '';
+
+            if(isTwiceMonthly){
+                if(isEmptySelect(twiceMonthlySelectFirstStartDay)){
+                    wizardNextBtn.showWarning('The First Payment Period Start can not be empty.');
+                    return;
+                }
+                if(isEmptySelect(twiceMonthlySelectFirstEndDay)){
+                    wizardNextBtn.showWarning('The First Payment Period End can not be empty.');
+                    return;
+                }
+                if(isEmptySelect(twiceMonthlySelectFirstPaymentDay)){
+                    wizardNextBtn.showWarning('The First Payment Day can not be empty.');
+                    return;
+                }
+                if(isEmptySelect(twiceMonthlySelectSecondStartDay)){
+                    wizardNextBtn.showWarning('The Second Payment Period Start can not be empty.');
+                    return;
+                }
+                if(isEmptySelect(twiceMonthlySelectSecondEndDay)){
+                    wizardNextBtn.showWarning('The Second Payment Period End can not be empty.');
+                    return;
+                }
+                if(isEmptySelect(twiceMonthlySelectSecondPaymentDay)){
+                    wizardNextBtn.showWarning('The Second Payment Day can not be empty.');
+                    return;
+                }
             }
-            else if (hasStandard && hasCustom) {
-                wizardNextBtn.showWarning('Both (Payment Period End Day / Payment Day) and (Custom Payment Period End Day / Custom Payment Day) cannot be filled.');
-                return;
+           else if (isBWEE) {
+                if (!hasStandard && !hasCustom) {
+                    wizardNextBtn.showWarning('Please specify either (Payment Period End Day and Payment Day) or (Custom Payment Period End Day and Custom Payment Day).');
+                    return;
+                }
+                else if (hasStandard && hasCustom) {
+                    wizardNextBtn.showWarning('Both (Payment Period End Day / Payment Day) and (Custom Payment Period End Day / Custom Payment Day) cannot be filled.');
+                    return;
+                }
+                else if (hasStandard) {
+                    if (!hasStandardEndDay) {
+                        wizardNextBtn.showWarning('The payment period end day can not be empty.');
+                        return;
+                    }
+                    if (!hasStandardPaymentDay) {
+                        wizardNextBtn.showWarning('The payment day can not be empty.');
+                        return;
+                    }
+                }
+                else if (hasCustom) {
+                    if (!hasCustomEndDay) {
+                        wizardNextBtn.showWarning('The custom payment period end day can not be empty.');
+                        return;
+                    }
+                    if (!hasCustomPayDay) {
+                        wizardNextBtn.showWarning('The custom payment day can not be empty.');
+                        return;
+                    }
+                }
             }
-            else if (hasStandard) {
+            else {
                 if (!hasStandardEndDay) {
-                    wizardNextBtn.showWarning('The payment period end day can not be empty.');
-                    return;
-                }
+                        wizardNextBtn.showWarning('The payment period end day can not be empty.');
+                        return;
+                    }
                 if (!hasStandardPaymentDay) {
-                    wizardNextBtn.showWarning('The payment day can not be empty.');
-                    return;
+                        wizardNextBtn.showWarning('The payment day can not be empty.');
+                        return;
                 }
             }
-            else if (hasCustom) {
-                if (!hasCustomEndDay) {
-                    wizardNextBtn.showWarning('The custom payment period end day can not be empty.');
-                    return;
-                }
-                if (!hasCustomPayDay) {
-                    wizardNextBtn.showWarning('The custom payment day can not be empty.');
-                    return;
-                }
-            }
+
             if (sicCodeSelect.getValue() === null) {
                 wizardNextBtn.showWarning('The SIC code can not be empty.');
                 return;
@@ -6253,10 +6393,14 @@ app.panel.AddEmployeeWizard = function (config) {
             paymentDaySelectContainerEl.style.display = 'none';
             twiceMonthlyFirstBatchHeadingEl.style.display = 'block';
             twiceMonthlyFirstBatchContainerEl.style.display = 'grid';
+            twiceMonthlySecondBatchHeadingEl.style.display = 'block';
+            twiceMonthlySecondBatchContainerEl.style.display = 'grid';
         }
         else{
             twiceMonthlyFirstBatchHeadingEl.style.display = 'none';
             twiceMonthlyFirstBatchContainerEl.style.display = 'none';
+            twiceMonthlySecondBatchHeadingEl.style.display = 'none';
+            twiceMonthlySecondBatchContainerEl.style.display = 'none';
         }
 
         // Set the payment day values depending on the payment period
@@ -6323,6 +6467,13 @@ app.panel.AddEmployeeWizard = function (config) {
         twiceMonthlySelectFirstEndDay.addItems(days);
 
         // Second payment period
+        twiceMonthlySelectSecondStartDay.setValue(null, '');
+        twiceMonthlySelectSecondStartDay.clear();
+        twiceMonthlySelectSecondStartDay.addItems(days);
+
+        twiceMonthlySelectSecondEndDay.setValue(null, '');
+        twiceMonthlySelectSecondEndDay.clear();
+        twiceMonthlySelectSecondEndDay.addItems(days);
 
         // Set and display the batch payment days
         // First payment period
@@ -6331,10 +6482,9 @@ app.panel.AddEmployeeWizard = function (config) {
         twiceMonthlySelectFirstPaymentDay.addItems(days);
         
         // Second payment period
-       
-
-       
-
+        twiceMonthlySelectSecondPaymentDay.setValue(null, '');
+        twiceMonthlySelectSecondPaymentDay.clear();
+        twiceMonthlySelectSecondPaymentDay.addItems(days);
 
         // Set and display the payment period end days
         paymentPeriodEndDaySelect.setValue(null, '');
