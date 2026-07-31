@@ -2912,7 +2912,7 @@ app.panel.AddEmployeeWizard = function (config) {
             labelWidth: '220px',
             maxWidth: '350px',
 
-            onChange: paymentPeriodSelectChangeEventHandler
+            onChange: defaultOnChangeEventHandler
         });
 
         //FIRST BATCH END DAY
@@ -2936,7 +2936,7 @@ app.panel.AddEmployeeWizard = function (config) {
             labelWidth: '220px',
             maxWidth: '350px',
 
-            onChange: paymentPeriodSelectChangeEventHandler
+            onChange: defaultOnChangeEventHandler
         });
 
         //FIRST BATCH PAYMENT DAY
@@ -6254,6 +6254,10 @@ app.panel.AddEmployeeWizard = function (config) {
             twiceMonthlyFirstBatchHeadingEl.style.display = 'block';
             twiceMonthlyFirstBatchContainerEl.style.display = 'grid';
         }
+        else{
+            twiceMonthlyFirstBatchHeadingEl.style.display = 'none';
+            twiceMonthlyFirstBatchContainerEl.style.display = 'none';
+        }
 
         // Set the payment day values depending on the payment period
         if (paymentPeriodSelect.getValue() === 'WEEK') {
@@ -6292,6 +6296,12 @@ app.panel.AddEmployeeWizard = function (config) {
                 // {value:  7, text: 'Week 2: Sunday'}
             );
         }
+        else if (paymentPeriodSelect.getValue() === 'TWMO') {
+            for (var i = 1; i < 29; i++) {
+                days.push({ value: i, text: i });
+            }
+            days.push({ value: 0, text: 'Last Day' });
+        }
         else if (paymentPeriodSelect.getValue() === 'MONT') {
             for (var i = 1; i < 29; i++) {
                 days.push({ value: i, text: i });
@@ -6301,6 +6311,30 @@ app.panel.AddEmployeeWizard = function (config) {
         else {
             return;
         }
+
+        // Set and display the batch payment period start and end days
+        // First payment period
+        twiceMonthlySelectFirstStartDay.setValue(null, '');
+        twiceMonthlySelectFirstStartDay.clear();
+        twiceMonthlySelectFirstStartDay.addItems(days);
+
+        twiceMonthlySelectFirstEndDay.setValue(null, '');
+        twiceMonthlySelectFirstEndDay.clear();
+        twiceMonthlySelectFirstEndDay.addItems(days);
+
+        // Second payment period
+
+        // Set and display the batch payment days
+        // First payment period
+        twiceMonthlySelectFirstPaymentDay.setValue(null, '');
+        twiceMonthlySelectFirstPaymentDay.clear();
+        twiceMonthlySelectFirstPaymentDay.addItems(days);
+        
+        // Second payment period
+       
+
+       
+
 
         // Set and display the payment period end days
         paymentPeriodEndDaySelect.setValue(null, '');
