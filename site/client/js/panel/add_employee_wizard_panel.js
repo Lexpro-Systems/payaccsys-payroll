@@ -2934,7 +2934,7 @@ app.panel.AddEmployeeWizard = function (config) {
             labelWidth: '220px',
             maxWidth: '350px',
 
-            onChange: defaultOnChangeEventHandler
+            onChange: twiceMonthlyStartDayChangeEventHandler
         });
 
         //FIRST BATCH END DAY
@@ -2958,7 +2958,7 @@ app.panel.AddEmployeeWizard = function (config) {
             labelWidth: '220px',
             maxWidth: '350px',
 
-            onChange: defaultOnChangeEventHandler
+            onChange: twiceMonthlyEndDayChangeEventHandler
         });
 
         //FIRST BATCH PAYMENT DAY
@@ -2983,7 +2983,7 @@ app.panel.AddEmployeeWizard = function (config) {
             labelWidth: '220px',
             maxWidth: '350px',
 
-            onChange: defaultOnChangeEventHandler
+            onChange: twiceMonthlyPaymentDayChangeEventHandler
         });
 
         // SECOND BATCH START DAY
@@ -3039,7 +3039,7 @@ app.panel.AddEmployeeWizard = function (config) {
             labelWidth: '220px',
             maxWidth: '350px',
 
-            onChange: defaultOnChangeEventHandler
+            onChange: twiceMonthlyStartDayChangeEventHandler
         });
 
         //SECOND BATCH END DAY
@@ -3063,7 +3063,7 @@ app.panel.AddEmployeeWizard = function (config) {
             labelWidth: '220px',
             maxWidth: '350px',
 
-            onChange: defaultOnChangeEventHandler
+            onChange: twiceMonthlyEndDayChangeEventHandler
         });
 
         //SECOND BATCH PAYMENT DAY
@@ -3088,7 +3088,7 @@ app.panel.AddEmployeeWizard = function (config) {
             labelWidth: '220px',
             maxWidth: '350px',
 
-            onChange: defaultOnChangeEventHandler
+            onChange: twiceMonthlyPaymentDayChangeEventHandler
         });
 
         //PAYMENT PERIOD END DAY SECTION
@@ -6450,12 +6450,6 @@ app.panel.AddEmployeeWizard = function (config) {
                 // {value:  7, text: 'Week 2: Sunday'}
             );
         }
-        else if (paymentPeriodSelect.getValue() === 'TWMO') {
-            for (var i = 1; i < 29; i++) {
-                days.push({ value: i, text: i });
-            }
-            days.push({ value: 0, text: 'Last Day' });
-        }
         else if (paymentPeriodSelect.getValue() === 'MONT') {
             for (var i = 1; i < 29; i++) {
                 days.push({ value: i, text: i });
@@ -6466,35 +6460,53 @@ app.panel.AddEmployeeWizard = function (config) {
             return;
         }
 
+        const startDays = [];
+        const endDays = [];
+        const paymentDays = [];
+
+        for (let i = 1; i < 29; i++){
+            startDays.push({ value: i, text: i });
+        }
+
+        for (let i = 1; i < 28; i++){
+            endDays.push({ value: i, text: i });
+        }
+        endDays.push({ value: 0, text: 'Last Day' });
+
+        for (var i = 1; i < 29; i++) {
+                paymentDays.push({ value: i, text: i });
+            }
+        paymentDays.push({ value: 0, text: 'Last Day' });
+
         // Set and display the batch payment period start and end days
         // First payment period
         twiceMonthlySelectFirstStartDay.setValue(null, '');
         twiceMonthlySelectFirstStartDay.clear();
-        twiceMonthlySelectFirstStartDay.addItems(days);
+        twiceMonthlySelectFirstStartDay.addItems(startDays);
 
         twiceMonthlySelectFirstEndDay.setValue(null, '');
         twiceMonthlySelectFirstEndDay.clear();
-        twiceMonthlySelectFirstEndDay.addItems(days);
+        twiceMonthlySelectFirstEndDay.addItems(endDays);
 
         // Second payment period
         twiceMonthlySelectSecondStartDay.setValue(null, '');
         twiceMonthlySelectSecondStartDay.clear();
-        twiceMonthlySelectSecondStartDay.addItems(days);
+        twiceMonthlySelectSecondStartDay.addItems(startDays);
 
         twiceMonthlySelectSecondEndDay.setValue(null, '');
         twiceMonthlySelectSecondEndDay.clear();
-        twiceMonthlySelectSecondEndDay.addItems(days);
+        twiceMonthlySelectSecondEndDay.addItems(endDays);
 
         // Set and display the batch payment days
         // First payment period
         twiceMonthlySelectFirstPaymentDay.setValue(null, '');
         twiceMonthlySelectFirstPaymentDay.clear();
-        twiceMonthlySelectFirstPaymentDay.addItems(days);
-
+        twiceMonthlySelectFirstPaymentDay.addItems(paymentDays);
+        
         // Second payment period
         twiceMonthlySelectSecondPaymentDay.setValue(null, '');
         twiceMonthlySelectSecondPaymentDay.clear();
-        twiceMonthlySelectSecondPaymentDay.addItems(days);
+        twiceMonthlySelectSecondPaymentDay.addItems(paymentDays);
 
         // Set and display the payment period end days
         paymentPeriodEndDaySelect.setValue(null, '');
@@ -6995,6 +7007,97 @@ app.panel.AddEmployeeWizard = function (config) {
             sundayHoursTxt.disable();
             sundayHoursTxt.setValue('');
         }
+    }
+
+    //Function to determine if next day is the day after previous day; 
+    //Day 28 is an exception, as in Feb the next day is 1, but could be 29;
+    //Thus 28 should not be selected as a proper end day choice and trigger warning display. 
+    function isNextDay(endValue, startValue){
+
+        const end = parseInt(endValue, 10);
+        const start = parseInt(startValue, 10);
+
+        if (end === 0){
+            return start === 1;
+        }
+        if (end === 28){
+            return false;
+        }
+
+        return start === end + 1;
+    }
+
+    //Function to show warning if start and end days do not follow each other 
+    //(indicating that all days in month are not covered)
+    function validateTwiceMonthlyCoverage(){
+
+        const firstStart = twiceMonthlySelectFirstStartDay.getValue();
+        const firstEnd = twiceMonthlySelectFirstEndDay.getValue();
+        const secondStart = twiceMonthlySelectSecondStartDay.getValue();
+        const secondEnd = twiceMonthlySelectSecondEndDay.getValue();
+
+        const isEmpty = value => value === null || value === '';
+
+        const firstBoundaryInvalid =
+            !isEmpty(firstEnd) &&
+            !isEmpty(secondStart) &&
+            !isNextDay(firstEnd, secondStart);
+
+        const secondBoundaryInvalid =
+            !isEmpty(secondEnd) &&
+            !isEmpty(firstStart) &&
+            !isNextDay(secondEnd, firstStart);
+
+        if (firstBoundaryInvalid || secondBoundaryInvalid) {
+            wizardNextBtn.showWarning(
+                'The payment periods do not cover all days in the month.'
+            );
+        }
+
+    }
+
+    //Parses last day 
+    const comparableDay = value => {
+        const day = parseInt(value, 10);
+        return day === 0 ? 32 : day;
+    };
+
+    //Function to ensure Payment days are after End days
+    function validateTwiceMonthlyPaymentDays() {
+        const firstEnd = twiceMonthlySelectFirstEndDay.getValue();
+        const firstPayment = twiceMonthlySelectFirstPaymentDay.getValue();
+        const secondEnd = twiceMonthlySelectSecondEndDay.getValue();
+        const secondPayment = twiceMonthlySelectSecondPaymentDay.getValue();
+
+        const isEmpty = value => value === null || value === '';
+
+        if (
+            (!isEmpty(firstEnd) &&
+            !isEmpty(firstPayment) &&
+            comparableDay(firstPayment) < comparableDay(firstEnd)) || 
+            (!isEmpty(secondEnd) &&
+            !isEmpty(secondPayment) &&
+            comparableDay(secondPayment) < comparableDay(secondEnd))
+        ) {
+            wizardNextBtn.showWarning(
+                'Selected Payment Day is before Payment Period End.'
+            );
+        }
+    }
+
+    function twiceMonthlyStartDayChangeEventHandler() {
+        defaultOnChangeEventHandler();
+        validateTwiceMonthlyCoverage();
+    }
+
+    function twiceMonthlyPaymentDayChangeEventHandler() {
+        defaultOnChangeEventHandler();
+        validateTwiceMonthlyPaymentDays();
+    }
+
+    function twiceMonthlyEndDayChangeEventHandler() {
+        defaultOnChangeEventHandler();
+        validateTwiceMonthlyCoverage();
     }
 
 
