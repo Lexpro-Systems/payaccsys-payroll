@@ -966,7 +966,6 @@ function getNextBiWeeklyPaymentDate(DateTime $date, ?int $dayOfWeek): DateTime
     }
 
     // Standard bi-weekly logic
-
     $targetWeek = 2;
     if ($dayOfWeek > 6) {
         $dayOfWeek -= 7;

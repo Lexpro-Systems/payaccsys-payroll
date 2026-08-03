@@ -7197,9 +7197,18 @@ class Payrun extends Controller
             }
 
             // Set payslip end date
+            // if ($lastPayslipToDate !== null) {
+            //     $payslipEndDate = new DateTime($lastPayslipToDate->format('Y-m-d'));
+            //     $payslipEndDate->modify('+1 day');
+            // } else {
+            //     $payslipEndDate = new DateTime($employmentStartDate->format('Y-m-d'));
+            // }
+            // Set payslip end date
             if ($lastPayslipToDate !== null) {
                 $payslipEndDate = new DateTime($lastPayslipToDate->format('Y-m-d'));
                 $payslipEndDate->modify('+1 day');
+            } else if ($employees[$i]['paymentPeriod'] === 'BWEE' && $employees[$i]['bweeCustompped'] !== null) {
+                $payslipEndDate = new DateTime($employees[$i]['bweeCustompped']);
             } else {
                 $payslipEndDate = new DateTime($employmentStartDate->format('Y-m-d'));
             }
