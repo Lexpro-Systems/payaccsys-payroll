@@ -1857,7 +1857,7 @@ app.panel.ViewEmployeeDetails = function (config) {
         // Create a modal window
         var editEmploymentDetailsModal = new lx.component.ModalWindow({
             margin: '40px',
-            maxWidth: '450px',
+            maxWidth: '800px',
             maxHeight: '640px'
         });
 
