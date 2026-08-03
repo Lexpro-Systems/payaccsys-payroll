@@ -1042,7 +1042,7 @@ function getBiWeeklyPayslipStartDate(DateTime $date): DateTime
 // baseDate             A DateTime object giving the last last payment date, or the employee's start date
 // dayOfWeek            An integer value indicating the day of the week (0 to 13)
 // return               The number of payment periods in the tax year
-function getBiWeeklyPayslipPeriod(DateTime $date, DateTime $baseDate, int $dayOfWeek): int
+function getBiWeeklyPayslipPeriod(DateTime $date, DateTime $baseDate, ?int $dayOfWeek): int
 {
     // Set the end date
     $endDate = new DateTime($date->format('Y-m-d'));

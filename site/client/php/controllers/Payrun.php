@@ -7320,12 +7320,19 @@ class Payrun extends Controller
 
                 // Store payslip
                 if ($addPayslip === true) {
+
+                    $paymentPeriodEndDay = $employees[$i]['paymentPeriodEndDay'];
+                    if ($employees[$i]['paymentPeriod'] === 'BWEE' && $employees[$i]['bweeCustompped'] !== null) {
+                        $paymentPeriodEndDay = (int)$payslipEndDate->format('w');
+                    }
+
                     $employees[$i]['payslips'][] = [
                         'employee' => [
                             'id' => $employees[$i]['id'],
                             'name' => $employees[$i]['name'],
                             'age' => $employees[$i]['age'],
-                            'paymentPeriodEndDay' => $employees[$i]['paymentPeriodEndDay']
+                            'paymentPeriodEndDay' => $paymentPeriodEndDay
+                            // 'paymentPeriodEndDay' => $employees[$i]['paymentPeriodEndDay']
                         ],
                         'taxPeriod' => [
                             'type' => $employees[$i]['paymentPeriod'],
