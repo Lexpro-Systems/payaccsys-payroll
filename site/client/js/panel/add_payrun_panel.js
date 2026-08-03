@@ -17,42 +17,42 @@
 //  onCancel            This event is fired when the user click the cancel button
 //  onDestroy           This event is fired just before the component is destroyed.
 //
-app.panel.AddPayrun = function(config) {
-    
+app.panel.AddPayrun = function (config) {
+
     //
     // PRIVATE VARIABLES
     //
-    
+
     var me = this;
     var confirmDestroy = null;
-    
+
     var el = null;
-    
+
     var contentEl = null;
     var loader = null;
-    
+
     var payrunDetailsSectionEl = null;
     var departmentSelect = null;
     var descriptionTxt = null;
     var fromDate = null;
     var toDate = null;
-    
+
     var buttonContainerEl = null;
     var cancelBtn = null;
     var addBtn = null;
-    
-    
+
+
     //
     // OBJECT EXTENSIONS
     //
-    
+
     lx.EventEmitter.call(this);
-    
-    
+
+
     //
     // PRIVATE FUNCTIONS
     //
-    
+
     // Function to load departments
     function loadDepartments() {
         lx.sendJSON({
@@ -63,67 +63,67 @@ app.panel.AddPayrun = function(config) {
                 offset: departmentSelect.getItemCount() - 1,
                 sortOrder: 'ASC'
             },
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Loading Departments Failed',
                         message: response.error
                     });
                 }
-                
+
                 // Populate departments select box
                 var departments = [];
-                for( var i = 0; i < response.departments.length; i++ ) {
-                    
+                for (var i = 0; i < response.departments.length; i++) {
+
                     departments.push({
                         value: response.departments[i].id,
                         text: response.departments[i].name
                     });
-                    
+
                 }
-                departmentSelect.addItems( departments );
+                departmentSelect.addItems(departments);
             }
         });
     }
-    
+
     // Function to get avalible default dates
     function getDefaultDates() {
         loader.show(false);
-        
+
         lx.sendJSON({
             url: 'exec.php?c=Payrun&fn=getDefaultDates',
             data: {
                 payrunId: config.payrunId
             },
-            onSuccess: function( responseText ) {
-                var response = JSON.parse( responseText );
+            onSuccess: function (responseText) {
+                var response = JSON.parse(responseText);
                 loader.hide();
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Unable to load dates',
                         message: response.error
                     });
                 }
-                
+
                 if (response.fromDate !== null) {
                     fromDate.setValue(response.fromDate);
                     toDate.setValue(response.toDate);
                     // fromDate.fireEvent('change', {srcPanel: me});
                     // descriptionTxt.focus();
                 }
-                
+
             }
         });
     }
-    
+
     //
     // PUBLIC FUNCTIONS
     //
-    
-    me.init = function( config ) {
+
+    me.init = function (config) {
         // Initialize component config
         var compConfig = {
             renderTo: null,
@@ -132,22 +132,22 @@ app.panel.AddPayrun = function(config) {
             flex: '1 1 100%',
             show: false
         };
-        
+
         // Parse user config
-        if( typeof config !== 'undefined' && config !== null ) {
-            for( var property in config ) {
-                if( config.hasOwnProperty(property) ) compConfig[property] = config[property];
+        if (typeof config !== 'undefined' && config !== null) {
+            for (var property in config) {
+                if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
-        
+
         // Attach external event handlers
-        if( compConfig.hasOwnProperty('onAdd') ) me.addEventListener('add', compConfig.onAdd);
-        if( compConfig.hasOwnProperty('onCancel') ) me.addEventListener('cancel', compConfig.onCancel);
-        if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
-        
+        if (compConfig.hasOwnProperty('onAdd')) me.addEventListener('add', compConfig.onAdd);
+        if (compConfig.hasOwnProperty('onCancel')) me.addEventListener('cancel', compConfig.onCancel);
+        if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
+
         // Initialize state
         confirmDestroy = false;
-        
+
         // Create root element
         el = lx.createElement('DIV', {
             parent: compConfig.renderTo,
@@ -162,7 +162,7 @@ app.panel.AddPayrun = function(config) {
                 backgroundColor: '#FFFFFF'
             }
         });
-        
+
         // Create the heading
         lx.createElement('DIV', {
             parent: el,
@@ -177,7 +177,7 @@ app.panel.AddPayrun = function(config) {
             },
             innerHTML: 'Add Payrun'
         });
-        
+
         // Create the contentEl element
         contentEl = lx.createElement('DIV', {
             parent: el,
@@ -189,17 +189,17 @@ app.panel.AddPayrun = function(config) {
                 padding: '0px 0px 15px 0px'
             }
         });
-        
+
         // Create the loader
         loader = new lx.component.Loader({
             renderTo: contentEl
         });
-        
-        
+
+
         //
         // COMPANY DETAILS SECTION
         //
-        
+
         // Create company details section
         payrunDetailsSectionEl = lx.createElement('DIV', {
             parent: contentEl,
@@ -212,7 +212,7 @@ app.panel.AddPayrun = function(config) {
                 padding: '15px'
             }
         });
-        
+
         // Create department select
         departmentSelect = new lx.component.Selectbox({
             renderTo: payrunDetailsSectionEl,
@@ -221,54 +221,54 @@ app.panel.AddPayrun = function(config) {
             // height: '32px',
             // width: '200px',
             margin: '0px 0px 0px 0px',
-            
+
             search: true,
-            
-            onSearch: function() {
+
+            onSearch: function () {
                 departmentSelect.clear();
-                departmentSelect.addItems( [{ value: null, text: 'All Departments' }] );
+                departmentSelect.addItems([{ value: null, text: 'All Departments' }]);
                 loadDepartments();
             },
-            
-            onListScrollEnd: function() {
+
+            onListScrollEnd: function () {
                 loadDepartments();
             }
         });
-        
+
         // Set department select data
-        departmentSelect.addItems( [{ value: null, text: 'All Departments' }] );
+        departmentSelect.addItems([{ value: null, text: 'All Departments' }]);
         departmentSelect.setValue(null, 'All Departments');
-        
+
         // Create the fromDate component
         fromDate = new lx.component.DatePicker({
             renderTo: payrunDetailsSectionEl,
             label: 'From Date',
             margin: '15px 0px 0px 0px',
-            
+
             onBlur: dateChangeEventHandler
         });
-        
+
         // Create the toDate component
         toDate = new lx.component.DatePicker({
             renderTo: payrunDetailsSectionEl,
             label: 'To Date',
             margin: '15px 0px 0px 0px',
-            
+
             onBlur: dateChangeEventHandler
         });
-        
+
         // Create the descriptionTxt component
         descriptionTxt = new lx.component.Textbox({
             renderTo: payrunDetailsSectionEl,
             margin: '15px 0px 0px 0px',
             label: 'Description'
         });
-        
-        
+
+
         //
         // BUTTON CONTAINER SECTION
         //
-        
+
         // Create the buttonContainerEl element
         buttonContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -282,149 +282,149 @@ app.panel.AddPayrun = function(config) {
                 borderColor: '#DFDFDF'
             }
         });
-        
+
         // Create the cancelBtn component
         cancelBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
             label: 'Cancel',
             style: 'text',
-            
+
             onClick: cancelBtnClickEventHandler
         });
-        
+
         // Create the addBtn component
         addBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
             label: 'Add',
             width: '120px',
             margin: '0px 0px 0px 30px',
-            
+
             onClick: addBtnClickEventHandler
         });
-        
+
         loadDepartments();
         getDefaultDates();
-        
+
         // If show is set to true show the panel.
-        if( compConfig.show === true ) me.show();
+        if (compConfig.show === true) me.show();
     };
-    
+
     // Function to set the renderTo target of the panel.
     //
     // renderTo         The new DOM element to render this component to.
-    me.setRenderTarget = function(renderTo) {
+    me.setRenderTarget = function (renderTo) {
         // Remove it from its current target
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         // Add it to the new renderTo element
-        renderTo.appendChild( el );
+        renderTo.appendChild(el);
     };
-    
+
     // Function to show the panel
-    me.show = function() {
-        lx.applyStyle(el, {display: 'flex'});
+    me.show = function () {
+        lx.applyStyle(el, { display: 'flex' });
     };
-    
+
     // Function to hide the panel
-    me.hide = function() {
-        lx.applyStyle(el, {display: 'none'});
+    me.hide = function () {
+        lx.applyStyle(el, { display: 'none' });
     };
-    
+
     // Function to set focus to the panel.
-    me.focus = function() {
+    me.focus = function () {
         fromDate.focus();
     };
-    
+
     // Function to destroy the panel and all its contents.
     //
     // NOTE: Must return true if the panel was destroyed successfully and false if the panel was not destroyed.
-    me.destroy = function() {
+    me.destroy = function () {
         // Check if we need to confirm before destroying the panel.
-        if( confirmDestroy === true ) {
+        if (confirmDestroy === true) {
             new lx.component.Messagebox({
                 title: 'You have unsaved changes',
                 message: 'If you continue the changes will be lost.',
                 buttons: [
-                    {name: 'cancel', label: 'Cancel', style: 'text', isCancel: true},
-                    {name: 'continue', label: 'Continue', isDefault: true}
+                    { name: 'cancel', label: 'Cancel', style: 'text', isCancel: true },
+                    { name: 'continue', label: 'Continue', isDefault: true }
                 ],
-                onClose: function( event ) {
-                    if( event.button === 'continue' ) {
+                onClose: function (event) {
+                    if (event.button === 'continue') {
                         confirmDestroy = false;
                         me.destroy();
                     }
                 }
             });
-            
+
             return false;
         }
-        
+
         // If there is a onDestroy event run that before destroying the panel
         me.fireEvent('destroy', null);
-        
+
         // Remove the panel from its parent
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         return true;
     };
-    
-    
+
+
     //
     // EVENT HANDLERS
     //
-    
+
     // Date control change event handler
     function dateChangeEventHandler() {
         // Have both dates been completed
-        if( fromDate.getValue() !== '' && toDate.getValue() !== '' ) {
+        if (fromDate.getValue() !== '' && toDate.getValue() !== '') {
             // Was no description specified?
-            if( descriptionTxt.getValue() === '' ) {
+            if (descriptionTxt.getValue() === '') {
                 // Set the description
                 descriptionTxt.setValue(fromDate.getValue() + ' to ' + toDate.getValue());
             }
         }
     }
-    
+
     // Cancel button click event handler
     function cancelBtnClickEventHandler() {
-        me.fireEvent('cancel', {srcPanel: me});
+        me.fireEvent('cancel', { srcPanel: me });
     }
-    
+
     // Add button click event handler
     function addBtnClickEventHandler() {
         // Check that a from date was entered.
-        if( fromDate.getValue() === '' ) {
+        if (fromDate.getValue() === '') {
             addBtn.showWarning('Please enter from date.');
             return;
         }
-        
+
         // Check that the from date entered is valid
-        if( fromDate.isValid() === false ) {
+        if (fromDate.isValid() === false) {
             addBtn.showWarning('Please enter a valid from date.');
             return;
         }
-        
+
         // Check that a to date was entered
-        if( toDate.getValue() === '' ) {
+        if (toDate.getValue() === '') {
             addBtn.showWarning('Please enter a to date.');
             return;
         }
-        
+
         // Check that the to date entered is valid
-        if( toDate.isValid() === false ) {
+        if (toDate.isValid() === false) {
             addBtn.showWarning('Please enter a valid to date.');
             return;
         }
-        
+
         // Check that a description was entered.
-        if( descriptionTxt.getValue() === '' ) {
+        if (descriptionTxt.getValue() === '') {
             addBtn.showWarning('Please enter a description for the payrun.');
             return;
         }
-        
+
         addBtn.showLoader();
         addBtn.disable();
-        
+
         lx.sendJSON({
             url: 'exec.php?c=Payrun&fn=generate',
             data: {
@@ -433,27 +433,27 @@ app.panel.AddPayrun = function(config) {
                 endDate: toDate.getValue(),
                 description: descriptionTxt.getValue()
             },
-            onSuccess: function( responseText ) {
-                
+            onSuccess: function (responseText) {
+
                 addBtn.hideLoader();
                 addBtn.enable();
-                
-                var response = JSON.parse( responseText );
-                
-                if( response.ok !== true ) {
+
+                var response = JSON.parse(responseText);
+
+                if (response.ok !== true) {
                     addBtn.showWarning(response.error);
                     return;
                 }
-                
-                me.fireEvent('add', {srcPanel: me});
+
+                me.fireEvent('add', { srcPanel: me });
             }
         });
     }
-    
-    
+
+
     //
     // INITIALIZE OBJECT
     //
-    
-    me.init( config );
+
+    me.init(config);
 };
