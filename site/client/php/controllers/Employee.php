@@ -2806,6 +2806,8 @@ class Employee extends Controller
             'payment_period_types.name AS payment_period_name, ' .
             'employees.payment_period_end_day, ' .
             'employees.payment_day, ' .
+            'employees.bwee_custom_pped, ' .
+            'employees.bwee_custom_payment_day, ' .
             'employees.income_tax_number, ' .
             'employees.enable_paye_correction, ' .
             'employees.income_tax_directive_1, ' .
@@ -2982,6 +2984,8 @@ class Employee extends Controller
             'paymentPeriodName' => $sqlRow['payment_period_name'],
             'paymentPeriodEndDay' => $sqlRow['payment_period_end_day'],
             'paymentDay' => $sqlRow['payment_day'],
+            'bweeCustomPped' => $sqlRow['bwee_custom_pped'],
+            'bweeCustomPaymentDay' => $sqlRow['bwee_custom_payment_day'],
             'incomeTaxNumber' => $sqlRow['income_tax_number'],
             'enablePayeCorrection' => $sqlRow['enable_paye_correction'],
             'incomeTaxDirective1' => $sqlRow['income_tax_directive_1'],

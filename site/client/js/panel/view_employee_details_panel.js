@@ -81,6 +81,10 @@ app.panel.ViewEmployeeDetails = function (config) {
     var departmentDisplay = null;
     var paymentMethodDisplay = null;
     var paymentPeriodDisplay = null;
+    var standardPaymentContainerEl = null;
+    var customDateContainerEl = null;
+    var customPaymentPeriodStartDisplay = null;
+    var customPaymentDayDisplay = null;
     var paymentPeriodEndDayDisplay = null;
     var paymentDayDisplay = null;
 
@@ -477,6 +481,23 @@ app.panel.ViewEmployeeDetails = function (config) {
                     }
                 }
                 paymentDayDisplay.setValue(value);
+
+                if (response.employee.paymentPeriodCode === 'BWEE') {
+
+                    if (response.employee.bweeCustomPped === null) {
+                        standardPaymentContainerEl.style.display = 'flex';
+                        customDateContainerEl.style.display = 'none';
+                    } else {
+                        standardPaymentContainerEl.style.display = 'none';
+                        customDateContainerEl.style.display = 'flex';
+                        customPaymentPeriodStartDisplay.setValue(response.employee.bweeCustomPped);
+                        customPaymentDayDisplay.setValue(response.employee.bweeCustomPaymentDay);
+                    }
+
+                } else {
+                    //standardPaymentContainerEl.style.display = 'none';
+                    customDateContainerEl.style.display = 'none';
+                }
 
                 // Set work schedule details
                 if (response.employee.workSchedule !== null) {
@@ -1156,17 +1177,47 @@ app.panel.ViewEmployeeDetails = function (config) {
             labelWidth: '230px'
         });
 
+        standardPaymentContainerEl = lx.createElement('DIV', {
+            parent: employmentDetailsSectionEl,
+            style: {
+                display: 'flex',
+                flexDirection: 'column'
+            }
+        });
+
         paymentPeriodEndDayDisplay = new lx.component.Display({
-            renderTo: employmentDetailsSectionEl,
+            renderTo: standardPaymentContainerEl,
             margin: '10px 0px 0px 0px',
             label: 'Payment Period End Day:',
             labelWidth: '230px'
         });
 
         paymentDayDisplay = new lx.component.Display({
-            renderTo: employmentDetailsSectionEl,
+            renderTo: standardPaymentContainerEl,
             margin: '10px 0px 0px 0px',
             label: 'Payment Day:',
+            labelWidth: '230px'
+        });
+
+        customDateContainerEl = lx.createElement('DIV', {
+            parent: employmentDetailsSectionEl,
+            style: {
+                display: 'none',
+                flexDirection: 'column'
+            }
+        });
+
+        customPaymentPeriodStartDisplay = new lx.component.Display({
+            renderTo: customDateContainerEl,
+            margin: '10px 0px 0px 0px',
+            label: 'Custom Payment Period Start:',
+            labelWidth: '230px'
+        });
+
+        customPaymentDayDisplay = new lx.component.Display({
+            renderTo: customDateContainerEl,
+            margin: '10px 0px 0px 0px',
+            label: 'Custom Payment Day:',
             labelWidth: '230px'
         });
 
