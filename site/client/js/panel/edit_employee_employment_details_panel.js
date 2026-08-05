@@ -1112,9 +1112,9 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
         let hasStandardEndDay = paymentPeriodEndDaySelect.getValue() !== null;
         let hasStandardPaymentDay = paymentDaySelect.getValue() !== null;
         let hasStandard = hasStandardEndDay || hasStandardPaymentDay;
+        let hasCustomBwee = paymentPeriodSelect.getValue() === 'BWEE' && bweeCustomContainerEl.style.display !== 'none';
 
         const isEmptySelect = select => select.getValue() === null || select.getValue() === '';
-        var hasCustomBwee = paymentPeriodSelect.getValue() === 'BWEE' && bweeCustomContainerEl.style.display !== 'none';
 
         if (isTwiceMonthly) {
             if (isEmptySelect(twiceMonthlySelectFirstStartDay)) {

@@ -5643,6 +5643,18 @@ app.panel.AddEmployeeWizard = function (config) {
                         wizardNextBtn.showWarning('The custom payment day can not be empty.');
                         return;
                     }
+
+                    let startDate = new Date(bweeCustomDateDate.getValue());
+                    let paymentDate = new Date(bweeCustomPaymentDayDate.getValue());
+                    let minimumPaymentDate = new Date(startDate);
+                    minimumPaymentDate.setDate(minimumPaymentDate.getDate() + 13);
+
+                    if (paymentDate < minimumPaymentDate) {
+                        wizardNextBtn.showWarning(
+                            'The Custom Payment Day must be at least 13 days after the Custom Payment Period Start.'
+                        );
+                        return;
+                    }
                 }
             }
             else {
@@ -6464,18 +6476,18 @@ app.panel.AddEmployeeWizard = function (config) {
         const endDays = [];
         const paymentDays = [];
 
-        for (let i = 1; i < 29; i++){
+        for (let i = 1; i < 29; i++) {
             startDays.push({ value: i, text: i });
         }
 
-        for (let i = 1; i < 28; i++){
+        for (let i = 1; i < 28; i++) {
             endDays.push({ value: i, text: i });
         }
         endDays.push({ value: 0, text: 'Last Day' });
 
         for (var i = 1; i < 29; i++) {
-                paymentDays.push({ value: i, text: i });
-            }
+            paymentDays.push({ value: i, text: i });
+        }
         paymentDays.push({ value: 0, text: 'Last Day' });
 
         // Set and display the batch payment period start and end days
@@ -6502,7 +6514,7 @@ app.panel.AddEmployeeWizard = function (config) {
         twiceMonthlySelectFirstPaymentDay.setValue(null, '');
         twiceMonthlySelectFirstPaymentDay.clear();
         twiceMonthlySelectFirstPaymentDay.addItems(paymentDays);
-        
+
         // Second payment period
         twiceMonthlySelectSecondPaymentDay.setValue(null, '');
         twiceMonthlySelectSecondPaymentDay.clear();
@@ -7012,15 +7024,15 @@ app.panel.AddEmployeeWizard = function (config) {
     //Function to determine if next day is the day after previous day; 
     //Day 28 is an exception, as in Feb the next day is 1, but could be 29;
     //Thus 28 should not be selected as a proper end day choice and trigger warning display. 
-    function isNextDay(endValue, startValue){
+    function isNextDay(endValue, startValue) {
 
         const end = parseInt(endValue, 10);
         const start = parseInt(startValue, 10);
 
-        if (end === 0){
+        if (end === 0) {
             return start === 1;
         }
-        if (end === 28){
+        if (end === 28) {
             return false;
         }
 
@@ -7029,7 +7041,7 @@ app.panel.AddEmployeeWizard = function (config) {
 
     //Function to show warning if start and end days do not follow each other 
     //(indicating that all days in month are not covered)
-    function validateTwiceMonthlyCoverage(){
+    function validateTwiceMonthlyCoverage() {
 
         const firstStart = twiceMonthlySelectFirstStartDay.getValue();
         const firstEnd = twiceMonthlySelectFirstEndDay.getValue();
@@ -7073,11 +7085,11 @@ app.panel.AddEmployeeWizard = function (config) {
 
         if (
             (!isEmpty(firstEnd) &&
-            !isEmpty(firstPayment) &&
-            comparableDay(firstPayment) < comparableDay(firstEnd)) || 
+                !isEmpty(firstPayment) &&
+                comparableDay(firstPayment) < comparableDay(firstEnd)) ||
             (!isEmpty(secondEnd) &&
-            !isEmpty(secondPayment) &&
-            comparableDay(secondPayment) < comparableDay(secondEnd))
+                !isEmpty(secondPayment) &&
+                comparableDay(secondPayment) < comparableDay(secondEnd))
         ) {
             wizardNextBtn.showWarning(
                 'Selected Payment Day is before Payment Period End.'
