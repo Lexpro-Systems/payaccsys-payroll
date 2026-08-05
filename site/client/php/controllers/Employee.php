@@ -1611,6 +1611,12 @@ class Employee extends Controller
             'paymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
             'bweeCustomDateDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => true],
             'bweeCustomPaymentDayDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectFirstStartDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectFirstEndDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectFirstPaymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectSecondStartDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectSecondEndDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectSecondPaymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],             
             'incomeTaxNumber' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
             'enablePayeCorrection' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false],
             'sicCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false],
@@ -2038,6 +2044,12 @@ class Employee extends Controller
             'payment_day, ' .
             'bwee_custom_pped, ' .
             'bwee_custom_payment_day, ' .
+            'first_period_start, ' .
+            'first_period_end, ' .
+            'first_period_payment_day, ' .
+            'second_period_start, ' .
+            'second_period_end, ' .
+            'second_period_payment_day, ' .
             'income_tax_number, ' .
             'enable_paye_correction, ' .
             'income_tax_directive_1, ' .
@@ -2063,7 +2075,8 @@ class Employee extends Controller
             '$31, $32, $33, $34, $35, $36, $37, $38, $39, $40, ' .
             '$41, $42, $43, $44, $45, $46, $47, $48, $49, $50, ' .
             '$51, $52, $53, $54, $55, $56, $57, $58, $59, $60, ' .
-            '$61, $62, $63, $64, $65, $66, $67, $68, $69, $70 ' .
+            '$61, $62, $63, $64, $65, $66, $67, $68, $69, $70, ' .
+            '$71, $72, $73, $74, $75, $76 ' .
             ') ' .
             'RETURNING id, employment_position, employment_start_date;';
         $sqlResult = $db->paramQuery($sqlQuery, [
@@ -2120,6 +2133,12 @@ class Employee extends Controller
             $data['paymentDay'],                    // payment_day
             $data['bweeCustomDateDate'],           // bwee_custom_date_date
             $data['bweeCustomPaymentDayDate'],    // bwee_custom_payment_day_date
+            $data['twiceMonthlySelectFirstStartDay'],    // first_period_start
+            $data['twiceMonthlySelectFirstEndDay'],      // first_period_end
+            $data['twiceMonthlySelectFirstPaymentDay'],  // first_period_payment_day
+            $data['twiceMonthlySelectSecondStartDay'],   // second_period_start
+            $data['twiceMonthlySelectSecondEndDay'],     // second_period_end
+            $data['twiceMonthlySelectSecondPaymentDay'], // second_period_payment_day
             $data['incomeTaxNumber'],               // income_tax_number
             $data['enablePayeCorrection'],          // enable_paye_correction
             $data['incomeTaxDirective1'],           // income_tax_directive_1

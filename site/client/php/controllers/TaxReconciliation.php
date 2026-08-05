@@ -443,6 +443,10 @@ class TaxReconciliation extends Controller
             $paymentPeriodEndDay = $sqlEmployeeRow['payment_period_end_day'];
             if ($sqlEmployeeRow['payment_period_code'] === 'MONT') {
                 $payPeriods = 12;
+            } else if (
+                $sqlEmployeeRow['payment_period_code'] === 'TWMO'
+            ) {
+                $payPeriods = 24;
             } else if ($sqlEmployeeRow['payment_period_code'] === 'WEEK') {
                 $payPeriods = \PayslipUtil\getWeeklyPayslipPeriod($reconciliationEndDate, $firstPaylsipToDate, $paymentPeriodEndDay);
                 // $payPeriods = 52;
@@ -5231,6 +5235,8 @@ class TaxReconciliation extends Controller
             if ($periodCode === 'INTE') {
                 if ($sqlEmployeeRow['payment_period_code'] === 'MONT') {
                     $payPeriods = 6;
+                } else if ($sqlEmployeeRow['payment_period_code'] === 'TWMO') {
+                    $payPeriods = 12;
                 } else if ($sqlEmployeeRow['payment_period_code'] === 'WEEK') {
                     $payPeriods = \PayslipUtil\getWeeklyPayslipPeriod($reconciliationEndDate, $firstPaylsipToDate, $paymentPeriodEndDay);
                     // $payPeriods = 26;
@@ -5241,6 +5247,8 @@ class TaxReconciliation extends Controller
             } else {
                 if ($sqlEmployeeRow['payment_period_code'] === 'MONT') {
                     $payPeriods = 12;
+                } else if ($sqlEmployeeRow['payment_period_code'] === 'TWMO') {
+                    $payPeriods = 24;
                 } else if ($sqlEmployeeRow['payment_period_code'] === 'WEEK') {
                     $payPeriods = \PayslipUtil\getWeeklyPayslipPeriod($reconciliationEndDate, $firstPaylsipToDate, $paymentPeriodEndDay);
                     // $payPeriods = 52;

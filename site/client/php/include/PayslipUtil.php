@@ -326,6 +326,9 @@ function calculateLoanInstalment($interestTypeCode, $paymentPeriodTypeCode, $cap
     } else if ($paymentPeriodTypeCode === 'BWEE') {
         $totalYears = $numPayments / 26;
         $numPaymentsPerYear = 26;
+    } else if ($paymentPeriodTypeCode === 'TWMO') {
+        $totalYears = $numPayments / 24;
+        $numPaymentsPerYear = 24;
     } else if ($paymentPeriodTypeCode === 'MONT') {
         $totalYears = $numPayments / 12;
         $numPaymentsPerYear = 12;
@@ -407,6 +410,9 @@ function getLoanAmortization($interestTypeCode, $paymentPeriodTypeCode, $capitil
     } else if ($paymentPeriodTypeCode === 'BWEE') {
         $totalYears = $numPayments / 26;
         $numPaymentsPerYear = 26;
+    } else if ($paymentPeriodTypeCode === 'TWMO') {
+        $totalYears = $numPayments / 24;
+        $numPaymentsPerYear = 24;
     } else if ($paymentPeriodTypeCode === 'MONT') {
         $totalYears = $numPayments / 12;
         $numPaymentsPerYear = 12;
@@ -534,6 +540,9 @@ function getLoanPaymentAmortization($paymentNum, $interestTypeCode, $paymentPeri
     } else if ($paymentPeriodTypeCode === 'BWEE') {
         $totalYears = $numPayments / 26;
         $numPaymentsPerYear = 26;
+    } else if ($paymentPeriodTypeCode === 'TWMO') {
+        $totalYears = $numPayments / 24;
+        $numPaymentsPerYear = 24;
     } else if ($paymentPeriodTypeCode === 'MONT') {
         $totalYears = $numPayments / 12;
         $numPaymentsPerYear = 12;
@@ -1082,6 +1091,143 @@ function getBiWeeklyPayslipPeriod(DateTime $date, DateTime $baseDate, ?int $dayO
     return $period;
 }
 
+/**
+ * Return all TWMO periods whose calculated end date falls within
+ * the supplied payrun date range.
+ *
+ * Configured day values:
+ *     1 to 27 = calendar day
+ *     0       = last calendar day of the month
+ *
+ * A period crosses a month boundary when its start day is numerically
+ * greater than its end day, except when the end day is 0.
+ *
+ * Examples:
+ *     25 to 10  = 25 August to 10 September
+ *     11 to 24  = 11 September to 24 September
+ *     16 to 0   = 16 September to 30 September
+ *
+ * @return array<int, array{
+ *     period: int,
+ *     startDate: DateTime,
+ *     endDate: DateTime
+ * }>
+ */
+function getTwmoPeriods(DateTime $payrunFromDate, DateTime $payrunToDate, int $firstPeriodStartDay, int $firstPeriodEndDay, int $secondPeriodStartDay, int $secondPeriodEndDay): array {
+    $rangeStart = new DateTime($payrunFromDate->format('Y-m-d'));
+    $rangeEnd   = new DateTime($payrunToDate->format('Y-m-d'));
+
+    if ($rangeStart > $rangeEnd) {
+        throw new \InvalidArgumentException(
+            'The payrun start date cannot be after its end date.'
+        );
+    }
+
+    $periodDefinitions = [
+        [
+            'period'  => 1,
+            'startDay' => $firstPeriodStartDay,
+            'endDay'   => $firstPeriodEndDay
+        ],
+        [
+            'period'  => 2,
+            'startDay' => $secondPeriodStartDay,
+            'endDay'   => $secondPeriodEndDay
+        ]
+    ];
+
+    $matchingPeriods = [];
+
+    //Each iteration represents the calendar month containing the calculated period end date.
+    $endDateMonth = new DateTime($rangeStart->format('Y-m-01'));
+    $lastEndDateMonth = new DateTime($rangeEnd->format('Y-m-01'));
+
+    while ($endDateMonth <= $lastEndDateMonth) {
+        foreach ($periodDefinitions as $period) {
+            $periodEndDate = getTwmoCalendarDate($endDateMonth, $period['endDay']);
+
+            //The end date decides whether this period belongs to the current payrun.
+            if ($periodEndDate < $rangeStart || $periodEndDate > $rangeEnd) {
+                continue;
+            }
+
+            $periodStartMonth = new DateTime($endDateMonth->format('Y-m-01'));
+
+            //An end day of 0 means the last day of the current month.
+            //Therefore, 16–0 does not cross a month boundary.
+            //A definition such as 25–10 does cross a boundary, so its start date belongs to the previous calendar month.
+            $crossesMonth = $period['endDay'] !== 0 && $period['startDay'] > $period['endDay'];
+
+            if ($crossesMonth) {
+                $periodStartMonth->modify('first day of previous month');
+            }
+
+            $periodStartDate = getTwmoCalendarDate(
+                $periodStartMonth,
+                $period['startDay']
+            );
+
+            $matchingPeriods[] = [
+                'period'    => $period['period'],
+                'startDate' => $periodStartDate,
+                'endDate'   => $periodEndDate
+            ];
+        }
+
+        $endDateMonth->modify('first day of next month');
+    }
+
+    //Return the periods in chronological end-date order.
+    usort(
+        $matchingPeriods,
+        function (array $firstPeriod, array $secondPeriod): int {
+            return $firstPeriod['endDate'] <=> $secondPeriod['endDate'];
+        }
+    );
+
+    return $matchingPeriods;
+}
+
+/**
+ * Convert a configured TWMO day into a complete calendar date.
+ *
+ * The supplied $month may be any date within the required month.
+ * A configured day of 0 represents that month's last calendar day.
+ */
+function getTwmoCalendarDate(DateTime $month, int $configuredDay): DateTime {
+    $calendarDay = resolveTwmoCalendarDay($month, $configuredDay);
+
+    return new DateTime(sprintf(
+        '%04d-%02d-%02d',
+        (int)$month->format('Y'),
+        (int)$month->format('m'),
+        $calendarDay
+    ));
+}
+
+/**
+ * Resolve a configured TWMO day for a particular calendar month.
+ *
+ * The select boxes currently allow:
+ *     1 to 27 = exact calendar day
+ *     0       = last calendar day of the month
+ */
+function resolveTwmoCalendarDay(DateTime $month, int $configuredDay): int {
+    if ($configuredDay === 0) {
+        return (int)$month->format('t');
+    }
+
+     //This protects the backend even though the select boxes prevent
+     //the user from submitting other values normally.
+    if ($configuredDay < 1 || $configuredDay > 27) {
+        throw new \InvalidArgumentException(
+            'Invalid TWMO calendar day: ' . $configuredDay
+        );
+    }
+
+    return $configuredDay;
+}
+
 // Function to calculate all calculateable items on a payslip.
 function calculatePayslipItems(&$payslip): bool
 {
@@ -1093,6 +1239,8 @@ function calculatePayslipItems(&$payslip): bool
     $periodMultiplier = 0;
     if ($payslip['taxPeriod']['type'] === 'MONT') {
         $periodMultiplier = 12;
+    } else if ($payslip['taxPeriod']['type'] === 'TWMO') {
+    $periodMultiplier = 24;
     } else if ($payslip['taxPeriod']['type'] === 'WEEK') {
         // Get the payslip end date
         $taxYearEnd = new DateTime($payslip['toDate']);
@@ -1379,6 +1527,8 @@ function calculatePayslipTotals($payslip): array
     $periodMultiplier = 0;
     if ($payslip['taxPeriod']['type'] === 'MONT') {
         $periodMultiplier = 12;
+    } else if ($payslip['taxPeriod']['type'] === 'TWMO') {
+    $periodMultiplier = 24;
     } else if ($payslip['taxPeriod']['type'] === 'WEEK') {
         // Get the payslip end date
         $taxYearEnd = new DateTime($payslip['toDate']);
