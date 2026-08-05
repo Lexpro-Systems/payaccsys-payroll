@@ -3751,40 +3751,61 @@ class Employee extends Controller
             $updateValues[] = $data['paymentPeriodCode'];
         }
 
-        if (isset($data['paymentPeriodEndDay'])) {
+        if (array_key_exists('paymentPeriodEndDay', $data)) {
             $updateCount++;
-            if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
-            $updateQuery = $updateQuery . 'payment_period_end_day = $' . $updateCount;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'payment_period_end_day = $' . $updateCount;
             $updateValues[] = $data['paymentPeriodEndDay'];
         }
 
-        if (isset($data['paymentDay'])) {
+        if (array_key_exists('paymentDay', $data)) {
             $updateCount++;
-            if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
-            $updateQuery = $updateQuery . 'payment_day = $' . $updateCount;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'payment_day = $' . $updateCount;
             $updateValues[] = $data['paymentDay'];
         }
 
-        if (isset($data['paymentPeriodEndDay'])) {
+        if (array_key_exists('bweeCustomPpsd', $data)) {
             $updateCount++;
-            if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
-            $updateQuery = $updateQuery . 'payment_period_end_day = $' . $updateCount;
-            $updateValues[] = $data['paymentPeriodEndDay'];
-        }
-
-        if (isset($data['bweeCustomPpsd'])) {
-            $updateCount++;
-            if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
-            $updateQuery = $updateQuery . 'bwee_custom_pped = $' . $updateCount;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'bwee_custom_pped = $' . $updateCount;
             $updateValues[] = $data['bweeCustomPpsd'];
         }
 
-        if (isset($data['bweeCustomPaymentDay'])) {
+        if (array_key_exists('bweeCustomPaymentDay', $data)) {
             $updateCount++;
-            if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
-            $updateQuery = $updateQuery . 'bwee_custom_payment_day = $' . $updateCount;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'bwee_custom_payment_day = $' . $updateCount;
             $updateValues[] = $data['bweeCustomPaymentDay'];
         }
+
+        // if (isset($data['paymentPeriodEndDay'])) {
+        //     $updateCount++;
+        //     if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+        //     $updateQuery = $updateQuery . 'payment_period_end_day = $' . $updateCount;
+        //     $updateValues[] = $data['paymentPeriodEndDay'];
+        // }
+
+        // if (isset($data['paymentDay'])) {
+        //     $updateCount++;
+        //     if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+        //     $updateQuery = $updateQuery . 'payment_day = $' . $updateCount;
+        //     $updateValues[] = $data['paymentDay'];
+        // }
+
+        // if (isset($data['bweeCustomPpsd'])) {
+        //     $updateCount++;
+        //     if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+        //     $updateQuery = $updateQuery . 'bwee_custom_pped = $' . $updateCount;
+        //     $updateValues[] = $data['bweeCustomPpsd'];
+        // }
+
+        // if (isset($data['bweeCustomPaymentDay'])) {
+        //     $updateCount++;
+        //     if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+        //     $updateQuery = $updateQuery . 'bwee_custom_payment_day = $' . $updateCount;
+        //     $updateValues[] = $data['bweeCustomPaymentDay'];
+        // }
 
         if (isset($data['incomeTaxNumber'])) {
             $updateCount++;

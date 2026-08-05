@@ -54,6 +54,10 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
     var twiceMonthlySelectSecondPaymentDayContainerEl = null;
     var twiceMonthlySelectSecondPaymentDay = null;
 
+    var bweeButtonsContainerEl = null;
+    var employmentDateBtn = null;
+    var customDateBtn = null;
+
     var bweeCustomContainerEl = null;
     var bweeCustomPaymentPeriodStartDatePicker = null;
     var bweeCustomPaymentDayDatePicker = null;
@@ -322,23 +326,32 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
 
                 paymentDaySelect.setValue(response.employee.paymentDay, value);
 
-                if (response.employee.paymentPeriodCode === 'BWEE' && response.employee.bweeCustomPped) {
+                if (response.employee.paymentPeriodCode === 'BWEE') {
+                    if (bweeButtonsContainerEl) bweeButtonsContainerEl.style.display = 'flex';
+                    if (response.employee.bweeCustomPped) {
 
-                    paymentPeriodEndDaySelect.hide();
-                    paymentDaySelect.hide();
+                        paymentPeriodEndDaySelect.hide();
+                        paymentDaySelect.hide();
 
-                    bweeCustomContainerEl.style.display = 'block';
+                        bweeCustomContainerEl.style.display = 'block';
 
-                    bweeCustomPaymentPeriodStartDatePicker.setValue(
-                        response.employee.bweeCustomPped
-                    );
+                        bweeCustomPaymentPeriodStartDatePicker.setValue(
+                            response.employee.bweeCustomPped
+                        );
 
-                    bweeCustomPaymentDayDatePicker.setValue(
-                        response.employee.bweeCustomPaymentDay
-                    );
+                        bweeCustomPaymentDayDatePicker.setValue(
+                            response.employee.bweeCustomPaymentDay
+                        );
 
+                    } else {
+
+                        paymentPeriodEndDaySelect.show();
+                        paymentDaySelect.show();
+
+                        bweeCustomContainerEl.style.display = 'none';
+                    }
                 } else {
-
+                    if (bweeButtonsContainerEl) bweeButtonsContainerEl.style.display = 'none';
                     paymentPeriodEndDaySelect.show();
                     paymentDaySelect.show();
 
@@ -500,6 +513,49 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
             label: 'Payment Period',
 
             onChange: paymentPeriodSelectChangeEventHandler
+        });
+
+        // BWEE BUTTONS CONTAINER
+        bweeButtonsContainerEl = lx.createElement('DIV', {
+            parent: employmentDetailsSectionEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'none',
+                flexDirection: 'row',
+                alignItems: 'center',
+                margin: '15px 0px 0px 0px',
+                width: '100%'
+            }
+        });
+
+        employmentDateBtn = new lx.component.Button({
+            renderTo: bweeButtonsContainerEl,
+            label: 'Employment Date',
+            margin: '0px 10px 0px 0px',
+
+            onClick: function () {
+                bweeCustomPaymentPeriodStartDatePicker.setValue('');
+                bweeCustomPaymentDayDatePicker.setValue('');
+
+                bweeCustomContainerEl.style.display = 'none';
+                paymentPeriodEndDaySelect.show();
+                paymentDaySelect.show();
+            }
+        });
+
+        customDateBtn = new lx.component.Button({
+            renderTo: bweeButtonsContainerEl,
+            label: 'Custom Date',
+            margin: '0px 0px 0px 0px',
+
+            onClick: function () {
+                paymentPeriodEndDaySelect.setValue(null, '');
+                paymentDaySelect.setValue(null, '');
+
+                bweeCustomContainerEl.style.display = 'block';
+                paymentPeriodEndDaySelect.hide();
+                paymentDaySelect.hide();
+            }
         });
 
         // TWICE MONTHLY OPTION
@@ -1072,10 +1128,22 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
         paymentDaySelect.clear();
         paymentDaySelect.addItems(days);
 
-        if (paymentPeriodSelect.getValue() !== 'BWEE') {
-            paymentPeriodEndDaySelect.show();
-            paymentDaySelect.show();
-            bweeCustomContainerEl.style.display = 'none';
+        if (paymentPeriodSelect.getValue() === 'BWEE') {
+            if (bweeButtonsContainerEl) bweeButtonsContainerEl.style.display = 'flex';
+            if (bweeCustomContainerEl.style.display === 'block') {
+                paymentPeriodEndDaySelect.hide();
+                paymentDaySelect.hide();
+            } else {
+                paymentPeriodEndDaySelect.show();
+                paymentDaySelect.show();
+            }
+        } else {
+            if (bweeButtonsContainerEl) bweeButtonsContainerEl.style.display = 'none';
+            if (bweeCustomContainerEl) bweeCustomContainerEl.style.display = 'none';
+            if (!isTwiceMonthly) {
+                paymentPeriodEndDaySelect.show();
+                paymentDaySelect.show();
+            }
         }
         //paymentDaySelect.show();
     }
@@ -1202,6 +1270,9 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
         var employmentEnd = employmentEndDate.getValue();
         if (employmentEnd == '') employmentEnd = null;
 
+        console.log(bweeCustomPaymentPeriodStartDatePicker.getValue());
+        console.log(bweeCustomPaymentDayDatePicker.getValue());
+
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=update',
             data: {
@@ -1215,8 +1286,8 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
                 paymentPeriodCode: paymentPeriodSelect.getValue(),
                 paymentPeriodEndDay: parseInt(paymentPeriodEndDaySelect.getValue()),
                 paymentDay: parseInt(paymentDaySelect.getValue()),
-                bweeCustomPpsd: bweeCustomPaymentPeriodStartDatePicker.getValue(),
-                bweeCustomPaymentDay: bweeCustomPaymentDayDatePicker.getValue(),
+                bweeCustomPpsd: bweeCustomPaymentPeriodStartDatePicker.getValue() === '' ? null : bweeCustomPaymentPeriodStartDatePicker.getValue(),
+                bweeCustomPaymentDay: bweeCustomPaymentDayDatePicker.getValue() === '' ? null : bweeCustomPaymentDayDatePicker.getValue(),
                 twiceMonthlySelectFirstStartDay: twiceMonthlySelectFirstStartDay.getValue() === '' ? null : parseInt(twiceMonthlySelectFirstStartDay.getValue(), 10),
                 twiceMonthlySelectFirstEndDay: twiceMonthlySelectFirstEndDay.getValue() === '' ? null : parseInt(twiceMonthlySelectFirstEndDay.getValue(), 10),
                 twiceMonthlySelectFirstPaymentDay: twiceMonthlySelectFirstPaymentDay.getValue() === '' ? null : parseInt(twiceMonthlySelectFirstPaymentDay.getValue(), 10),
