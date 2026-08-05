@@ -1215,6 +1215,8 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
                 paymentPeriodCode: paymentPeriodSelect.getValue(),
                 paymentPeriodEndDay: parseInt(paymentPeriodEndDaySelect.getValue()),
                 paymentDay: parseInt(paymentDaySelect.getValue()),
+                bweeCustomPpsd: bweeCustomPaymentPeriodStartDatePicker.getValue(),
+                bweeCustomPaymentDay: bweeCustomPaymentDayDatePicker.getValue(),
                 twiceMonthlySelectFirstStartDay: twiceMonthlySelectFirstStartDay.getValue() === '' ? null : parseInt(twiceMonthlySelectFirstStartDay.getValue(), 10),
                 twiceMonthlySelectFirstEndDay: twiceMonthlySelectFirstEndDay.getValue() === '' ? null : parseInt(twiceMonthlySelectFirstEndDay.getValue(), 10),
                 twiceMonthlySelectFirstPaymentDay: twiceMonthlySelectFirstPaymentDay.getValue() === '' ? null : parseInt(twiceMonthlySelectFirstPaymentDay.getValue(), 10),

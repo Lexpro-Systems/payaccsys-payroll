@@ -3180,6 +3180,8 @@ class Employee extends Controller
             'paymentPeriodCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => false, 'nullable' => false],
             'paymentPeriodEndDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
             'paymentDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
+            'bweeCustomPpsd' => ['type' => Json::TYPE_DATE, 'required' => false, 'nullable' => true],
+            'bweeCustomPaymentDay' => ['type' => Json::TYPE_DATE, 'required' => false, 'nullable' => true],
             'incomeTaxNumber' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
             'sicCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => false, 'nullable' => false],
             'incomeTaxDirective1' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
@@ -3761,6 +3763,27 @@ class Employee extends Controller
             if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
             $updateQuery = $updateQuery . 'payment_day = $' . $updateCount;
             $updateValues[] = $data['paymentDay'];
+        }
+
+        if (isset($data['paymentPeriodEndDay'])) {
+            $updateCount++;
+            if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+            $updateQuery = $updateQuery . 'payment_period_end_day = $' . $updateCount;
+            $updateValues[] = $data['paymentPeriodEndDay'];
+        }
+
+        if (isset($data['bweeCustomPpsd'])) {
+            $updateCount++;
+            if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+            $updateQuery = $updateQuery . 'bwee_custom_pped = $' . $updateCount;
+            $updateValues[] = $data['bweeCustomPpsd'];
+        }
+
+        if (isset($data['bweeCustomPaymentDay'])) {
+            $updateCount++;
+            if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+            $updateQuery = $updateQuery . 'bwee_custom_payment_day = $' . $updateCount;
+            $updateValues[] = $data['bweeCustomPaymentDay'];
         }
 
         if (isset($data['incomeTaxNumber'])) {
