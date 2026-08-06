@@ -194,6 +194,16 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
         });
     }
 
+    //Helper function to return correct text for display if "last day" is selected.
+    function setDayValue(select, day) {
+        if (day === null || day === undefined) {
+            select.setValue(null, '');
+            return;
+        }
+
+        select.setValue(day, day === 0 ? 'Last Day' : String(day));
+    }
+
     function loadEmployee() {
         loader.show(false);
 
@@ -350,6 +360,22 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
 
                         bweeCustomContainerEl.style.display = 'none';
                     }
+                } else if(response.employee.paymentPeriodCode === 'TWMO'){
+                    paymentPeriodEndDaySelect.hide();
+                    paymentDaySelect.hide();
+
+                    twiceMonthlyFirstBatchHeadingEl.style.display = 'block';
+                    twiceMonthlyFirstBatchContainerEl.style.display = 'grid';
+                    twiceMonthlySecondBatchHeadingEl.style.display = 'block';
+                    twiceMonthlySecondBatchContainerEl.style.display = 'grid';
+
+                    //Set value and display text for selectboxes.
+                    setDayValue(twiceMonthlySelectFirstStartDay, response.employee.twiceMonthlyFirstStartDay);
+                    setDayValue(twiceMonthlySelectFirstEndDay, response.employee.twiceMonthlyFirstEndDay);
+                    setDayValue(twiceMonthlySelectFirstPaymentDay, response.employee.twiceMonthlyFirstPaymentDay);
+                    setDayValue(twiceMonthlySelectSecondStartDay, response.employee.twiceMonthlySecondStartDay);
+                    setDayValue(twiceMonthlySelectSecondEndDay, response.employee.twiceMonthlySecondEndDay);
+                    setDayValue(twiceMonthlySelectSecondPaymentDay, response.employee.twiceMonthlySecondPaymentDay);
                 } else {
                     if (bweeButtonsContainerEl) bweeButtonsContainerEl.style.display = 'none';
                     paymentPeriodEndDaySelect.show();

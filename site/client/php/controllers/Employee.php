@@ -2827,6 +2827,12 @@ class Employee extends Controller
             'employees.payment_day, ' .
             'employees.bwee_custom_pped, ' .
             'employees.bwee_custom_payment_day, ' .
+            'first_period_start, ' .
+            'first_period_end, ' .
+            'first_period_payment_day, ' .
+            'second_period_start, ' .
+            'second_period_end, ' .
+            'second_period_payment_day, ' .
             'employees.income_tax_number, ' .
             'employees.enable_paye_correction, ' .
             'employees.income_tax_directive_1, ' .
@@ -3005,6 +3011,37 @@ class Employee extends Controller
             'paymentDay' => $sqlRow['payment_day'],
             'bweeCustomPped' => $sqlRow['bwee_custom_pped'],
             'bweeCustomPaymentDay' => $sqlRow['bwee_custom_payment_day'],
+            
+            'twiceMonthlyFirstStartDay' =>
+            $sqlRow['first_period_start'] === null
+                ? null
+                : (int)$sqlRow['first_period_start'],
+
+            'twiceMonthlyFirstEndDay' =>
+                $sqlRow['first_period_end'] === null
+                    ? null
+                    : (int)$sqlRow['first_period_end'],
+
+            'twiceMonthlyFirstPaymentDay' =>
+                $sqlRow['first_period_payment_day'] === null
+                    ? null
+                    : (int)$sqlRow['first_period_payment_day'],
+
+            'twiceMonthlySecondStartDay' =>
+                $sqlRow['second_period_start'] === null
+                    ? null
+                    : (int)$sqlRow['second_period_start'],
+
+            'twiceMonthlySecondEndDay' =>
+                $sqlRow['second_period_end'] === null
+                    ? null
+                    : (int)$sqlRow['second_period_end'],
+
+            'twiceMonthlySecondPaymentDay' =>
+                $sqlRow['second_period_payment_day'] === null
+                    ? null
+                    : (int)$sqlRow['second_period_payment_day'],
+            
             'incomeTaxNumber' => $sqlRow['income_tax_number'],
             'enablePayeCorrection' => $sqlRow['enable_paye_correction'],
             'incomeTaxDirective1' => $sqlRow['income_tax_directive_1'],
