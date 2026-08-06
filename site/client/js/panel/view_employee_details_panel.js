@@ -88,6 +88,16 @@ app.panel.ViewEmployeeDetails = function (config) {
     var paymentPeriodEndDayDisplay = null;
     var paymentDayDisplay = null;
 
+    var twiceMonthlyFirstBatchContainerEl = null;
+    var twiceMonthlyFirstStartDay = null;
+    var twiceMonthlyFirstEndDay = null;
+    var twiceMonthlyFirstPaymentDay = null;
+
+    var twiceMonthlySecondBatchContainerEl = null;
+    var twiceMonthlySecondStartDay = null;
+    var twiceMonthlySecondEndDay = null;
+    var twiceMonthlySecondPaymentDay = null;
+
     var WDDetailsHeadingEl = null;
     var WDDetailsEditBtn = null;
     var WDDetailsSectionEl = null;
@@ -137,6 +147,13 @@ app.panel.ViewEmployeeDetails = function (config) {
     //
     // PRIVATE FUNCTIONS
     //
+    function setDayValue(display, day){
+        if (day === null || day === undefined || day === '') {
+            display.setValue('-');
+            return;
+        }
+        display.setValue(day === 0 ? 'Last Day' : String(day));
+    }
 
     function loadEmployee(isUpdated) {
         loader.show(false);
@@ -382,7 +399,7 @@ app.panel.ViewEmployeeDetails = function (config) {
 
                 value = '-';
                 if (response.employee.departmentName !== null) value = response.employee.departmentName;
-                departmentDisplay.setValue(value);
+                departmentDisplay.setValue(value); 
 
                 value = '-';
                 if (response.employee.paymentMethodName !== '') value = response.employee.paymentMethodName;
@@ -494,7 +511,23 @@ app.panel.ViewEmployeeDetails = function (config) {
                         customPaymentDayDisplay.setValue(response.employee.bweeCustomPaymentDay);
                     }
 
-                } else {
+                } else if(response.employee.paymentPeriodCode === 'TWMO'){
+                    paymentPeriodEndDayDisplay.hide();
+                    paymentDayDisplay.hide();
+
+                    // twiceMonthlyFirstBatchHeadingEl.style.display = 'block';
+                    twiceMonthlyFirstBatchContainerEl.style.display = 'grid';
+                    // twiceMonthlySecondBatchHeadingEl.style.display = 'block';
+                    twiceMonthlySecondBatchContainerEl.style.display = 'grid';
+
+                    //Set value and display text for selectboxes.
+                    setDayValue(twiceMonthlyFirstStartDay, response.employee.twiceMonthlyFirstStartDay);
+                    setDayValue(twiceMonthlyFirstEndDay, response.employee.twiceMonthlyFirstEndDay);
+                    setDayValue(twiceMonthlyFirstPaymentDay, response.employee.twiceMonthlyFirstPaymentDay);
+                    setDayValue(twiceMonthlySecondStartDay, response.employee.twiceMonthlySecondStartDay);
+                    setDayValue(twiceMonthlySecondEndDay, response.employee.twiceMonthlySecondEndDay);
+                    setDayValue(twiceMonthlySecondPaymentDay, response.employee.twiceMonthlySecondPaymentDay);
+                }else {
                     //standardPaymentContainerEl.style.display = 'none';
                     customDateContainerEl.style.display = 'none';
                 }
@@ -1218,6 +1251,111 @@ app.panel.ViewEmployeeDetails = function (config) {
             renderTo: customDateContainerEl,
             margin: '10px 0px 0px 0px',
             label: 'Custom Payment Day:',
+            labelWidth: '230px'
+        });
+
+        // TWICE MONTHLY OPTION
+
+        //FIRST PAYMENT PERIOD SECTION
+        // twiceMonthlyFirstBatchHeadingEl = lx.createElement('DIV', {
+        //     parent: employmentDetailsSectionEl,
+        //     style: {
+        //         display: 'none',
+        //         boxSizing: 'border-box',
+        //         width: '100%',
+        //         margin: '24px 0px 8px 0px',
+        //         fontSize: '12px',
+        //         fontWeight: '600',
+        //         textAlign: 'left'
+        //     },
+        //     innerHTML: 'First Payment Period'
+        // });
+
+        twiceMonthlyFirstBatchContainerEl = lx.createElement('DIV', {
+            parent: employmentDetailsSectionEl,
+            style: {
+                display: 'none',
+                flexDirection: 'column'
+            }
+        });
+
+        //FIRST BATCH START DAY
+
+        twiceMonthlyFirstStartDay = new lx.component.Display({
+            renderTo: twiceMonthlyFirstBatchContainerEl,
+            margin: '10px 0px 0px 0px',
+            label: 'First Payment Period Start:',
+            labelWidth: '230px'
+        });
+
+        //FIRST BATCH END DAY
+
+        twiceMonthlyFirstEndDay = new lx.component.Display({
+            renderTo: twiceMonthlyFirstBatchContainerEl,
+            margin: '10px 0px 0px 0px',
+            label: 'First Payment Period End:',
+            labelWidth: '230px'
+        });
+
+        //FIRST BATCH PAYMENT DAY
+
+        twiceMonthlyFirstPaymentDay = new lx.component.Display({
+            renderTo: twiceMonthlyFirstBatchContainerEl,
+            margin: '10px 0px 0px 0px',
+            label: 'First Payment Day:',
+            labelWidth: '230px'
+        });
+
+        // SECOND BATCH START DAY
+
+        //SECOND PAYMENT PERIOD SECTION
+
+        twiceMonthlySecondBatchContainerEl = lx.createElement('DIV', {
+            parent: employmentDetailsSectionEl,
+            style: {
+                display: 'none',
+                flexDirection: 'column'
+            }
+        });
+
+        // twiceMonthlySecondBatchHeadingEl = lx.createElement('DIV', {
+        //     parent: employmentDetailsSectionEl,
+        //     style: {
+        //         display: 'none',
+        //         boxSizing: 'border-box',
+        //         width: '100%',
+        //         margin: '24px 0px 8px 0px',
+        //         fontSize: '12px',
+        //         fontWeight: '600',
+        //         textAlign: 'left'
+        //     },
+        //     innerHTML: 'Second Payment Period'
+        // });
+
+        //SECOND BATCH START DAY
+
+         twiceMonthlySecondStartDay = new lx.component.Display({
+            renderTo: twiceMonthlySecondBatchContainerEl,
+            margin: '10px 0px 0px 0px',
+            label: 'Second Payment Period Start:',
+            labelWidth: '230px'
+        });
+
+        //SECOND BATCH END DAY
+
+        twiceMonthlySecondEndDay = new lx.component.Display({
+            renderTo: twiceMonthlySecondBatchContainerEl,
+            margin: '10px 0px 0px 0px',
+            label: 'Second Payment Period End:',
+            labelWidth: '230px'
+        });
+
+        //SECOND BATCH PAYMENT DAY
+
+        twiceMonthlySecondPaymentDay = new lx.component.Display({
+            renderTo: twiceMonthlySecondBatchContainerEl,
+            margin: '10px 0px 0px 0px',
+            label: 'Second Payment Day:',
             labelWidth: '230px'
         });
 
