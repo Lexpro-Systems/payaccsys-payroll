@@ -7095,22 +7095,22 @@ class Payrun extends Controller
     //  ]
     private function generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $departmentId)
     {
+        # Stores generated payslips.
         $payslips = [];
 
-        // Setup the sql parameters
+        # Sets up the sql parameters.
         $sqlParams = [];
         $sqlParams[] = $startDate->format('Y-m-d');
         $sqlParams[] = $endDate->format('Y-m-d');
 
-        // Was a department specified?
+        # Checks if a department was specified.
         $departmentFilter = '';
         if ($departmentId !== null) {
-            // Add a filter for the department
             $sqlParams[] = $departmentId;
             $departmentFilter = ' AND (employees.department_id = $3) ';
         }
 
-        // Load all active employees for the period
+        # Executes the query that loads all active employees for the period.
         $sqlQuery =
             'SELECT ' .
             'id, ' .
@@ -7134,16 +7134,18 @@ class Payrun extends Controller
             $departmentFilter .
             'ORDER BY ' .
             'alias ASC;';
+
         $sqlResult = $db->paramQuery($sqlQuery, $sqlParams);
         if (!$sqlResult->isValid()) {
             return (['ok' => false, 'error' => 'Database error.']);
         }
 
-        // Are there no employees?
+        # Checks if any employees were found.
         if ($sqlResult->getRowCount() == 0) {
             return (['ok' => true, 'payslips' => $payslips]);
         }
 
+        # Creates an array in which all of the found employees are stored.
         $employees = [];
         while ($sqlRow = $sqlResult->fetchAssociative()) {
             $employees[] = [
@@ -7153,52 +7155,36 @@ class Payrun extends Controller
                 'paymentPeriod' => $sqlRow['payment_period_code'],
                 'paymentPeriodEndDay' => $sqlRow['payment_period_end_day'],
                 'bweeCustompped' => $sqlRow['bwee_custom_pped'],
-                
-                //Checks to ensure null values aren't converted to 0, as 0 signifies last day of the month.
-                'firstPeriodStart' => $sqlRow['first_period_start'] === null
-                    ? null
-                    : (int)$sqlRow['first_period_start'],
-
-                'firstPeriodEnd' => $sqlRow['first_period_end'] === null
-                    ? null
-                    : (int)$sqlRow['first_period_end'],
-
-                'firstPeriodPaymentDay' =>
-                    $sqlRow['first_period_payment_day'] === null
-                        ? null
-                        : (int)$sqlRow['first_period_payment_day'],
-
-                'secondPeriodStart' => $sqlRow['second_period_start'] === null
-                    ? null
-                    : (int)$sqlRow['second_period_start'],
-
-                'secondPeriodEnd' => $sqlRow['second_period_end'] === null
-                    ? null
-                    : (int)$sqlRow['second_period_end'],
-
-                'secondPeriodPaymentDay' =>
-                    $sqlRow['second_period_payment_day'] === null
-                        ? null
-                        : (int)$sqlRow['second_period_payment_day'],
-
+                'bweeAnchorDate' => $sqlRow['bwee_custom_pped'] !== null ? $sqlRow['bwee_custom_pped'] : $sqlRow['employment_start_date'],
+                'firstPeriodStart' => $sqlRow['first_period_start'] === null ? null : (int)$sqlRow['first_period_start'],
+                'firstPeriodEnd' => $sqlRow['first_period_end'] === null ? null : (int)$sqlRow['first_period_end'],
+                'firstPeriodPaymentDay' => $sqlRow['first_period_payment_day'] === null ? null : (int)$sqlRow['first_period_payment_day'],
+                'secondPeriodStart' => $sqlRow['second_period_start'] === null ? null : (int)$sqlRow['second_period_start'],
+                'secondPeriodEnd' => $sqlRow['second_period_end'] === null ? null : (int)$sqlRow['second_period_end'],
+                'secondPeriodPaymentDay' => $sqlRow['second_period_payment_day'] === null ? null : (int)$sqlRow['second_period_payment_day'],
                 'employmentStart' => $sqlRow['employment_start_date'],
                 'employmentEnd' => $sqlRow['employment_end_date'],
                 'payslips' => []
             ];
         }
 
-        // Add payslips for each employee
+        # Loops through each employe and builds for them each payslip for this period.
         for ($i = 0; $i < count($employees); $i++) {
+
+            # Sets the default vaulues for certian variables.
             $loanId = null;
             $numLoanPaymentsMade = 0;
             $totalLoanCapitalPaid = 0.00;
-
-            // Get employment start and end date
             $employmentStartDate = new DateTime($employees[$i]['employmentStart']);
             $employmentEndDate = null;
             if ($employees[$i]['employmentEnd'] !== null) $employmentEndDate = new DateTime($employees[$i]['employmentEnd']);
 
-            // Get the end date of the last active payslip for the employee from previous payruns
+            # Error logs the BWEE employees
+            if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                //error_log('BWEE START | EmpID=' . $employees[$i]['id'] . ' | Name=' . $employees[$i]['name'] . ' | EmploymentStart=' . $employmentStartDate->format('Y-m-d') . ' | EmploymentEnd=' . ($employmentEndDate !== null ? $employmentEndDate->format('Y-m-d') : 'NULL') . ' | CustomStart=' . ($employees[$i]['bweeCustompped'] ?? 'NULL') . ' | Anchor=' . $employees[$i]['bweeAnchorDate']);
+            }
+
+            # Executes a query that gets the end date of the last active payslip for the employee from previous payruns.
             $sqlQuery =
                 'SELECT ' .
                 'payslips.period, payslips.from_date, payslips.to_date ' .
@@ -7209,32 +7195,120 @@ class Payrun extends Controller
                 'WHERE ' .
                 'employee_id = $1 AND ' .
                 'payruns.to_date < $2 AND ' .
-                // 'payment_period_code = $3 AND ' . 
-                // 'payment_period_end_day = $4 AND ' . 
                 'status_code = \'ACTI\' ' .
                 'ORDER BY ' .
                 'to_date DESC ' .
                 'LIMIT 1;';
+
             $sqlResult = $db->paramQuery($sqlQuery, [
                 $employees[$i]['id'],
                 $startDate->format('Y-m-d')
-                // $employees[$i]['paymentPeriod']
-                // $employees[$i]['paymentPeriodEndDay']
             ]);
             if (!$sqlResult->isValid()) {
                 return (['ok' => false, 'error' => 'Database error.']);
             }
 
-            // Set the last payslip to date
+            # Checks if the employee has a previous payslip To-Date and sets the last payslip to date.
             $lastPayslipToDate = null;
             if ($sqlResult->getRowCount() > 0) {
                 $sqlRow = $sqlResult->fetchAssociative();
                 $lastPayslipToDate = new DateTime($sqlRow['to_date']);
             }
 
+            # Error logs the last payslip To-Date for the BWEE employees.
+            if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+
+                if ($lastPayslipToDate !== null) {
+                    // error_log('BWEE HISTORY | EmpID=' . $employees[$i]['id'] . ' | LastPayslipTo=' . $lastPayslipToDate->format('Y-m-d'));
+                } else {
+                    // error_log('BWEE HISTORY | EmpID=' . $employees[$i]['id'] . ' | No previous payslip');
+                }
+                //error_log('BWEE GENERATION | Generating payslip candidates');
+            }
+
+            # Stores all the types of employees to generate payslips for.
             $payslipCandidates = [];
 
-            if ($employees[$i]['paymentPeriod'] === 'TWMO') {
+            # Checks what type of employee is being processed:
+            /**
+             * Custom BWEE.
+             * Twice a Month.
+             * Normal types(Standard BWEE, WEEK, MONTH)
+             */
+            if ($employees[$i]['paymentPeriod'] === 'BWEE' && $employees[$i]['bweeCustompped'] !== null) {
+
+                # We set the BWEE employee's custom date as the anchor date and error log it.
+                $anchorDate = new DateTime($employees[$i]['bweeCustompped']);
+                //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Anchor = " . $anchorDate->format('Y-m-d'));
+
+                # Checks if the employee has a previous payslip To-Date and sets the next start date as the anchor date or the day after the last payslip To-Date.
+                if ($lastPayslipToDate === null) {
+                    $nextStartDate = clone $anchorDate;
+                } else {
+                    $nextStartDate = clone $lastPayslipToDate;
+                    $nextStartDate->modify('+1 day');
+                }
+                //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Next Start = " . $nextStartDate->format('Y-m-d'));
+
+                # We set the next anchor date by looping through a 14 day cycle.
+                $nextAnchor = clone $anchorDate;
+                while ($nextAnchor < $nextStartDate) {
+                    $nextAnchor->modify('+14 days');
+                }
+                //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Next Anchor = " . $nextAnchor->format('Y-m-d'));
+
+                # We set the end of the transition period as one day before the next anchor date.
+                $transitionEnd = clone $nextAnchor;
+                $transitionEnd->modify('-1 day');
+
+                # If the transition end date is after the next start date, we add it to the payslip candidates.
+                if ($transitionEnd >= $nextStartDate) {
+                    $payslipCandidates[] = [
+                        'startDate' => clone $nextStartDate,
+                        'endDate' => clone $transitionEnd,
+                        'twmoPeriodNumber' => null,
+                        'paymentPeriodEndDay' => (int)$transitionEnd->format('w'),
+                        'paymentDay' => null
+                    ];
+                    //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Transition = " . $nextStartDate->format('Y-m-d') . " -> " . $transitionEnd->format('Y-m-d'));
+                }
+
+                # We loop through the next anchor date until we reach the end date of the payrun.
+                $currentStart = clone $nextAnchor;
+                while ($currentStart <= $endDate) {
+
+                    # If the employment end date is before the current start date, we break the loop.
+                    if ($employmentEndDate !== null && $currentStart > $employmentEndDate) {
+                        break;
+                    }
+
+                    # We set the current end date as the current start date plus 13 days.
+                    $currentEnd = clone $currentStart;
+                    $currentEnd->modify('+13 days');
+                    # If the employment end date is before the current end date, we set the current end date as the employment end date.
+                    if ($employmentEndDate !== null && $currentEnd > $employmentEndDate) {
+                        $currentEnd = clone $employmentEndDate;
+                    }
+
+                    # We add the current start date and end date to the payslip candidates.
+                    $payslipCandidates[] = [
+                        'startDate' => clone $currentStart,
+                        'endDate' => clone $currentEnd,
+                        'twmoPeriodNumber' => null,
+                        'paymentPeriodEndDay' => (int)$currentEnd->format('w'),
+                        'paymentDay' => null
+                    ];
+                    //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Candidate = " . $currentStart->format('Y-m-d') . " -> " . $currentEnd->format('Y-m-d'));
+
+                    # If the employment end date is before the current end date, we break the loop.
+                    if ($employmentEndDate !== null && $currentEnd >= $employmentEndDate) {
+                        break;
+                    }
+                    $currentStart->modify('+14 days');
+                }
+            } else if ($employees[$i]['paymentPeriod'] === 'TWMO') {
+
+                # Gets the TWMO periods for the employee.
                 $twmoPeriods = \PayslipUtil\getTwmoPeriods(
                     $startDate,
                     $endDate,
@@ -7244,64 +7318,62 @@ class Payrun extends Controller
                     $employees[$i]['secondPeriodEnd']
                 );
 
+                # Loops through the TWMO periods.
                 foreach ($twmoPeriods as $twmoPeriod) {
+
+                    # Gets the TWMO period number.
                     $twmoPeriodNumber = (int)$twmoPeriod['period'];
 
+                    # Checks what period is being processed and sets the end day and payment day accordingly.
                     if ($twmoPeriodNumber === 1) {
-                        $configuredEndDay =
-                            $employees[$i]['firstPeriodEnd'];
-
-                        $configuredPaymentDay =
-                            $employees[$i]['firstPeriodPaymentDay'];
+                        $configuredEndDay = $employees[$i]['firstPeriodEnd'];
+                        $configuredPaymentDay = $employees[$i]['firstPeriodPaymentDay'];
                     } else {
-                        $configuredEndDay =
-                            $employees[$i]['secondPeriodEnd'];
-
-                        $configuredPaymentDay =
-                            $employees[$i]['secondPeriodPaymentDay'];
+                        $configuredEndDay = $employees[$i]['secondPeriodEnd'];
+                        $configuredPaymentDay = $employees[$i]['secondPeriodPaymentDay'];
                     }
 
+                    # We add the current start date and end date to the payslip candidates.
                     $payslipCandidates[] = [
-                        'startDate' => new DateTime(
-                            $twmoPeriod['startDate']->format('Y-m-d')
-                        ),
-                        'endDate' => new DateTime(
-                            $twmoPeriod['endDate']->format('Y-m-d')
-                        ),
+                        'startDate' => new DateTime($twmoPeriod['startDate']->format('Y-m-d')),
+                        'endDate' => new DateTime($twmoPeriod['endDate']->format('Y-m-d')),
                         'twmoPeriodNumber' => $twmoPeriodNumber,
                         'paymentPeriodEndDay' => $configuredEndDay,
                         'paymentDay' => $configuredPaymentDay
                     ];
                 }
-            }
+            } else {
 
-            // Set payslip end date
-            // if ($lastPayslipToDate !== null) {
-            //     $payslipEndDate = new DateTime($lastPayslipToDate->format('Y-m-d'));
-            //     $payslipEndDate->modify('+1 day');
-            // } else {
-            //     $payslipEndDate = new DateTime($employmentStartDate->format('Y-m-d'));
-            // }
-            // Set payslip end date
-            else{
+                # Checks if last payslip to date is not null and gets the payslip end date.
                 if ($lastPayslipToDate !== null) {
+
+                    # Sets the payslip end date as the last payslip to date plus 1 day.
                     $payslipEndDate = new DateTime($lastPayslipToDate->format('Y-m-d'));
                     $payslipEndDate->modify('+1 day');
+
+                    # Logs the payslip end date if the payment period is BWEE.
+                    if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                        // error_log('BWEE INIT | Using last payslip +1 day = ' . $payslipEndDate->format('Y-m-d'));
+                    }
                 } else if ($employees[$i]['paymentPeriod'] === 'BWEE' && $employees[$i]['bweeCustompped'] !== null) {
+
+                    # Sets the payslip end date as the custom anchor.
                     $payslipEndDate = new DateTime($employees[$i]['bweeCustompped']);
+                    //error_log('BWEE INIT | Using CUSTOM anchor = ' . $payslipEndDate->format('Y-m-d'));
                 } else {
+
+                    # Sets the payslip end date as the employment start date.
                     $payslipEndDate = new DateTime($employmentStartDate->format('Y-m-d'));
+
+                    # Logs the payslip end date if the payment period is BWEE.
+                    if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                        //error_log('BWEE INIT | Using EMPLOYMENT anchor = ' . $payslipEndDate->format('Y-m-d'));
+                    }
                 }
 
-                // $oldPayslipEndDate = new DateTime($payslipEndDate->format('Y-m-d'));
-                // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
-                //     return( ['ok' => false, 'error' => $payslipEndDate->format('Y-m-d')] );
-                //     // return( ['ok' => false, 'error' => $lastPayslipToDate->format('Y-m-d')] );
-                // }
-
-                // Calculate the payslip end date depending on the payment period
+                # Calculates the payslip end date depending on the payment period.
                 if ($employees[$i]['paymentPeriod'] === 'MONT') {
-                    // If the employees paymentPeriodEndDay is lower than 1 work from last day - paymentPeriodEndDay
+                    # If the employees paymentPeriodEndDay is lower than 1 work from last day - paymentPeriodEndDay
                     if ($employees[$i]['paymentPeriodEndDay'] < 1) {
                         $payslipEndDate->setDate($payslipEndDate->format('Y'), intval($payslipEndDate->format('m')) + 1, $employees[$i]['paymentPeriodEndDay']);
                     } else {
@@ -7310,188 +7382,136 @@ class Payrun extends Controller
                 } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
                     $payslipEndDate->modify('-1 day');
                     $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
-                } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                } else if ($employees[$i]['paymentPeriod'] === 'BWEE' && $employees[$i]['bweeCustompped'] === null) {
                     $payslipEndDate->modify('-1 day');
                     $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
                 }
 
-                // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
-                //     return( ['ok' => false, 'error' => $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')' ]);
-                //     // return( ['ok' => false, 'error' => $lastPayslipToDate->format('Y-m-d')] );
-                // }
-
-                // Make sure the date is on or past the period start date as well as employment date.
+                # Make sure the date is on or past the period start date as well as employment date.
                 while ($payslipEndDate < $startDate || $payslipEndDate < $employmentStartDate) {
+
+                    if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                        //error_log('BWEE LOOP | Current End=' . $payslipEndDate->format('Y-m-d'));
+                    }
+
+                    # Gets the next payment date depending on the payment period.
                     if ($employees[$i]['paymentPeriod'] === 'MONT') {
                         $payslipEndDate = \PayslipUtil\getNextMonthlyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
                     } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
                         $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
                     } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
                         $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+                        // error_log('BWEE LOOP | Advanced End=' . $payslipEndDate->format('Y-m-d'));
                     }
-                    // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
-                    //     file_put_contents('php://stderr', print_r(("\n" . $employees[$i]['id'] . ': ' . $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')'), TRUE));
-                    //     // return( ['ok' => false, 'error' => $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')' ]);
-                    //     // return( ['ok' => false, 'error' => $lastPayslipToDate->format('Y-m-d')] );
-                    // }
                 }
 
-                // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
-                //     file_put_contents('php://stderr', print_r(("\n" . $employees[$i]['id'] . ': ' . $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')'), TRUE));
-                //     // return( ['ok' => false, 'error' => $oldPayslipEndDate->format('Y-m-d') . ' vs ' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] . ')' ]);
-                //     // return( ['ok' => false, 'error' => $lastPayslipToDate->format('Y-m-d')] );
-                // }
-
-                // Make sure the end date is not after employment end date
+                # Make sure the end date is not after employment end date
                 if ($employmentEndDate !== null && $payslipEndDate > $employmentEndDate) {
                     $payslipEndDate = new DateTime($employmentEndDate->format('Y-m-d'));
                 }
 
-                // Loop till we have all payslips for the given period
+                # Loop till we have all payslips for the given period
                 while ($payslipEndDate <= $endDate) {
+
+                    # Gets the payslip start date depending on the payment period.
                     if ($employees[$i]['paymentPeriod'] === 'MONT') {
-                        $payslipStartDate =
-                            \PayslipUtil\getMonthlyPayslipStartDate(
-                                $payslipEndDate
-                            );
-                    } else if (
-                        $employees[$i]['paymentPeriod'] === 'WEEK'
-                    ) {
-                        $payslipStartDate =
-                            \PayslipUtil\getWeeklyPayslipStartDate(
-                                $payslipEndDate
-                            );
+                        $payslipStartDate = \PayslipUtil\getMonthlyPayslipStartDate($payslipEndDate);
+                    } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
+                        $payslipStartDate = \PayslipUtil\getWeeklyPayslipStartDate($payslipEndDate);
                     } else {
-                        $payslipStartDate =
-                            \PayslipUtil\getBiWeeklyPayslipStartDate(
-                                $payslipEndDate
-                            );
+                        $payslipStartDate = \PayslipUtil\getBiWeeklyPayslipStartDate($payslipEndDate);
                     }
 
-                    $paymentPeriodEndDay =
-                        $employees[$i]['paymentPeriodEndDay'];
-
-                    if (
-                        $employees[$i]['paymentPeriod'] === 'BWEE' &&
-                        $employees[$i]['bweeCustompped'] !== null
-                    ) {
-                        $paymentPeriodEndDay =
-                            (int)$payslipEndDate->format('w');
+                    # Sets the payment period end day.
+                    $paymentPeriodEndDay = $employees[$i]['paymentPeriodEndDay'];
+                    if ($employees[$i]['paymentPeriod'] === 'BWEE' && $employees[$i]['bweeCustompped'] !== null) {
+                        $paymentPeriodEndDay = (int)$payslipEndDate->format('w');
                     }
 
+                    # Adds the payslip to the payslip candidates array.
                     $payslipCandidates[] = [
-                        'startDate' => new DateTime(
-                            $payslipStartDate->format('Y-m-d')
-                        ),
-                        'endDate' => new DateTime(
-                            $payslipEndDate->format('Y-m-d')
-                        ),
+                        'startDate' => new DateTime($payslipStartDate->format('Y-m-d')),
+                        'endDate' => new DateTime($payslipEndDate->format('Y-m-d')),
                         'twmoPeriodNumber' => null,
                         'paymentPeriodEndDay' => $paymentPeriodEndDay,
                         'paymentDay' => null
                     ];
 
-                    //Break to prevent unnecessary or invalid payslips from being added after employement end date.
-                    //All current qualifying candidate dates was already appended before this check, so the final payslip of an employee won't be lost.
-                    if (
-                        $employmentEndDate !== null &&
-                        $payslipEndDate >= $employmentEndDate
-                    ) {
+                    /*
+                     * Break to prevent unnecessary or invalid payslips from being added after employement end date.
+                     * Note: All current qualifying candidate dates was already appended before this check, so the final payslip of an employee won't be lost.
+                     */
+                    if ($employmentEndDate !== null && $payslipEndDate >= $employmentEndDate) {
                         break;
                     }
 
-                    // Move to the next period end date.
+                    # Move to the next period end date.
                     if ($employees[$i]['paymentPeriod'] === 'MONT') {
-                        $payslipEndDate =
-                            \PayslipUtil\getNextMonthlyPaymentDate(
-                                $payslipEndDate,
-                                $employees[$i]['paymentPeriodEndDay']
-                            );
-                    } else if (
-                        $employees[$i]['paymentPeriod'] === 'WEEK'
-                    ) {
-                        $payslipEndDate =
-                            \PayslipUtil\getNextWeeklyPaymentDate(
-                                $payslipEndDate,
-                                $employees[$i]['paymentPeriodEndDay']
-                            );
+                        $payslipEndDate = \PayslipUtil\getNextMonthlyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
+                    } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
+                        $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
                     } else {
-                        $payslipEndDate =
-                            \PayslipUtil\getNextBiWeeklyPaymentDate(
-                                $payslipEndDate,
-                                $employees[$i]['paymentPeriodEndDay']
-                            );
+                        $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
                     }
                 }
             }
 
+            # Prepare a list of potential payslips.
             foreach ($payslipCandidates as $candidate) {
-                $payslipStartDate = new DateTime($candidate['startDate']->format('Y-m-d'));
 
+                # Set the payslip start and end dates.
+                $payslipStartDate = new DateTime($candidate['startDate']->format('Y-m-d'));
                 $payslipEndDate = new DateTime($candidate['endDate']->format('Y-m-d'));
 
-                /*
-                * Skip a period already completely covered by the employee's
-                * latest active payslip.
-                */
+                # Skip a period already completely covered by the employee's latest active payslip.
                 if ($lastPayslipToDate !== null && $payslipEndDate <= $lastPayslipToDate) {
                     continue;
                 }
 
-                // Prevent overlap with the previous payslip.
+                # Prevent overlap with the previous payslip.
                 if ($lastPayslipToDate !== null && $payslipStartDate <= $lastPayslipToDate) {
                     $payslipStartDate = new DateTime($lastPayslipToDate->format('Y-m-d'));
                     $payslipStartDate->modify('+1 day');
                 }
 
-                // Restrict the period to the employee's employment dates.
+                # Restrict the period to the employee's employment dates.
                 if ($payslipStartDate < $employmentStartDate) {
                     $payslipStartDate = new DateTime($employmentStartDate->format('Y-m-d'));
                 }
 
+                # Restrict the period to the employee's employment dates.
                 if ($employmentEndDate !== null && $payslipEndDate > $employmentEndDate) {
                     $payslipEndDate = new DateTime($employmentEndDate->format('Y-m-d'));
                 }
-                //Reject invalid adjusted date range.
+
+                # Reject invalid adjusted date range.
                 if ($payslipStartDate > $payslipEndDate) {
                     continue;
                 }
 
-                // Calculate the SARS year.
+                # Calculate the SARS year.
                 $sarsYear = (int)$payslipEndDate->format('Y');
-
                 if ((int)$payslipEndDate->format('n') >= 3 && (int)$payslipEndDate->format('n') <= 12) {
                     $sarsYear++;
                 }
 
-                // Calculate the payslip period.
+                # Calculate the payslip period.
                 if ($employees[$i]['paymentPeriod'] === 'MONT') {
                     $payslipPeriod = \PayslipUtil\getMonthlyPayslipPeriod($payslipEndDate);
                 } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
-                    $payslipPeriod = \PayslipUtil\getWeeklyPayslipPeriod(
-                            $payslipEndDate,
-                            $payslipEndDate,
-                            $employees[$i]['paymentPeriodEndDay']);
+                    $payslipPeriod = \PayslipUtil\getWeeklyPayslipPeriod($payslipEndDate, $payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
                 } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
-                    $payslipPeriod = \PayslipUtil\getBiWeeklyPayslipPeriod(
-                            $payslipEndDate,
-                            $payslipEndDate,
-                            $employees[$i]['paymentPeriodEndDay']);
+                    $payslipPeriod = \PayslipUtil\getBiWeeklyPayslipPeriod($payslipEndDate, new DateTime($employees[$i]['bweeAnchorDate']));
                 } else {
-                    //TWMO has two periods per SARS tax month.
+                    # TWMO has two periods per SARS tax month.
                     $calendarMonth = (int)$payslipEndDate->format('n');
+                    $sarsMonth = $calendarMonth >= 3 ? $calendarMonth - 2 : $calendarMonth + 10;
 
-                    $sarsMonth = $calendarMonth >= 3
-                        ? $calendarMonth - 2
-                        : $calendarMonth + 10;
-
-                    //Calculate which TWMO period it is.
-                    $payslipPeriod =
-                        (($sarsMonth - 1) * 2) +
-                        $candidate['twmoPeriodNumber'];
+                    # Calculate which TWMO period it is.
+                    $payslipPeriod = (($sarsMonth - 1) * 2) + $candidate['twmoPeriodNumber'];
                 }
 
-                // Check whether the payslip already exists.
+                # Check whether the payslip already exists.
                 $sqlQuery =
                     'SELECT ' .
                     'period, from_date, to_date ' .
@@ -7535,149 +7555,38 @@ class Payrun extends Controller
                         'taxYear' => $sarsYear
                     ],
                     'payeBonusCalculationTypeCode' =>
-                        $payeBonusCalculationTypeCode,
+                    $payeBonusCalculationTypeCode,
                     'fromDate' => $payslipStartDate->format('Y-m-d'),
                     'toDate' => $payslipEndDate->format('Y-m-d'),
                     'items' => []
                 ];
             }
 
-
-
-                //     $addPayslip = true;
-
-                //     // Get the payslip start date
-                //     $payslipStartDate = null;
-                //     if ($employees[$i]['paymentPeriod'] === 'MONT') $payslipStartDate = \PayslipUtil\getMonthlyPayslipStartDate($payslipEndDate);
-                //     else if ($employees[$i]['paymentPeriod'] === 'WEEK') $payslipStartDate = \PayslipUtil\getWeeklyPayslipStartDate($payslipEndDate);
-                //     else if ($employees[$i]['paymentPeriod'] === 'BWEE') $payslipStartDate = \PayslipUtil\getBiWeeklyPayslipStartDate($payslipEndDate);
-                //     if ($payslipStartDate < $employmentStartDate) $payslipStartDate = new DateTime($employmentStartDate->format('Y-m-d'));
-
-                //     // Does the payslip's start date overlap with an existing payslip?
-                //     if (($lastPayslipToDate !== null) && ($payslipStartDate <= $lastPayslipToDate) && ($lastPayslipToDate <= $payslipEndDate)) {
-                //         $payslipStartDate = $lastPayslipToDate->add(new DateInterval('P1D'));
-                //     }
-
-                //     // Get the payslip sars year
-                //     $sarsYear = intval($payslipEndDate->format('Y'));
-                //     if (intval($payslipEndDate->format('n')) >= 3 && intval($payslipEndDate->format('n')) <= 12) $sarsYear++;
-
-                //     // Get the payslip period
-                //     $payslipPeriod = null;
-                //     if ($employees[$i]['paymentPeriod'] === 'MONT') $payslipPeriod = \PayslipUtil\getMonthlyPayslipPeriod($payslipEndDate);
-                //     else if ($employees[$i]['paymentPeriod'] === 'WEEK') $payslipPeriod = \PayslipUtil\getWeeklyPayslipPeriod($payslipEndDate, $payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
-                //     else if ($employees[$i]['paymentPeriod'] === 'BWEE') $payslipPeriod = \PayslipUtil\getBiWeeklyPayslipPeriod($payslipEndDate, $payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
-
-                //     // Check if there is an existing payslip
-                //     $sqlQuery =
-                //         'SELECT ' .
-                //         'period, from_date, to_date ' .
-                //         'FROM ' .
-                //         'payslips ' .
-                //         'WHERE ' .
-                //         'employee_id = $1 AND ' .
-                //         'sars_year = $2 AND ' .
-                //         'period = $3 AND ' .
-                //         'payment_period_code = $4 AND ' .
-                //         'status_code = \'ACTI\';';
-                //     $sqlResult = $db->paramQuery($sqlQuery, [
-                //         $employees[$i]['id'],
-                //         $sarsYear,
-                //         $payslipPeriod,
-                //         $employees[$i]['paymentPeriod']
-                //     ]);
-                //     if (!$sqlResult->isValid()) {
-                //         return (['ok' => false, 'error' => 'Database error.']);
-                //     }
-
-                //     // If we have a row then that payslip already exists
-                //     if ($sqlResult->getRowCount() >= 1) $addPayslip = false;
-
-                //     // Store payslip
-                //     if ($addPayslip === true) {
-
-                //         $paymentPeriodEndDay = $employees[$i]['paymentPeriodEndDay'];
-                //         if ($employees[$i]['paymentPeriod'] === 'BWEE' && $employees[$i]['bweeCustompped'] !== null) {
-                //             $paymentPeriodEndDay = (int)$payslipEndDate->format('w');
-                //         }
-
-                //         $employees[$i]['payslips'][] = [
-                //             'employee' => [
-                //                 'id' => $employees[$i]['id'],
-                //                 'name' => $employees[$i]['name'],
-                //                 'age' => $employees[$i]['age'],
-                //                 'paymentPeriodEndDay' => $paymentPeriodEndDay
-                //                 // 'paymentPeriodEndDay' => $employees[$i]['paymentPeriodEndDay']
-                //             ],
-                //             'taxPeriod' => [
-                //                 'type' => $employees[$i]['paymentPeriod'],
-                //                 'number' => $payslipPeriod,
-                //                 'taxYear' => $sarsYear
-                //             ],
-                //             'payeBonusCalculationTypeCode' => $payeBonusCalculationTypeCode,
-                //             'fromDate' => $payslipStartDate->format('Y-m-d'),
-                //             'toDate' => $payslipEndDate->format('Y-m-d'),
-                //             'items' => []
-                //         ];
-                //     }
-
-                //     // If our payslipEndDate is equal to our employmentEndDate then we can't do any more payslips
-                //     if ($employmentEndDate !== null && $payslipEndDate == $employmentEndDate) break;
-
-                //     // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
-                //     //     return( ['ok' => false, 'error' => $payslipStartDate->format('Y-m-d') . ' to ' . $payslipEndDate->format('Y-m-d')] );
-                //     // }
-
-                //     // $tempPayslipEndDate = new DateTime($payslipEndDate->format('Y-m-d'));
-                //     // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
-                //     //     $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
-                //     //     return( ['ok' => false, 'error' => $payslipStartDate->format('Y-m-d') . ' to ' . $tempPayslipEndDate->format('Y-m-d') . '/' . $payslipEndDate->format('Y-m-d') . ' (' . $employees[$i]['paymentPeriodEndDay'] .')'] );
-                //     // }
-
-                //     // Move to the next payment date
-                //     if ($employees[$i]['paymentPeriod'] === 'MONT') {
-                //         $payslipEndDate = \PayslipUtil\getNextMonthlyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
-                //     } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
-                //         $payslipEndDate = \PayslipUtil\getNextWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
-                //     } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
-                //         $payslipEndDate = \PayslipUtil\getNextBiWeeklyPaymentDate($payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
-                //     }
-
-                //     // if( $employees[$i]['paymentPeriod'] === 'BWEE' ) {
-                //     //     return( ['ok' => false, 'error' => $tempPayslipEndDate->format('Y-m-d') . ' to ' . $payslipEndDate->format('Y-m-d')] );
-                //     //     // return( ['ok' => false, 'error' => $payslipStartDate->format('Y-m-d')] );
-                //     //     // return( ['ok' => false, 'error' => $payslipEndDate->format('Y-m-d')] );
-                //     // }
-                // }
-                // }
-            
-            // Generate the payslip items for the specified payslips and get the result
+            # Generate the payslip items for the specified payslips and get the result
             for ($j = 0; $j < count($employees[$i]['payslips']); $j++) {
-                // NOTE: 
-                //
-                // The loan calculation section is simply to help fascilitate loan calculations where
-                // an employee has more than one loan payment per payrun, these values will be discarded
-                // when the payslip is stored
+                # NOTE: 
+                # The loan calculation section is simply to help fascilitate loan calculations where
+                # an employee has more than one loan payment per payrun, these values will be discarded
+
+                # when the payslip is stored
                 $employees[$i]['payslips'][$j]['loanCalculation'] = [
                     'loanId' => $loanId,
                     'numLoanPaymentsMade' => $numLoanPaymentsMade,
                     'totalLoanCapitalPaid' => $totalLoanCapitalPaid
                 ];
 
+                # Generate the payslip items.
                 $result = $this->generatePayslipItems($db, $employees[$i]['payslips'][$j], $payeBonusCalculationTypeCode);
                 if ($result['ok'] !== true) {
                     return (['ok' => false, 'error' => $result['error']]);
                 }
 
-                // Save the payslip items
+                # Save the payslip items
                 $employees[$i]['payslips'][$j]['items'] = $result['payslipItems'];
 
-                // // Add the payslip to the array
-                // $payslips[] = $employees[$i]['payslips'][$j];
-
-                // Update the loan calculations, if any
+                # Update the loan calculations, if any
                 foreach ($result['payslipItems'] as $payslipItem) {
-                    // Is it an employee loan item?
+                    # Is it an employee loan item?
                     if (($payslipItem['type']['code'] === '2008') && ($payslipItem['loan']['id'] !== null)) {
                         $loanId = $payslipItem['loan']['id'];
                         $numLoanPaymentsMade = $numLoanPaymentsMade + 1;
@@ -7686,7 +7595,7 @@ class Payrun extends Controller
                 }
             }
 
-            // Re-calculate the payslips
+            # Re-calculate the payslips
             $result = $this->recalculatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $employees[$i]['payslips']);
             if ($result['ok'] !== true) {
                 return (['ok' => false, 'error' => $result['error']]);;
@@ -9325,7 +9234,7 @@ class Payrun extends Controller
                     $payslipPeriod = \PayslipUtil\getMonthlyPayslipPeriod(new DateTime($payslips[$i]['toDate']));
                 }
                 // file_put_contents('php://stderr', print_r(("\n" . '$payslipPeriod: ' . $payslipPeriod), TRUE));
-            } else if ($payslips[$i]['taxPeriod']['type'] === 'TWMO'){
+            } else if ($payslips[$i]['taxPeriod']['type'] === 'TWMO') {
                 $payslipPeriod = $payslips[$i]['taxPeriod']['number'];
             } else if ($payslips[$i]['taxPeriod']['type'] === 'WEEK') {
                 $payslipPeriod = \PayslipUtil\getWeeklyPayslipPeriod(new DateTime($payslips[$i]['toDate']), new DateTime($payslips[$i]['toDate']), $payslips[$i]['employee']['paymentPeriodEndDay']);
