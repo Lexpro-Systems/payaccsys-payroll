@@ -2996,12 +2996,12 @@ class Payrun extends Controller
             }
 
             // Set the payslip item details
-            $hoursWorked = null;
+            $hoursWorked = 0.00;
             $daysWorked = null;
             while ($itemRow = $itemResult->fetchAssociative()) {
-                // Remember hours or days worked, if any
-                if ($itemRow['payslip_item_unit_code'] === 'PHOU') {
-                    $hoursWorked = $itemRow['units'];
+                // Add all hourly Income items, including Hourly Wage and Overtime for leave calculations.
+                if ($itemRow['payslip_category_code'] === 'INCO' && $itemRow['payslip_item_unit_code'] === 'PHOU') {
+                    $hoursWorked += (float)$itemRow['units'] ?? 0;
                 } else if ($itemRow['payslip_item_unit_code'] === 'PDAY') {
                     $daysWorked = $itemRow['units'];
                 }
