@@ -2827,12 +2827,12 @@ class Employee extends Controller
             'employees.payment_day, ' .
             'employees.bwee_custom_pped, ' .
             'employees.bwee_custom_payment_day, ' .
-            'first_period_start, ' .
-            'first_period_end, ' .
-            'first_period_payment_day, ' .
-            'second_period_start, ' .
-            'second_period_end, ' .
-            'second_period_payment_day, ' .
+            'employees.first_period_start, ' .
+            'employees.first_period_end, ' .
+            'employees.first_period_payment_day, ' .
+            'employees.second_period_start, ' .
+            'employees.second_period_end, ' .
+            'employees.second_period_payment_day, ' .
             'employees.income_tax_number, ' .
             'employees.enable_paye_correction, ' .
             'employees.income_tax_directive_1, ' .
@@ -3011,7 +3011,7 @@ class Employee extends Controller
             'paymentDay' => $sqlRow['payment_day'],
             'bweeCustomPped' => $sqlRow['bwee_custom_pped'],
             'bweeCustomPaymentDay' => $sqlRow['bwee_custom_payment_day'],
-            
+
             'twiceMonthlyFirstStartDay' =>
             $sqlRow['first_period_start'] === null
                 ? null
@@ -3238,6 +3238,12 @@ class Employee extends Controller
             'paymentDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
             'bweeCustomPpsd' => ['type' => Json::TYPE_DATE, 'required' => false, 'nullable' => true],
             'bweeCustomPaymentDay' => ['type' => Json::TYPE_DATE, 'required' => false, 'nullable' => true],
+            'twiceMonthlySelectFirstStartDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectFirstEndDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectFirstPaymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectSecondStartDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectSecondEndDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectSecondPaymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
             'incomeTaxNumber' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
             'sicCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => false, 'nullable' => false],
             'incomeTaxDirective1' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
@@ -3251,7 +3257,7 @@ class Employee extends Controller
             'incomeTaxDirective3' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
             'incomeTaxDirective3IssuedOn' => ['type' => Json::TYPE_DATE, 'required' => false, 'nullable' => true],
             'incomeTaxDirective3SourceCode' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
-            'incomeTaxDirective3Amount' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
+            'incomeTaxDirective3Amount' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true]
         ]);
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
@@ -3833,6 +3839,43 @@ class Employee extends Controller
             if ($updateCount > 1) $updateQuery .= ', ';
             $updateQuery .= 'bwee_custom_payment_day = $' . $updateCount;
             $updateValues[] = $data['bweeCustomPaymentDay'];
+        }
+        
+        if (array_key_exists('twiceMonthlySelectFirstStartDay', $data)) {
+            $updateCount++;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'first_period_start = $' . $updateCount;
+            $updateValues[] = $data['twiceMonthlySelectFirstStartDay'];
+        }
+        if (array_key_exists('twiceMonthlySelectFirstEndDay', $data)) {
+            $updateCount++;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'first_period_end = $' . $updateCount;
+            $updateValues[] = $data['twiceMonthlySelectFirstEndDay'];
+        }
+        if (array_key_exists('twiceMonthlySelectFirstPaymentDay', $data)) {
+            $updateCount++;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'first_period_payment_day = $' . $updateCount;
+            $updateValues[] = $data['twiceMonthlySelectFirstPaymentDay'];
+        }
+        if (array_key_exists('twiceMonthlySelectSecondStartDay', $data)) {
+            $updateCount++;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'second_period_start = $' . $updateCount;
+            $updateValues[] = $data['twiceMonthlySelectSecondStartDay'];
+        }
+        if (array_key_exists('twiceMonthlySelectSecondEndDay', $data)) {
+            $updateCount++;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'second_period_end = $' . $updateCount;
+            $updateValues[] = $data['twiceMonthlySelectSecondEndDay'];
+        }
+        if (array_key_exists('twiceMonthlySelectSecondPaymentDay', $data)) {
+            $updateCount++;
+            if ($updateCount > 1) $updateQuery .= ', ';
+            $updateQuery .= 'second_period_payment_day = $' . $updateCount;
+            $updateValues[] = $data['twiceMonthlySelectSecondPaymentDay'];
         }
 
         // if (isset($data['paymentPeriodEndDay'])) {
