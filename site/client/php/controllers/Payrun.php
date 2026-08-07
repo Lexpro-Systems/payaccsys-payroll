@@ -347,7 +347,7 @@ class Payrun extends Controller
         $endDate = new DateTime($data['endDate']);
 
         // Get the payslips for the payrun
-        $result = $this->generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $departmentId);
+        $result = $this->generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $departmentId, $payrunId);
         if ($result['ok'] !== true) {
             echo (json_encode(['ok' => false, 'error' => $result['error']]));
             return false;
@@ -588,7 +588,7 @@ class Payrun extends Controller
         $payeBonusCalculationTypeCode = $sqlRow['paye_bonus_calculation_type_code'];
 
         // Get the payslips for the payrun
-        $result = $this->generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $departmentId);
+        $result = $this->generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $departmentId, $payrunId);
         if ($result['ok'] !== true) {
             echo (json_encode(['ok' => false, 'error' => $result['error']]));
             return false;
@@ -3838,10 +3838,11 @@ class Payrun extends Controller
         $payslipPeriod = $sqlRow['payslip_perdiod'];
         $payslipPeriodCode = $sqlRow['payment_period_code'];
         $payslipPaymentDay = $sqlRow['payment_period_end_day'];
+        $payrunId = $sqlRow['payrun_id'];
         $payslips = [];
 
         // Get the payslips for the payrun
-        $result = $this->generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, null);
+        $result = $this->generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, null, $payrunId);
         if ($result['ok'] !== true) {
             echo (json_encode(['ok' => false, 'error' => $result['error']]));
             return false;
@@ -4393,7 +4394,7 @@ class Payrun extends Controller
         // employees income or deductions, and give an exception accordingly.
 
         // Generate a full set of payslips for the payrun from scratch
-        $result = $this->generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $departmentId);
+        $result = $this->generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $departmentId, $payrunId);
         if ($result['ok'] !== true) {
             echo (json_encode(['ok' => false, 'error' => $result['error']]));
             return false;
@@ -7093,7 +7094,7 @@ class Payrun extends Controller
     //          'includeInNettPay'      // Whether the amount should be included in nett pay
     //      ]
     //  ]
-    private function generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $departmentId)
+    private function generatePayslips($db, $payeCalculationTypeCode, $payeBonusCalculationTypeCode, $startDate, $endDate, $departmentId, $currentPayrunId)
     {
         # Stores generated payslips.
         $payslips = [];
@@ -7184,21 +7185,36 @@ class Payrun extends Controller
                 //error_log('BWEE START | EmpID=' . $employees[$i]['id'] . ' | Name=' . $employees[$i]['name'] . ' | EmploymentStart=' . $employmentStartDate->format('Y-m-d') . ' | EmploymentEnd=' . ($employmentEndDate !== null ? $employmentEndDate->format('Y-m-d') : 'NULL') . ' | CustomStart=' . ($employees[$i]['bweeCustompped'] ?? 'NULL') . ' | Anchor=' . $employees[$i]['bweeAnchorDate']);
             }
 
+            $lastPayslipToDate = null;
+
             # Executes a query that gets the end date of the last active payslip for the employee from previous payruns.
             $sqlQuery =
-                'SELECT ' .
-                'payslips.period, payslips.from_date, payslips.to_date ' .
-                'FROM ' .
+            'SELECT ' .
+                'payslips.to_date ' .
+            'FROM ' .
                 'payslips ' .
-                'LEFT JOIN ' .
-                'payruns ON payruns.id = payslips.payrun_id ' .
-                'WHERE ' .
-                'employee_id = $1 AND ' .
-                'payruns.to_date < $2 AND ' .
-                'status_code = \'ACTI\' ' .
-                'ORDER BY ' .
-                'to_date DESC ' .
-                'LIMIT 1;';
+            'WHERE ' .
+                'payslips.employee_id = $1 AND ' .
+                'payslips.to_date < $2 AND ' .
+                'payslips.status_code = \'ACTI\' ' .
+            'ORDER BY ' .
+                'payslips.to_date DESC ' .
+            'LIMIT 1;';
+
+            // $sqlQuery =
+            //     'SELECT ' .
+            //     'payslips.period, payslips.from_date, payslips.to_date ' .
+            //     'FROM ' .
+            //     'payslips ' .
+            //     'LEFT JOIN ' .
+            //     'payruns ON payruns.id = payslips.payrun_id ' .
+            //     'WHERE ' .
+            //     'employee_id = $1 AND ' .
+            //     'payruns.to_date < $2 AND ' .
+            //     'status_code = \'ACTI\' ' .
+            //     'ORDER BY ' .
+            //     'to_date DESC ' .
+            //     'LIMIT 1;';
 
             $sqlResult = $db->paramQuery($sqlQuery, [
                 $employees[$i]['id'],
@@ -7209,7 +7225,6 @@ class Payrun extends Controller
             }
 
             # Checks if the employee has a previous payslip To-Date and sets the last payslip to date.
-            $lastPayslipToDate = null;
             if ($sqlResult->getRowCount() > 0) {
                 $sqlRow = $sqlResult->fetchAssociative();
                 $lastPayslipToDate = new DateTime($sqlRow['to_date']);
@@ -7456,6 +7471,60 @@ class Payrun extends Controller
                 }
             }
 
+            # Process candidates in chronological order.
+            usort(
+                $payslipCandidates,
+                function (array $firstCandidate, array $secondCandidate): int {
+                    $startComparison =
+                        $firstCandidate['startDate'] <=> $secondCandidate['startDate'];
+
+                    if ($startComparison !== 0) {
+                        return $startComparison;
+                    }
+
+                    return $firstCandidate['endDate'] <=> $secondCandidate['endDate'];
+                }
+            );
+
+            # Load active payslips belonging to other payruns.
+            $sqlQuery =
+                'SELECT ' .
+                    'payslips.from_date, ' .
+                    'payslips.to_date ' .
+                'FROM ' .
+                    'payslips ' .
+                'WHERE ' .
+                    'payslips.employee_id = $1 AND ' .
+                    'payslips.status_code = \'ACTI\' AND ' .
+                    'payslips.payrun_id != $2 ' .
+                'ORDER BY ' .
+                    'payslips.from_date ASC, ' .
+                    'payslips.to_date ASC;';
+
+            $sqlResult = $db->paramQuery($sqlQuery, [
+                $employees[$i]['id'],
+                $currentPayrunId
+            ]);
+
+            if (!$sqlResult->isValid()) {
+                return [
+                    'ok' => false,
+                    'error' => 'Database error.'
+                ];
+            }
+
+            $existingPayslipPeriods = [];
+
+            while ($sqlRow = $sqlResult->fetchAssociative()) {
+                $existingPayslipPeriods[] = [
+                    'startDate' => new DateTime($sqlRow['from_date']),
+                    'endDate' => new DateTime($sqlRow['to_date'])
+                ];
+            }
+
+            # Tracks dates covered by candidates accepted during this generation.
+            $latestAcceptedCandidateEndDate = null;
+
             # Prepare a list of potential payslips.
             foreach ($payslipCandidates as $candidate) {
 
@@ -7463,15 +7532,76 @@ class Payrun extends Controller
                 $payslipStartDate = new DateTime($candidate['startDate']->format('Y-m-d'));
                 $payslipEndDate = new DateTime($candidate['endDate']->format('Y-m-d'));
 
-                # Skip a period already completely covered by the employee's latest active payslip.
-                if ($lastPayslipToDate !== null && $payslipEndDate <= $lastPayslipToDate) {
+                // # Skip a period already completely covered by the employee's latest active payslip.
+                // if ($lastPayslipToDate !== null && $payslipEndDate <= $lastPayslipToDate) {
+                //     continue;
+                // }
+
+                // # Prevent overlap with the previous payslip.
+                // if ($lastPayslipToDate !== null && $payslipStartDate <= $lastPayslipToDate) {
+                //     $payslipStartDate = new DateTime($lastPayslipToDate->format('Y-m-d'));
+                //     $payslipStartDate->modify('+1 day');
+                // }
+
+                $skipCandidate = false;
+
+                # Reconcile the candidate with active payslips from other payruns.
+                foreach ($existingPayslipPeriods as $existingPeriod) {
+                    $existingStartDate = $existingPeriod['startDate'];
+                    $existingEndDate = $existingPeriod['endDate'];
+
+                    # No overlap exists.
+                    if ($existingEndDate < $payslipStartDate || $existingStartDate > $payslipEndDate
+                    ) {
+                        continue;
+                    }
+
+                    # If an existing payslip starts inside the candidate period, reject the candidate, with an error message.
+                    if ($existingStartDate > $payslipStartDate) {
+                        return [
+                            'ok' => false,
+                            'error' =>
+                                'A payslip for employee \'' .
+                                $employees[$i]['name'] .
+                                '\' cannot be generated for the period \'' .
+                                $payslipStartDate->format('Y-m-d') .
+                                ' to ' .
+                                $payslipEndDate->format('Y-m-d') .
+                                '\' because an existing active payslip begins inside this period.'
+                        ];
+                    }
+
+                    # The existing payslip completely covers the candidate.
+                    if ($existingEndDate >= $payslipEndDate) {
+                        $skipCandidate = true;
+                        break;
+                    }
+
+                    # Only the beginning overlaps, so begin after the existing payslip.
+                    $payslipStartDate =
+                        new DateTime($existingEndDate->format('Y-m-d'));
+
+                    $payslipStartDate->modify('+1 day');
+                }
+
+                if ($skipCandidate) {
                     continue;
                 }
 
-                # Prevent overlap with the previous payslip.
-                if ($lastPayslipToDate !== null && $payslipStartDate <= $lastPayslipToDate) {
-                    $payslipStartDate = new DateTime($lastPayslipToDate->format('Y-m-d'));
-                    $payslipStartDate->modify('+1 day');
+                # Prevent overlap between candidates generated in this payrun.
+                if ($latestAcceptedCandidateEndDate !== null) {
+                    # The previous candidate completely covers this candidate.
+                    if ($payslipEndDate <= $latestAcceptedCandidateEndDate) {
+                        continue;
+                    }
+
+                    # Correct a partial inherent overlap between generated candidates.
+                    if ($payslipStartDate <= $latestAcceptedCandidateEndDate) {
+                        $payslipStartDate =
+                            new DateTime($latestAcceptedCandidateEndDate->format('Y-m-d'));
+
+                        $payslipStartDate->modify('+1 day');
+                    }
                 }
 
                 # Restrict the period to the employee's employment dates.
@@ -7560,6 +7690,11 @@ class Payrun extends Controller
                     'toDate' => $payslipEndDate->format('Y-m-d'),
                     'items' => []
                 ];
+
+                # This accepted candidate now covers dates through to its end date.
+                if ($latestAcceptedCandidateEndDate === null || $payslipEndDate > $latestAcceptedCandidateEndDate) {
+                    $latestAcceptedCandidateEndDate = new DateTime($payslipEndDate->format('Y-m-d'));
+                }
             }
 
             # Generate the payslip items for the specified payslips and get the result
