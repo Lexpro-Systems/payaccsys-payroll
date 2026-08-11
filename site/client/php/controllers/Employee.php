@@ -1796,6 +1796,30 @@ class Employee extends Controller
             return false;
         }
 
+        if ($data['paymentPeriodCode'] === 'TWMO') {
+            $firstStart = $data['twiceMonthlySelectFirstStartDay'];
+            $firstEnd = $data['twiceMonthlySelectFirstEndDay'];
+            $secondStart = $data['twiceMonthlySelectSecondStartDay'];
+            $secondEnd = $data['twiceMonthlySelectSecondEndDay'];
+
+            if ($firstStart === null || $firstEnd === null || $secondStart === null || $secondEnd === null) {
+                echo (json_encode([
+                    'ok' => false,
+                    'error' => 'All twice-monthly payment period dates are required.'
+                ]));
+                return false;
+            }
+
+            if (!$this->isNextTwmoDay($firstEnd, $secondStart) || !$this->isNextTwmoDay($secondEnd, $firstStart)) {
+                echo (json_encode([
+                    'ok' => false,
+                    'error' => 'The twice-monthly payment periods must cover every day of the month without gaps or overlaps.'
+                ]));
+                return false;
+            }
+        }
+
+
         // Check that either id number or passport number is given
         if ((!isset($data['idNumber']) && !isset($data['passportNumber'])) ||
             (($data['idNumber'] == '') && ($data['passportNumber'] == ''))
@@ -7674,5 +7698,13 @@ class Employee extends Controller
         }
 
         return $writer;
+    }
+
+    private function isNextTwmoDay(int $endDay, int $nextStartDay): bool
+    {
+        if ($endDay === 0) {
+            return $nextStartDay === 1;
+        }
+        return $nextStartDay === $endDay + 1;
     }
 }

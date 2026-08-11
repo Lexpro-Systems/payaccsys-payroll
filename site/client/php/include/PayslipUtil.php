@@ -1367,7 +1367,7 @@ function resolveTwmoCalendarDay(DateTime $month, int $configuredDay): int
 
     //This protects the backend even though the select boxes prevent
     //the user from submitting other values normally.
-    if ($configuredDay < 1 || $configuredDay > 27) {
+    if ($configuredDay < 1 || $configuredDay > 28) {
         throw new \InvalidArgumentException(
             'Invalid TWMO calendar day: ' . $configuredDay
         );

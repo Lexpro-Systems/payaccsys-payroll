@@ -5614,6 +5614,9 @@ app.panel.AddEmployeeWizard = function (config) {
                     wizardNextBtn.showWarning('The Second Payment Day can not be empty.');
                     return;
                 }
+                if (!validateTwiceMonthlyCoverage()) {
+                    return;
+                }
             }
             else if (isBWEE) {
                 if (!hasStandard && !hasCustom) {
@@ -7062,10 +7065,11 @@ app.panel.AddEmployeeWizard = function (config) {
 
         if (firstBoundaryInvalid || secondBoundaryInvalid) {
             wizardNextBtn.showWarning(
-                'The payment periods do not cover all days in the month.'
+                'The payment periods must cover every day of the month without gaps or overlaps.'
             );
+            return false;
         }
-
+        return true;
     }
 
     //Parses last day 
