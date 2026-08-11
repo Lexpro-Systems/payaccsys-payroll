@@ -1780,7 +1780,8 @@
                     if( $paymentDate->format('Y-m-d') < $sqlRow['payslip_end_date'] ) {
                         // Payment happens in following month
                         $paymentDate->setDate(intval($paymentDate->format('Y')), intval($paymentDate->format('m')) + 1, intval($paymentDate->format('d')));
-                } 
+                    } 
+                }
                  //Is the payment twice per month?
                 else if ($sqlRow['payment_period_code'] === 'TWMO') { 
                    //...

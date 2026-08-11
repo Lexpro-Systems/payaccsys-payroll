@@ -7752,6 +7752,12 @@ class Payrun extends Controller
                 EXTRACT(YEAR FROM age(CURRENT_DATE, date_of_birth)) AS employee_age,
                 payment_period_code,
                 payment_period_end_day,
+                first_period_start,
+                first_period_end,
+                first_period_payment_day,
+                second_period_start, 
+                second_period_end,
+                second_period_payment_day,
                 employment_start_date,
                 employment_end_date
             FROM employees
@@ -7794,6 +7800,8 @@ class Payrun extends Controller
             $sarsYear++;
         }
 
+        $paymentPeriodEndDay = $employee['payment_period_end_day'];
+
         # Retrieves the employees payslip period.
         switch ($employee['payment_period_code']) {
             case 'MONT':
@@ -7812,6 +7820,44 @@ class Payrun extends Controller
                     $toDate,
                     $employee['payment_period_end_day']
                 );
+                break;
+            case 'TWMO':
+                $twmoPeriods = \PayslipUtil\getTwmoPeriods(
+                $toDate,
+                $toDate,
+                (int)$employee['first_period_start'],
+                (int)$employee['first_period_end'],
+                (int)$employee['second_period_start'],
+                (int)$employee['second_period_end']
+            );
+            if (count($twmoPeriods) !== 1) {
+                return [
+                    'ok' => false,
+                    'error' =>
+                        'The imported payslip end date does not match a configured twice-monthly period end date.'
+                ];
+            }
+
+            $twmoPeriodNumber =
+                (int)$twmoPeriods[0]['period'];
+
+            $calendarMonth =
+                (int)$toDate->format('n');
+
+            $sarsMonth =
+                $calendarMonth >= 3
+                    ? $calendarMonth - 2
+                    : $calendarMonth + 10;
+
+            $period =
+                (($sarsMonth - 1) * 2) +
+                $twmoPeriodNumber;
+
+            $paymentPeriodEndDay =
+                $twmoPeriodNumber === 1
+                    ? (int)$employee['first_period_end']
+                    : (int)$employee['second_period_end'];
+
                 break;
             default:
                 return ['ok' => false, 'error' => 'Unknown payment period.'];
@@ -7849,7 +7895,7 @@ class Payrun extends Controller
                 'id' => $employee['id'],
                 'name' => $employee['alias'],
                 'age' => $employee['employee_age'],
-                'paymentPeriodEndDay' => $employee['payment_period_end_day']
+                'paymentPeriodEndDay' => $paymentPeriodEndDay
             ],
             'taxPeriod' => [
                 'type' => $employee['payment_period_code'],

@@ -1799,13 +1799,30 @@ class Employee extends Controller
         if ($data['paymentPeriodCode'] === 'TWMO') {
             $firstStart = $data['twiceMonthlySelectFirstStartDay'];
             $firstEnd = $data['twiceMonthlySelectFirstEndDay'];
+            $firstPaymentDay = $data['twiceMonthlySelectFirstPaymentDay'];
             $secondStart = $data['twiceMonthlySelectSecondStartDay'];
             $secondEnd = $data['twiceMonthlySelectSecondEndDay'];
+            $secondPaymentDay = $data['twiceMonthlySelectSecondPaymentDay'];
 
-            if ($firstStart === null || $firstEnd === null || $secondStart === null || $secondEnd === null) {
+            if ($firstStart === null || $firstEnd === null || $firstPaymentDay === null || $secondStart === null || $secondEnd === null || $secondPaymentDay === null) {
                 echo (json_encode([
                     'ok' => false,
                     'error' => 'All twice-monthly payment period dates are required.'
+                ]));
+                return false;
+            }
+
+            if (
+                !$this->isValidTwmoConfigurationDay($firstStart, 'start') ||
+                !$this->isValidTwmoConfigurationDay($firstEnd, 'end') ||
+                !$this->isValidTwmoConfigurationDay($firstPaymentDay, 'payment') ||
+                !$this->isValidTwmoConfigurationDay($secondStart, 'start') || 
+                !$this->isValidTwmoConfigurationDay($secondEnd, 'end') ||
+                !$this->isValidTwmoConfigurationDay($secondPaymentDay, 'payment')
+                ) {
+                echo (json_encode([
+                    'ok' => false,
+                    'error' => 'One or more twice-monthly payment period days are invalid.'
                 ]));
                 return false;
             }
@@ -3286,6 +3303,46 @@ class Employee extends Controller
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
             return false;
+        }
+
+        if (isset($data['paymentPeriodCode']) && $data['paymentPeriodCode'] === 'TWMO') {
+            $firstStart = $data['twiceMonthlySelectFirstStartDay'];
+            $firstEnd = $data['twiceMonthlySelectFirstEndDay'];
+            $firstPaymentDay = $data['twiceMonthlySelectFirstPaymentDay'];
+            $secondStart = $data['twiceMonthlySelectSecondStartDay'];
+            $secondEnd = $data['twiceMonthlySelectSecondEndDay'];
+            $secondPaymentDay = $data['twiceMonthlySelectSecondPaymentDay'];
+
+            if ($firstStart === null || $firstEnd === null || $firstPaymentDay === null || $secondStart === null || $secondEnd === null || $secondPaymentDay === null) {
+                echo (json_encode([
+                    'ok' => false,
+                    'error' => 'All twice-monthly payment period dates are required.'
+                ]));
+                return false;
+            }
+
+            if (
+                !$this->isValidTwmoConfigurationDay($firstStart, 'start') ||
+                !$this->isValidTwmoConfigurationDay($firstEnd, 'end') ||
+                !$this->isValidTwmoConfigurationDay($firstPaymentDay, 'payment') ||
+                !$this->isValidTwmoConfigurationDay($secondStart, 'start') || 
+                !$this->isValidTwmoConfigurationDay($secondEnd, 'end') ||
+                !$this->isValidTwmoConfigurationDay($secondPaymentDay, 'payment')
+                ) {
+                echo (json_encode([
+                    'ok' => false,
+                    'error' => 'One or more twice-monthly payment period days are invalid.'
+                ]));
+                return false;
+            }
+
+            if (!$this->isNextTwmoDay($firstEnd, $secondStart) || !$this->isNextTwmoDay($secondEnd, $firstStart)) {
+                echo (json_encode([
+                    'ok' => false,
+                    'error' => 'The twice-monthly payment periods must cover every day of the month without gaps or overlaps.'
+                ]));
+                return false;
+            }
         }
 
         // Load the company physical address from the company_details table
@@ -7706,5 +7763,22 @@ class Employee extends Controller
             return $nextStartDay === 1;
         }
         return $nextStartDay === $endDay + 1;
+    }
+
+    private function isValidTwmoConfigurationDay(int $day, string $fieldType): bool {
+        if ($fieldType === 'start') {
+            return $day >= 1 && $day <= 28;
+        }
+
+        if ($fieldType === 'end') {
+            return $day === 0 ||
+                ($day >= 1 && $day <= 27);
+        }
+
+        if ($fieldType === 'payment') {
+            return $day === 0 ||
+                ($day >= 1 && $day <= 28);
+        }
+        return false;
     }
 }
