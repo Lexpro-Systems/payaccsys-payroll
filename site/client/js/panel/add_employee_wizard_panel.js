@@ -7042,6 +7042,12 @@ app.panel.AddEmployeeWizard = function (config) {
         return start === end + 1;
     }
 
+    //Parses last day 
+    const comparableDay = value => {
+        const day = parseInt(value, 10);
+        return day === 0 ? 32 : day;
+    };
+
     //Function to show warning if start and end days do not follow each other 
     //(indicating that all days in month are not covered)
     function validateTwiceMonthlyCoverage() {
@@ -7062,6 +7068,12 @@ app.panel.AddEmployeeWizard = function (config) {
             !isEmpty(secondEnd) &&
             !isEmpty(firstStart) &&
             !isNextDay(secondEnd, firstStart);
+        
+        const periodOrderInvalid =
+            !isEmpty(firstEnd) &&
+            !isEmpty(secondEnd) &&
+            comparableDay(firstEnd) >=
+                comparableDay(secondEnd);
 
         if (firstBoundaryInvalid || secondBoundaryInvalid) {
             wizardNextBtn.showWarning(
@@ -7069,14 +7081,17 @@ app.panel.AddEmployeeWizard = function (config) {
             );
             return false;
         }
+
+        if (periodOrderInvalid) {
+            wizardNextBtn.showWarning(
+                'The first payment period must occur before the second payment period.'
+            );
+            return false;
+        }
+
+
         return true;
     }
-
-    //Parses last day 
-    const comparableDay = value => {
-        const day = parseInt(value, 10);
-        return day === 0 ? 32 : day;
-    };
 
     //Function to ensure Payment days are after End days
     function validateTwiceMonthlyPaymentDays() {
