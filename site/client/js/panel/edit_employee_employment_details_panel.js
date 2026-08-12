@@ -1008,7 +1008,7 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
         }
 
         if (periodOrderInvalid) {
-            wizardNextBtn.showWarning(
+            saveBtn.showWarning(
                 'The first payment period must occur before the second payment period.'
             );
 
