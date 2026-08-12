@@ -7181,25 +7181,25 @@ class Payrun extends Controller
             if ($employees[$i]['employmentEnd'] !== null) $employmentEndDate = new DateTime($employees[$i]['employmentEnd']);
 
             # Error logs the BWEE employees
-            if ($employees[$i]['paymentPeriod'] === 'BWEE') {
-                //error_log('BWEE START | EmpID=' . $employees[$i]['id'] . ' | Name=' . $employees[$i]['name'] . ' | EmploymentStart=' . $employmentStartDate->format('Y-m-d') . ' | EmploymentEnd=' . ($employmentEndDate !== null ? $employmentEndDate->format('Y-m-d') : 'NULL') . ' | CustomStart=' . ($employees[$i]['bweeCustompped'] ?? 'NULL') . ' | Anchor=' . $employees[$i]['bweeAnchorDate']);
-            }
+            // if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+            //     error_log('BWEE START | EmpID=' . $employees[$i]['id'] . ' | Name=' . $employees[$i]['name'] . ' | EmploymentStart=' . $employmentStartDate->format('Y-m-d') . ' | EmploymentEnd=' . ($employmentEndDate !== null ? $employmentEndDate->format('Y-m-d') : 'NULL') . ' | CustomStart=' . ($employees[$i]['bweeCustompped'] ?? 'NULL') . ' | Anchor=' . $employees[$i]['bweeAnchorDate']);
+            // }
 
             $lastPayslipToDate = null;
 
             # Executes a query that gets the end date of the last active payslip for the employee from previous payruns.
             $sqlQuery =
-            'SELECT ' .
+                'SELECT ' .
                 'payslips.to_date ' .
-            'FROM ' .
+                'FROM ' .
                 'payslips ' .
-            'WHERE ' .
+                'WHERE ' .
                 'payslips.employee_id = $1 AND ' .
                 'payslips.to_date < $2 AND ' .
                 'payslips.status_code = \'ACTI\' ' .
-            'ORDER BY ' .
+                'ORDER BY ' .
                 'payslips.to_date DESC ' .
-            'LIMIT 1;';
+                'LIMIT 1;';
 
             // $sqlQuery =
             //     'SELECT ' .
@@ -7231,94 +7231,218 @@ class Payrun extends Controller
             }
 
             # Error logs the last payslip To-Date for the BWEE employees.
-            if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+            // if ($employees[$i]['paymentPeriod'] === 'BWEE') {
 
-                if ($lastPayslipToDate !== null) {
-                    // error_log('BWEE HISTORY | EmpID=' . $employees[$i]['id'] . ' | LastPayslipTo=' . $lastPayslipToDate->format('Y-m-d'));
-                } else {
-                    // error_log('BWEE HISTORY | EmpID=' . $employees[$i]['id'] . ' | No previous payslip');
-                }
-                //error_log('BWEE GENERATION | Generating payslip candidates');
-            }
+            //     if ($lastPayslipToDate !== null) {
+            //         error_log('BWEE HISTORY | EmpID=' . $employees[$i]['id'] . ' | LastPayslipTo=' . $lastPayslipToDate->format('Y-m-d'));
+            //     } else {
+            //         error_log('BWEE HISTORY | EmpID=' . $employees[$i]['id'] . ' | No previous payslip');
+            //     }
+            //     error_log('BWEE GENERATION | Generating payslip candidates');
+            // }
 
             # Stores all the types of employees to generate payslips for.
             $payslipCandidates = [];
 
-            # Checks what type of employee is being processed:
-            /**
-             * Custom BWEE.
-             * Twice a Month.
-             * Normal types(Standard BWEE, WEEK, MONTH)
-             */
+            # Checks what type of employee is being processed(BWEE_CUSTOM, BWEE_TWICE_A_MONTH, NORMAL):
             if ($employees[$i]['paymentPeriod'] === 'BWEE' && $employees[$i]['bweeCustompped'] !== null) {
 
-                # We set the BWEE employee's custom date as the anchor date and error log it.
-                $anchorDate = new DateTime($employees[$i]['bweeCustompped']);
-                //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Anchor = " . $anchorDate->format('Y-m-d'));
+                $customDate = new DateTime($employees[$i]['bweeCustompped']);
+                error_log('BWEE CUSTOM [' . $employees[$i]['name'] . '] New Custom Date = ' . $customDate->format('Y-m-d'));
 
-                # Checks if the employee has a previous payslip To-Date and sets the next start date as the anchor date or the day after the last payslip To-Date.
-                if ($lastPayslipToDate === null) {
-                    $nextStartDate = clone $anchorDate;
+                // Determine where generation should start. If a payslip already exists, we ALWAYS start after it. Existing payslips must never be changed.
+                if ($lastPayslipToDate !== null) {
+                    $currentStart = clone $lastPayslipToDate;
+                    $currentStart->modify('+1 day');
                 } else {
-                    $nextStartDate = clone $lastPayslipToDate;
-                    $nextStartDate->modify('+1 day');
+                    $currentStart = clone $employmentStartDate;
                 }
-                //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Next Start = " . $nextStartDate->format('Y-m-d'));
+                error_log('BWEE CUSTOM [' . $employees[$i]['name'] . '] Current Start = ' . $currentStart->format('Y-m-d'));
 
-                # We set the next anchor date by looping through a 14 day cycle.
-                $nextAnchor = clone $anchorDate;
-                while ($nextAnchor < $nextStartDate) {
-                    $nextAnchor->modify('+14 days');
+
+                /*
+                * ============================================================
+                * CASE 1:
+                * CUSTOM DATE IS IN THE FUTURE
+                * ============================================================
+                */
+                if ($customDate > $currentStart) {
+                    while ($currentStart < $customDate && $currentStart <= $endDate) {
+
+                        $currentEnd = clone $currentStart;
+                        $currentEnd->modify('+13 days');
+
+                        // CASE 1.1: The custom date falls inside this old cycle.
+                        if ($customDate >= $currentStart && $customDate <= $currentEnd) {
+
+                            $transitionEnd = clone $customDate;
+                            $transitionEnd->modify('-1 day');
+
+                            if ($currentStart <= $transitionEnd) {
+
+                                $payslipCandidates[] = [
+                                    'startDate' => clone $currentStart,
+                                    'endDate' => clone $transitionEnd,
+                                    'twmoPeriodNumber' => null,
+                                    'paymentPeriodEndDay' =>
+                                    (int)$transitionEnd->format('w'),
+                                    'paymentDay' => null,
+                                    'isTransition' => true
+                                ];
+                                error_log('BWEE CUSTOM [' . $employees[$i]['name'] . '] Transition = ' . $currentStart->format('Y-m-d') . ' -> ' . $transitionEnd->format('Y-m-d'));
+                            }
+
+                            // The new custom cycle begins on the custom date.
+                            $currentStart = clone $customDate;
+                            break;
+                        }
+
+                        // CASE 1.2: The complete old cycle occurs before the new custom date.
+                        if ($currentEnd < $customDate) {
+
+                            if ($currentEnd >= $startDate && $currentStart <= $endDate) {
+                                $candidateStart = clone $currentStart;
+                                $candidateEnd = clone $currentEnd;
+
+                                // Respect employment start date.
+                                if ($candidateStart < $employmentStartDate) {
+                                    $candidateStart = clone $employmentStartDate;
+                                }
+
+                                // Respect employment end date.
+                                if ($employmentEndDate !== null && $candidateEnd > $employmentEndDate) {
+                                    $candidateEnd = clone $employmentEndDate;
+                                }
+
+                                if ($candidateStart <= $candidateEnd) {
+                                    $payslipCandidates[] = [
+                                        'startDate' => $candidateStart,
+                                        'endDate' => $candidateEnd,
+                                        'twmoPeriodNumber' => null,
+                                        'paymentPeriodEndDay' =>
+                                        (int)$candidateEnd->format('w'),
+                                        'paymentDay' => null,
+                                        'isTransition' => false
+                                    ];
+                                    //error_log('BWEE OLD CYCLE [' . $employees[$i]['name'] . '] Candidate = ' . $candidateStart->format('Y-m-d') . ' -> ' . $candidateEnd->format('Y-m-d'));
+                                }
+                            }
+                            $currentStart->modify('+14 days');
+                        }
+                    }
+                } else if ($customDate < $currentStart) {
+
+                    /*
+                     * ============================================================
+                     * CASE 2:
+                     * CUSTOM DATE IS IN THE PAST
+                     * ============================================================
+                     */
+
+                    // CASE 2.1: Find the first custom-cycle boundary that is on or after the current start date. Start at the custom date and move forward in 14-day increments.
+                    $nextCustomCycleStart = clone $customDate;
+                    while ($nextCustomCycleStart < $currentStart) {
+                        $nextCustomCycleStart->modify('+14 days');
+                    }
+
+                    // CASE 2.2: If the current start does not already fall exactly on the custom cycle boundary, create a transition.
+                    if ($nextCustomCycleStart > $currentStart) {
+
+                        $transitionEnd = clone $nextCustomCycleStart;
+                        $transitionEnd->modify('-1 day');
+
+                        if ($currentStart <= $transitionEnd && $currentStart <= $endDate) {
+
+                            if ($transitionEnd > $endDate) {
+                                $transitionEnd = clone $endDate;
+                            }
+
+                            if ($employmentEndDate !== null && $transitionEnd > $employmentEndDate) {
+                                $transitionEnd = clone $employmentEndDate;
+                            }
+
+                            if ($currentStart <= $transitionEnd) {
+                                $payslipCandidates[] = [
+                                    'startDate' => clone $currentStart,
+                                    'endDate' => clone $transitionEnd,
+                                    'twmoPeriodNumber' => null,
+                                    'paymentPeriodEndDay' =>
+                                    (int)$transitionEnd->format('w'),
+                                    'paymentDay' => null,
+                                    'isTransition' => true
+                                ];
+                                error_log('BWEE CUSTOM [' . $employees[$i]['name'] . '] PAST Transition = ' . $currentStart->format('Y-m-d') . ' -> ' . $transitionEnd->format('Y-m-d'));
+                            }
+                        }
+                        $currentStart = clone $nextCustomCycleStart;
+                    } else {
+
+                        // CASE 2.3: CurrentStart is already exactly on a custom cycle boundary. No transition is required.
+                        error_log('BWEE CUSTOM [' . $employees[$i]['name'] . '] Past Custom Date already aligned. Current Start = ' . $currentStart->format('Y-m-d'));
+                    }
+                } else {
+
+                    /*
+                    * ============================================================
+                    * CASE 3:
+                    * CUSTOM DATE IS EXACTLY THE NEXT START DATE
+                    * ============================================================
+                    */
+                    error_log('BWEE CUSTOM [' . $employees[$i]['name'] . '] Custom Date already aligned with Current Start = ' . $currentStart->format('Y-m-d'));
                 }
-                //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Next Anchor = " . $nextAnchor->format('Y-m-d'));
 
-                # We set the end of the transition period as one day before the next anchor date.
-                $transitionEnd = clone $nextAnchor;
-                $transitionEnd->modify('-1 day');
 
-                # If the transition end date is after the next start date, we add it to the payslip candidates.
-                if ($transitionEnd >= $nextStartDate) {
-                    $payslipCandidates[] = [
-                        'startDate' => clone $nextStartDate,
-                        'endDate' => clone $transitionEnd,
-                        'twmoPeriodNumber' => null,
-                        'paymentPeriodEndDay' => (int)$transitionEnd->format('w'),
-                        'paymentDay' => null
-                    ];
-                    //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Transition = " . $nextStartDate->format('Y-m-d') . " -> " . $transitionEnd->format('Y-m-d'));
-                }
-
-                # We loop through the next anchor date until we reach the end date of the payrun.
-                $currentStart = clone $nextAnchor;
+                /*
+                * ============================================================
+                * GENERATE THE NEW CUSTOM 14-DAY CYCLES
+                * ============================================================
+                */
                 while ($currentStart <= $endDate) {
 
-                    # If the employment end date is before the current start date, we break the loop.
+                    //Do not generate anything after employment ended.
                     if ($employmentEndDate !== null && $currentStart > $employmentEndDate) {
                         break;
                     }
 
-                    # We set the current end date as the current start date plus 13 days.
+                    //New BWEE cycle = 14 days.New BWEE cycle = 14 days.
                     $currentEnd = clone $currentStart;
                     $currentEnd->modify('+13 days');
-                    # If the employment end date is before the current end date, we set the current end date as the employment end date.
+
+                    //Respect employment end date.
                     if ($employmentEndDate !== null && $currentEnd > $employmentEndDate) {
                         $currentEnd = clone $employmentEndDate;
                     }
 
-                    # We add the current start date and end date to the payslip candidates.
-                    $payslipCandidates[] = [
-                        'startDate' => clone $currentStart,
-                        'endDate' => clone $currentEnd,
-                        'twmoPeriodNumber' => null,
-                        'paymentPeriodEndDay' => (int)$currentEnd->format('w'),
-                        'paymentDay' => null
-                    ];
-                    //error_log("BWEE CUSTOM [" . $employees[$i]['name'] . "] Candidate = " . $currentStart->format('Y-m-d') . " -> " . $currentEnd->format('Y-m-d'));
+                    //Respect requested payrun end date.
+                    if ($currentEnd > $endDate) {
+                        $currentEnd = clone $endDate;
+                    }
 
-                    # If the employment end date is before the current end date, we break the loop.
+                    //Add the new custom cycle.
+                    if ($currentStart <= $currentEnd) {
+                        $payslipCandidates[] = [
+                            'startDate' => clone $currentStart,
+                            'endDate' => clone $currentEnd,
+                            'twmoPeriodNumber' => null,
+                            'paymentPeriodEndDay' =>
+                            (int)$currentEnd->format('w'),
+                            'paymentDay' => null,
+                            'isTransition' => false
+                        ];
+
+                        error_log('BWEE NEW CYCLE [' . $employees[$i]['name'] . '] Candidate = ' . $currentStart->format('Y-m-d') . ' -> ' . $currentEnd->format('Y-m-d'));
+                    }
+
+                    //Stop once employment has ended.
                     if ($employmentEndDate !== null && $currentEnd >= $employmentEndDate) {
                         break;
                     }
+
+                    //Stop if we reached the requested payrun end date.
+                    if ($currentEnd >= $endDate) {
+                        break;
+                    }
+
                     $currentStart->modify('+14 days');
                 }
             } else if ($employees[$i]['paymentPeriod'] === 'TWMO') {
@@ -7367,9 +7491,9 @@ class Payrun extends Controller
                     $payslipEndDate->modify('+1 day');
 
                     # Logs the payslip end date if the payment period is BWEE.
-                    if ($employees[$i]['paymentPeriod'] === 'BWEE') {
-                        // error_log('BWEE INIT | Using last payslip +1 day = ' . $payslipEndDate->format('Y-m-d'));
-                    }
+                    // if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                    //      error_log('BWEE INIT | Using last payslip +1 day = ' . $payslipEndDate->format('Y-m-d'));
+                    // }
                 } else if ($employees[$i]['paymentPeriod'] === 'BWEE' && $employees[$i]['bweeCustompped'] !== null) {
 
                     # Sets the payslip end date as the custom anchor.
@@ -7381,9 +7505,9 @@ class Payrun extends Controller
                     $payslipEndDate = new DateTime($employmentStartDate->format('Y-m-d'));
 
                     # Logs the payslip end date if the payment period is BWEE.
-                    if ($employees[$i]['paymentPeriod'] === 'BWEE') {
-                        //error_log('BWEE INIT | Using EMPLOYMENT anchor = ' . $payslipEndDate->format('Y-m-d'));
-                    }
+                    // if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+                    //     error_log('BWEE INIT | Using EMPLOYMENT anchor = ' . $payslipEndDate->format('Y-m-d'));
+                    // }
                 }
 
                 # Calculates the payslip end date depending on the payment period.
@@ -7489,17 +7613,17 @@ class Payrun extends Controller
             # Load active payslips belonging to other payruns.
             $sqlQuery =
                 'SELECT ' .
-                    'payslips.from_date, ' .
-                    'payslips.to_date ' .
+                'payslips.from_date, ' .
+                'payslips.to_date ' .
                 'FROM ' .
-                    'payslips ' .
+                'payslips ' .
                 'WHERE ' .
-                    'payslips.employee_id = $1 AND ' .
-                    'payslips.status_code = \'ACTI\' AND ' .
-                    'payslips.payrun_id != $2 ' .
+                'payslips.employee_id = $1 AND ' .
+                'payslips.status_code = \'ACTI\' AND ' .
+                'payslips.payrun_id != $2 ' .
                 'ORDER BY ' .
-                    'payslips.from_date ASC, ' .
-                    'payslips.to_date ASC;';
+                'payslips.from_date ASC, ' .
+                'payslips.to_date ASC;';
 
             $sqlResult = $db->paramQuery($sqlQuery, [
                 $employees[$i]['id'],
@@ -7524,6 +7648,43 @@ class Payrun extends Controller
 
             # Tracks dates covered by candidates accepted during this generation.
             $latestAcceptedCandidateEndDate = null;
+            $customBweeTransitionOccurred = false;
+
+            /*
+            * ------------------------------------------------------------
+            * BWEE PERIOD TRACKING
+            * ------------------------------------------------------------
+            * Existing payslips may already occupy BWEE periods.We therefore track the highest existing period for each SARS tax year and continue from there.
+            */
+
+            $bweeNextPeriodBySarsYear = [];
+            if ($employees[$i]['paymentPeriod'] === 'BWEE') {
+
+                $sqlQuery =
+                    'SELECT ' .
+                    'sars_year, ' .
+                    'MAX(period) AS max_period ' .
+                    'FROM ' .
+                    'payslips ' .
+                    'WHERE ' .
+                    'employee_id = $1 AND ' .
+                    'payment_period_code = \'BWEE\' AND ' .
+                    'status_code = \'ACTI\' ' .
+                    'GROUP BY ' .
+                    'sars_year;';
+
+                $sqlResult = $db->paramQuery($sqlQuery, [$employees[$i]['id']]);
+
+                if (!$sqlResult->isValid()) {
+                    return ['ok' => false, 'error' => 'Database error.'];
+                }
+
+                while ($sqlRow = $sqlResult->fetchAssociative()) {
+                    $sarsYear = (int)$sqlRow['sars_year'];
+                    $maxPeriod = (int)$sqlRow['max_period'];
+                    $bweeNextPeriodBySarsYear[$sarsYear] = $maxPeriod + 1;
+                }
+            }
 
             # Prepare a list of potential payslips.
             foreach ($payslipCandidates as $candidate) {
@@ -7551,7 +7712,8 @@ class Payrun extends Controller
                     $existingEndDate = $existingPeriod['endDate'];
 
                     # No overlap exists.
-                    if ($existingEndDate < $payslipStartDate || $existingStartDate > $payslipEndDate
+                    if (
+                        $existingEndDate < $payslipStartDate || $existingStartDate > $payslipEndDate
                     ) {
                         continue;
                     }
@@ -7561,7 +7723,7 @@ class Payrun extends Controller
                         return [
                             'ok' => false,
                             'error' =>
-                                'A payslip for employee \'' .
+                            'A payslip for employee \'' .
                                 $employees[$i]['name'] .
                                 '\' cannot be generated for the period \'' .
                                 $payslipStartDate->format('Y-m-d') .
@@ -7631,7 +7793,15 @@ class Payrun extends Controller
                 } else if ($employees[$i]['paymentPeriod'] === 'WEEK') {
                     $payslipPeriod = \PayslipUtil\getWeeklyPayslipPeriod($payslipEndDate, $payslipEndDate, $employees[$i]['paymentPeriodEndDay']);
                 } else if ($employees[$i]['paymentPeriod'] === 'BWEE') {
-                    $payslipPeriod = \PayslipUtil\getBiWeeklyPayslipPeriod($payslipEndDate, new DateTime($employees[$i]['bweeAnchorDate']));
+                    //$payslipPeriod = \PayslipUtil\getBiWeeklyPayslipPeriod($payslipEndDate, new DateTime($employees[$i]['bweeAnchorDate']));
+
+                    // BWEE periods are chronological within each SARS tax year.Existing payslips determine where we continue.
+                    if (!isset($bweeNextPeriodBySarsYear[$sarsYear])) {
+                        // No existing BWEE payslip exists in this SARS tax year. Therefore this is period 1.
+                        $bweeNextPeriodBySarsYear[$sarsYear] = 1;
+                    }
+                    $payslipPeriod = $bweeNextPeriodBySarsYear[$sarsYear];
+                    $bweeNextPeriodBySarsYear[$sarsYear]++;
                 } else {
                     # TWMO has two periods per SARS tax month.
                     $calendarMonth = (int)$payslipEndDate->format('n');
@@ -7668,6 +7838,16 @@ class Payrun extends Controller
                     ];
                 }
 
+                error_log(
+                    'BWEE CHECK | ' .
+                        'EmpID=' . $employees[$i]['id'] .
+                        ' | From=' . $payslipStartDate->format('Y-m-d') .
+                        ' | To=' . $payslipEndDate->format('Y-m-d') .
+                        ' | SARSYear=' . $sarsYear .
+                        ' | Period=' . $payslipPeriod .
+                        ' | Transition=' . (!empty($candidate['isTransition']) ? 'YES' : 'NO') .
+                        ' | ExistingCount=' . $sqlResult->getRowCount()
+                );
                 if ($sqlResult->getRowCount() >= 1) {
                     continue;
                 }
@@ -7823,38 +8003,38 @@ class Payrun extends Controller
                 break;
             case 'TWMO':
                 $twmoPeriods = \PayslipUtil\getTwmoPeriods(
-                $toDate,
-                $toDate,
-                (int)$employee['first_period_start'],
-                (int)$employee['first_period_end'],
-                (int)$employee['second_period_start'],
-                (int)$employee['second_period_end']
-            );
-            if (count($twmoPeriods) !== 1) {
-                return [
-                    'ok' => false,
-                    'error' =>
+                    $toDate,
+                    $toDate,
+                    (int)$employee['first_period_start'],
+                    (int)$employee['first_period_end'],
+                    (int)$employee['second_period_start'],
+                    (int)$employee['second_period_end']
+                );
+                if (count($twmoPeriods) !== 1) {
+                    return [
+                        'ok' => false,
+                        'error' =>
                         'The imported payslip end date does not match a configured twice-monthly period end date.'
-                ];
-            }
+                    ];
+                }
 
-            $twmoPeriodNumber =
-                (int)$twmoPeriods[0]['period'];
+                $twmoPeriodNumber =
+                    (int)$twmoPeriods[0]['period'];
 
-            $calendarMonth =
-                (int)$toDate->format('n');
+                $calendarMonth =
+                    (int)$toDate->format('n');
 
-            $sarsMonth =
-                $calendarMonth >= 3
+                $sarsMonth =
+                    $calendarMonth >= 3
                     ? $calendarMonth - 2
                     : $calendarMonth + 10;
 
-            $period =
-                (($sarsMonth - 1) * 2) +
-                $twmoPeriodNumber;
+                $period =
+                    (($sarsMonth - 1) * 2) +
+                    $twmoPeriodNumber;
 
-            $paymentPeriodEndDay =
-                $twmoPeriodNumber === 1
+                $paymentPeriodEndDay =
+                    $twmoPeriodNumber === 1
                     ? (int)$employee['first_period_end']
                     : (int)$employee['second_period_end'];
 

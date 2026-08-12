@@ -1044,18 +1044,24 @@ function getBiWeeklyPayslipStartDate(DateTime $date): DateTime
 //     // Return the counted periods
 //     return $period;
 // }
+function getBiWeeklyPayslipPeriod(
+    DateTime $date,
+    DateTime $anchorDate
+): int {
 
-function getBiWeeklyPayslipPeriod(DateTime $date, DateTime $anchorDate): int
-{
     /*
-     * SARS tax year starts 1 March.
+     * SARS tax year starts on 1 March.
      */
     $endDate = new DateTime($date->format('Y-m-d'));
-    $endDate->setTime(23, 59, 59);
 
-    $taxYearStart = new DateTime($endDate->format('Y') . '-03-01');
+    $taxYearStart = new DateTime(
+        $endDate->format('Y') . '-03-01'
+    );
 
-    // If before March, we are still in previous SARS tax year
+    /*
+     * January and February belong to the
+     * previous SARS tax year.
+     */
     if ((int)$endDate->format('n') < 3) {
         $taxYearStart->modify('-1 year');
     }
@@ -1064,50 +1070,62 @@ function getBiWeeklyPayslipPeriod(DateTime $date, DateTime $anchorDate): int
 
 
     /*
-     * Start from the employee's BWEE anchor date.
-     *
-     * For:
-     * - Standard BWEE: employment start date
-     * - Custom BWEE: custom start date
+     * Start from the BWEE anchor.
      */
-    $periodStart = new DateTime($anchorDate->format('Y-m-d'));
+    $periodStart = new DateTime(
+        $anchorDate->format('Y-m-d')
+    );
 
 
     /*
-     * Move backwards until we are before
-     * the SARS tax year.
-     *
-     * This gives us the first possible cycle
-     * that could fall inside the tax year.
+     * Move backwards until we reach the first
+     * BWEE cycle that can belong to this SARS year.
      */
-    while ($periodStart >= $taxYearStart) {
-        $periodStart->modify('-14 days');
+    while ($periodStart > $taxYearStart) {
+
+        $previousStart = clone $periodStart;
+        $previousStart->modify('-14 days');
+
+        /*
+         * Stop if moving backwards would place
+         * the cycle completely before the tax year.
+         */
+        $previousEnd = clone $previousStart;
+        $previousEnd->modify('+13 days');
+
+        if ($previousEnd < $taxYearStart) {
+            break;
+        }
+
+        $periodStart = $previousStart;
     }
 
 
     /*
-     * Count BWEE cycles until we reach
-     * the payslip end date.
+     * Count the BWEE cycles chronologically.
      */
     $period = 0;
 
-    while ($periodStart < $endDate) {
+    while ($periodStart <= $endDate) {
 
         $periodEnd = clone $periodStart;
         $periodEnd->modify('+13 days');
 
 
         /*
-         * Only count periods that belong
-         * to the current SARS tax year.
+         * A normal BWEE period belongs to the tax year
+         * if its end date is inside the tax year.
          */
-        if ($periodEnd >= $taxYearStart) {
+        if (
+            $periodEnd >= $taxYearStart &&
+            $periodEnd <= $endDate
+        ) {
             $period++;
         }
 
 
         /*
-         * Move to next BWEE cycle
+         * Move to next 14-day cycle.
          */
         $periodStart->modify('+14 days');
     }
@@ -1115,8 +1133,78 @@ function getBiWeeklyPayslipPeriod(DateTime $date, DateTime $anchorDate): int
 
     return $period;
 }
+// function getBiWeeklyPayslipPeriod(DateTime $date, DateTime $anchorDate): int (VERSION 2)
+// {
+//     /*
+//      * SARS tax year starts 1 March.
+//      */
+//     $endDate = new DateTime($date->format('Y-m-d'));
+//     $endDate->setTime(23, 59, 59);
 
-// Function to get the number of payment periods in the given tax year for bi-weekly payslips.
+//     $taxYearStart = new DateTime($endDate->format('Y') . '-03-01');
+
+//     // If before March, we are still in previous SARS tax year
+//     if ((int)$endDate->format('n') < 3) {
+//         $taxYearStart->modify('-1 year');
+//     }
+
+//     $taxYearStart->setTime(0, 0, 0);
+
+
+//     /*
+//      * Start from the employee's BWEE anchor date.
+//      *
+//      * For:
+//      * - Standard BWEE: employment start date
+//      * - Custom BWEE: custom start date
+//      */
+//     $periodStart = new DateTime($anchorDate->format('Y-m-d'));
+
+
+//     /*
+//      * Move backwards until we are before
+//      * the SARS tax year.
+//      *
+//      * This gives us the first possible cycle
+//      * that could fall inside the tax year.
+//      */
+//     while ($periodStart >= $taxYearStart) {
+//         $periodStart->modify('-14 days');
+//     }
+
+
+//     /*
+//      * Count BWEE cycles until we reach
+//      * the payslip end date.
+//      */
+//     $period = 0;
+
+//     while ($periodStart < $endDate) {
+
+//         $periodEnd = clone $periodStart;
+//         $periodEnd->modify('+13 days');
+
+
+//         /*
+//          * Only count periods that belong
+//          * to the current SARS tax year.
+//          */
+//         if ($periodEnd >= $taxYearStart) {
+//             $period++;
+//         }
+
+
+//         /*
+//          * Move to next BWEE cycle
+//          */
+//         $periodStart->modify('+14 days');
+//     }
+
+
+//     return $period;
+// }
+
+// Function to get the number of payment periods in the given tax year for bi-weekly payslips. (ORIGINAL)
 //
 // date                 A DateTime object giving the last day of the tax year or the employee's end date
 // baseDate             A DateTime object giving the last last payment date, or the employee's start date
