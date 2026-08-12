@@ -48,12 +48,27 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             Retrieving Employee info SECTION
      ********************************************/
 
-    # Retrieves the employee's Work schedule & Employement Start and End Date,
+    # Retrieves the employee's Work schedule, Workdays & Employement Start and End Date,
     $sqlQuery =
         'SELECT ' .
         'employees.employment_start_date, ' .
         'employees.employment_end_date, ' .
-        'work_schedules.enable_leave AS enable_work_schedule_leave ' .
+        'work_schedules.enable_leave AS enable_work_schedule_leave, ' .
+        'work_schedules.monday_hours, ' .
+        'work_schedules.tuesday_hours, ' .
+        'work_schedules.wednesday_hours, ' .
+        'work_schedules.thursday_hours, ' .
+        'work_schedules.friday_hours, ' .
+        'work_schedules.saturday_hours, ' .
+        'work_schedules.sunday_hours, ' .
+        'work_schedules.wd_enable_leave, ' .
+        'work_schedules.monday_wd, ' .
+        'work_schedules.tuesday_wd, ' .
+        'work_schedules.wednesday_wd, ' .
+        'work_schedules.thursday_wd, ' .
+        'work_schedules.friday_wd, ' .
+        'work_schedules.saturday_wd, ' .
+        'work_schedules.sunday_wd ' .
         'FROM ' .
         'employees ' .
         'LEFT JOIN ' .
@@ -70,7 +85,42 @@ function processEmployeeLeave($leaveDetails, $user, $db)
     $employmentStartDate = $row['employment_start_date'];
     //$employmentStartDate = '2026-05-15';
     $employmentEndDate = $row['employment_end_date'];
+
+    $employmentStartDateObject = new DateTime($employmentStartDate);
+
+    $employmentEndDateObject = $employmentEndDate !== null
+            ? new DateTime($employmentEndDate)
+            : null;
+
     $workScheduleLeaveEnabled = $row['enable_work_schedule_leave'];
+
+    $scheduledDays = null;
+
+    $workScheduleDays = [
+        1 => $row['monday_hours'] !== null,
+        2 => $row['tuesday_hours'] !== null,
+        3 => $row['wednesday_hours'] !== null,
+        4 => $row['thursday_hours'] !== null,
+        5 => $row['friday_hours'] !== null,
+        6 => $row['saturday_hours'] !== null,
+        0 => $row['sunday_hours'] !== null
+    ];
+
+    $selectedWorkdays = [
+        1 => databaseBoolean($row['monday_wd']),
+        2 => databaseBoolean($row['tuesday_wd']),
+        3 => databaseBoolean($row['wednesday_wd']),
+        4 => databaseBoolean($row['thursday_wd']),
+        5 => databaseBoolean($row['friday_wd']),
+        6 => databaseBoolean($row['saturday_wd']),
+        0 => databaseBoolean($row['sunday_wd'])
+    ];
+
+    if (databaseBoolean($row['enable_work_schedule_leave']) && in_array(true, $workScheduleDays, true)) {
+        $scheduledDays = $workScheduleDays;
+    } elseif (databaseBoolean($row['wd_enable_leave']) && in_array(true, $selectedWorkdays, true)) {
+        $scheduledDays = $selectedWorkdays;
+    }
 
     /********************************************
             Retrieving subscribed Leave SECTION
@@ -125,7 +175,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             // }
 
         /********************************************
-               ACCRUEL/RESETTING DATE Calculations
+               ACCRUAL/RESETTING DATE Calculations
          ********************************************/
 
         # Converts the start Date to a Date object.
@@ -168,7 +218,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
         # Determine the current month of employment
         $employmentMonth = $monthsEmployed + 1;
 
-        # Sets the accruel/reseting date to the current date or employee's employmentEndDate.
+        # Sets the accrual/reseting date to the current date or employee's employmentEndDate.
         $endDate = new DateTime($leaveDate);
         if ($employmentEndDate != null && ($employmentEndDate < $leaveDate)) {
             $endDate = new DateTime($employmentEndDate);
@@ -204,7 +254,11 @@ function processEmployeeLeave($leaveDetails, $user, $db)
         $sqlPPEDQuery =
             'SELECT ' .
             'payment_period_end_day, ' .
-            'payment_period_code ' .
+            'payment_period_code, ' .
+            'first_period_start, ' .
+            'first_period_end, ' .
+            'second_period_start, ' .
+            'second_period_end ' .
             'FROM ' .
             'employees ' .
             'WHERE ' .
@@ -219,6 +273,25 @@ function processEmployeeLeave($leaveDetails, $user, $db)
         $MonthlyWeeklyBiweek = $PPErow['payment_period_code'];
         $paymentPeriodEndDay = intval($PPEE);
 
+        //Add Twice a month period days.
+        $firstPeriodStartDay =
+        $PPErow['first_period_start'] === null
+            ? null
+            : (int)$PPErow['first_period_start'];
+
+        $firstPeriodEndDay = $PPErow['first_period_end'] === null
+            ? null
+            : (int)$PPErow['first_period_end'];
+
+        $secondPeriodStartDay =
+        $PPErow['second_period_start'] === null
+            ? null
+            : (int)$PPErow['second_period_start'];
+
+        $secondPeriodEndDay = $PPErow['second_period_end'] === null
+            ? null
+            : (int)$PPErow['second_period_end'];
+
 
         # Loops through each rule of each subscribed leave type
         while ($sqlLeaveTypeRuleRow = $sqlLeaveTypeRuleResult->fetchAssociative()) {
@@ -230,7 +303,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             # Checks from which month the rule starts, and if an employee can use this rule.
             if ($sqlLeaveTypeRuleRow['start_month'] > $employmentMonth) continue;
 
-            # Setting All Rule details need for Accruel/Reseting calculations
+            # Setting All Rule details need for Accrual/Reseting calculations
             $hoursWorked = $leaveDetails['hoursWorked'];
             $daysWorked = $leaveDetails['daysWorked'];
             $leaveEarned = 0;
@@ -241,11 +314,15 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                 'takenReset'        => (bool)$sqlLeaveTypeRuleRow['reset_taken'],
                 'leaveTypeId'       => $sqlLeaveConfigRow['leave_type_id'],
                 'paymentPeriodEndDay' => $paymentPeriodEndDay,
+                'firstPeriodStartDay' => $firstPeriodStartDay,
+                'firstPeriodEndDay' => $firstPeriodEndDay,
+                'secondPeriodStartDay' => $secondPeriodStartDay,
+                'secondPeriodEndDay' => $secondPeriodEndDay,
                 'MonthlyWeeklyBiweek' => $MonthlyWeeklyBiweek,
                 'payrunId' => $payrunId
             ];
 
-            # Sets the Default State for all the checks and return values used in the Accruel/Reseting calculations.
+            # Sets the Default State for all the checks and return values used in the Accrual/Reseting calculations.
             $earnLeave = false;
             $carryOverExecuted = false;
             $resetAccrued      = false;
@@ -260,10 +337,10 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             $leaveTaken = 0;
 
             /********************************************
-                 Setting DEFAULT Accruel/resetting Dates.
+                 Setting DEFAULT Accrual/resetting Dates.
              ********************************************/
 
-            # Sets the accruel/reseting start date to rule start date.
+            # Sets the accrual/reseting start date to rule start date.
             $startDate->setDate(
                 intval($startDate->format('Y')),
                 intval($startDate->format('m')) + ($sqlLeaveTypeRuleRow['start_month'] - 1),
@@ -296,10 +373,10 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             $employmentEndDateObj = $employmentEndDate ? new DateTime($employmentEndDate) : null;
 
             /********************************************
-                     ACCRUEL/RESETTING calculations
+                     ACCRUAL/RESETTING calculations
              ********************************************/
 
-            # Accruel/resetting calculations for the "HWOR" type of leave.
+            # Accrual/resetting calculations for the "HWOR" type of leave.
             if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'HWOR') {
 
                 //-----------------------------------------//
@@ -350,7 +427,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                 $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
                 $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "payslipLeaveTypes");
             }
-            # Accruel/resetting calculations for the "DAYS WORKED" type of leave.
+            # Accrual/resetting calculations for the "DAYS WORKED" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'DWOR') {
 
                 $isWorkDay = false;
@@ -468,7 +545,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     }
                 }
             }
-            # Accruel/resetting calculations for the "Payslip" type of leave.
+            # Accrual/resetting calculations for the "Payslip" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'PAYS') {
                 # Checks is the leave source a payslip.
                 if ($leaveSourceType === 'PAYS') {
@@ -503,7 +580,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "payslipLeaveTypes");
                 }
             }
-            # Accruel/resetting calculations for the "DAY CYCLE START" type of leave.
+            # Accrual/resetting calculations for the "DAY CYCLE START" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'DCST') {
                 # Checks if the leave source is NOT a payslip?
                 if ($leaveSourceType !== 'PAYS') {
@@ -552,7 +629,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "DCST");
                 }
             }
-            # Accruel/resetting calculations for the "DAY CYCLE END" type of leave.
+            # Accrual/resetting calculations for the "DAY CYCLE END" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'DCEN') {
                 # Checks if the leave source is NOT a payslip?
                 if ($leaveSourceType !== 'PAYS') {
@@ -593,7 +670,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "DCEN");
                 }
             }
-            # Accruel/resetting calculations for the "Payment Period End CYCLE - start" type of leave.
+            # Accrual/resetting calculations for the "Payment Period End CYCLE - start" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'PPES') {
                 # Checks if the leave source is NOT a payslip?
                 if ($leaveSourceType !== 'PAYS') {
@@ -605,6 +682,8 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     # Sets the PPE start and end Date.
                     // $currentDateObj = new DateTime($leaveDate);
                     $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
+                    $currentDay = intval($currentDate->format('d'));
+                    $daysInMonth = intval($currentDate->format('t'));
                     //$customDateObj = new DateTime(date('Y-m-d', strtotime($customDate)));
 
                     $periodStartDay =  paymentPeriodDay($currentDate, $startDate, $paymentPeriodEndDay, $MonthlyWeeklyBiweek, $type = "PPES");
@@ -621,8 +700,70 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                         $periodStartDay['Result'] = false;
                     }
 
-                    # Check if todays date is the Payment Period End day.
-                    if ($periodStartDay['Result']) {
+                    //TWMO (Twice a month) leave accrual calculations
+                    //if ($currentDay == $PeriodstartDay) {
+
+                    if ($MonthlyWeeklyBiweek === 'TWMO') {
+
+                        if ($firstPeriodStartDay === null || $firstPeriodEndDay === null || $secondPeriodStartDay === null || $secondPeriodEndDay === null) {
+                            echo json_encode([
+                                'ok' => false,
+                                'error' => 'The employee TWMO payment-period dates are incomplete.'
+                            ]);
+                            return false;
+                        }
+
+                        $effectiveFirstStartDay = resolveTwmoLeaveDay($firstPeriodStartDay, $currentDate);
+
+                        $effectiveSecondStartDay = resolveTwmoLeaveDay($secondPeriodStartDay, $currentDate);
+
+                        $isTwmoPeriodStart = $currentDay === $effectiveFirstStartDay || $currentDay === $effectiveSecondStartDay;
+
+                        // On a normal non-boundary day, no leave accrues.
+                        if ($isTwmoPeriodStart) {
+
+                            $twmoContext = getTwmoLeavePeriodContext($currentDate, 'PPES', $firstPeriodStartDay, $firstPeriodEndDay, $secondPeriodStartDay, $secondPeriodEndDay);
+
+                            if ($twmoContext === null) {
+                                echo json_encode([
+                                    'ok' => false,
+                                    'error' => 'Unable to identify the employee TWMO period for leave accrual.'
+                                ]);
+                                return false;
+                            }
+
+                            if (isTwmoLeaveAccrualBoundary($currentDate, 'PPES', $startDate, (int)$sqlLeaveTypeRuleRow['accrual_interval'], $firstPeriodStartDay, $firstPeriodEndDay, $secondPeriodStartDay, $secondPeriodEndDay)) {
+                                $ppesConfig = [
+                                    'currentDateObj' => $currentDate,
+                                    'startDate' => $startDate,
+                                    'MonthlyWeeklyBiweek' => $MonthlyWeeklyBiweek,
+                                    'paymentPeriodEndDay' => $paymentPeriodEndDay,
+                                    'employmentStartDateObj' => $employmentStartDateObj,
+                                    'employmentEndDateObj' => $employmentEndDateObj,
+                                    'customDate' => $customDate,
+                                    'accrual_interval' => $sqlLeaveTypeRuleRow['accrual_interval'],
+                                    'amount' => $sqlLeaveTypeRuleRow['amount'],
+                                    'CycleStart' => $twmoContext['currentPeriod']['startDate'],
+                                    'CycleEnd' => $twmoContext['currentPeriod']['endDate']
+                                ];
+
+                                // TODO: Confirm whether a configured TWMO amount represents a monthly total that must be
+                                // split across the two payment periods. If approved, replace the shared PPE calculation
+                                // below with calculateTwmoLeaveAmount().
+                                // $leaveEarned = calculateTwmoLeaveAmount(
+                                //     (float)$sqlLeaveTypeRuleRow['amount'],
+                                //     $twmoContext['currentPeriod'],
+                                //     $twmoContext['cyclePeriods'],
+                                //     $scheduledDays,
+                                //     $employmentStartDateObject,
+                                //     $employmentEndDateObject
+                                // );
+                                $leaveEarned = paymentPeriodProrataCalculations($ppesConfig, $type = 'PPES');
+                                $earnLeave = $leaveEarned != 0;
+                            }
+                        }
+                    } //Normal calculations for MONT, WEEK, BWEE
+                    else if ($periodStartDay['Result']) {
 
                         $ppesConfig = [
                             'currentDateObj' =>  $currentDate,
@@ -654,7 +795,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "PPES");
                 }
             }
-            # Accruel/resetting calculations for the "PPEE" type of leave.
+            # Accrual/resetting calculations for the "PPEE" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'PPEE') {
                 # Checks if the leave source is NOT a payslip?
                 if ($leaveSourceType !== 'PAYS') {
@@ -665,32 +806,95 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     # Sets the PPE start and end Date.
                     $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
 
-                    $effectiveEndDay = paymentPeriodDay($currentDate, $startDate, $paymentPeriodEndDay, $MonthlyWeeklyBiweek, $type = "PPEE");
+                    $currentDay = intval($currentDate->format('d')); //get todays day?
+                    $daysInMonth = intval($currentDate->format('t')); //Gets the total days in the current month(31/30/28)
 
+                    if ($MonthlyWeeklyBiweek === 'TWMO') {
 
-                    if ($employmentEndDateObj !== null &&  $currentDate == $employmentEndDateObj) {
-                        $effectiveEndDay['Result'] = true;
-                    } else if ($employmentEndDateObj !== null &&  $currentDate > $employmentEndDateObj) {
-                        $effectiveEndDay['Result'] = false;
-                    }
-                    # Check if todays date is the Payment Period End day.
-                    if ($effectiveEndDay['Result']) {
-                        $ppeConfig = [
-                            'currentDateObj' =>  $currentDate,
-                            'startDate' => $startDate,
-                            'MonthlyWeeklyBiweek' => $MonthlyWeeklyBiweek,
-                            'paymentPeriodEndDay' => $paymentPeriodEndDay,
-                            'employmentStartDateObj' => $employmentStartDateObj,
-                            'employmentEndDateObj' => $employmentEndDateObj,
-                            'customDate' => $customDate,
-                            'accrual_interval' => $sqlLeaveTypeRuleRow['accrual_interval'],
-                            'amount' => $sqlLeaveTypeRuleRow['amount'],
-                            'CycleStart' =>  $effectiveEndDay['CycleStart'],
-                            'CycleEnd' =>  $effectiveEndDay['CycleEnd']
-                        ];
+                        if ($firstPeriodStartDay === null || $firstPeriodEndDay === null || $secondPeriodStartDay === null || $secondPeriodEndDay === null) {
+                            echo json_encode([
+                                'ok' => false,
+                                'error' => 'The employee TWMO payment-period dates are incomplete.'
+                            ]);
+                            return false;
+                        }
 
-                        $leaveEarned = paymentPeriodProrataCalculations($ppeConfig, $type = "PPEE");
-                        $earnLeave = true;
+                        $effectiveFirstEndDay  = resolveTwmoLeaveDay($firstPeriodEndDay, $currentDate);
+                        $effectiveSecondEndDay = resolveTwmoLeaveDay($secondPeriodEndDay, $currentDate);
+
+                        $isTwmoPeriodEnd = $currentDay === $effectiveFirstEndDay || $currentDay === $effectiveSecondEndDay;
+
+                        //On a normal non-boundary day, no leave accrues.
+                        if($isTwmoPeriodEnd) {
+                            $twmoContext = getTwmoLeavePeriodContext($currentDate, 'PPEE', $firstPeriodStartDay, $firstPeriodEndDay, $secondPeriodStartDay, $secondPeriodEndDay);
+
+                            if ($twmoContext === null) {
+                                echo json_encode([
+                                    'ok' => false,
+                                    'error' => 'Unable to identify the employee TWMO period for leave accrual.'
+                                ]);
+                                return false;
+                            }
+
+                            if (isTwmoLeaveAccrualBoundary($currentDate, 'PPEE', $startDate, (int)$sqlLeaveTypeRuleRow['accrual_interval'], $firstPeriodStartDay, $firstPeriodEndDay, $secondPeriodStartDay, $secondPeriodEndDay)) {
+                                $ppeConfig = [
+                                    'currentDateObj' => $currentDate,
+                                    'startDate' => $startDate,
+                                    'MonthlyWeeklyBiweek' => $MonthlyWeeklyBiweek,
+                                    'paymentPeriodEndDay' => $paymentPeriodEndDay,
+                                    'employmentStartDateObj' => $employmentStartDateObj,
+                                    'employmentEndDateObj' => $employmentEndDateObj,
+                                    'customDate' => $customDate,
+                                    'accrual_interval' => $sqlLeaveTypeRuleRow['accrual_interval'],
+                                    'amount' => $sqlLeaveTypeRuleRow['amount'],
+                                    'CycleStart' => $twmoContext['currentPeriod']['startDate'],
+                                    'CycleEnd' => $twmoContext['currentPeriod']['endDate']
+                                ];
+
+                                // TODO: Confirm whether a configured TWMO amount represents a monthly total that must be
+                                // split across the two payment periods. If approved, replace the shared PPE calculation
+                                // below with calculateTwmoLeaveAmount().
+                                // $leaveEarned = calculateTwmoLeaveAmount(
+                                //     (float)$sqlLeaveTypeRuleRow['amount'],
+                                //     $twmoContext['currentPeriod'],
+                                //     $twmoContext['cyclePeriods'],
+                                //     $scheduledDays,
+                                //     $employmentStartDateObject,
+                                //     $employmentEndDateObject
+                                // );
+                                $leaveEarned = paymentPeriodProrataCalculations($ppeConfig, $type = 'PPEE');
+                                $earnLeave = $leaveEarned != 0;
+                            }
+                        }
+                    } else {
+                        $effectiveEndDay = paymentPeriodDay($currentDate, $startDate, $paymentPeriodEndDay, $MonthlyWeeklyBiweek, $type = 'PPEE');
+
+                        //Existing calculations retained unchanged for every payment period other than TWMO.
+                        if ($employmentEndDateObj !== null && $currentDate == $employmentEndDateObj) {
+                            $effectiveEndDay['Result'] = true;
+
+                        } else if ($employmentEndDateObj !== null && $currentDate > $employmentEndDateObj) {
+                            $effectiveEndDay['Result'] = false;
+                        }
+
+                        if ($effectiveEndDay['Result']) {
+                            $ppeConfig = [
+                                'currentDateObj' =>  $currentDate,
+                                'startDate' => $startDate,
+                                'MonthlyWeeklyBiweek' => $MonthlyWeeklyBiweek,
+                                'paymentPeriodEndDay' => $paymentPeriodEndDay,
+                                'employmentStartDateObj' => $employmentStartDateObj,
+                                'employmentEndDateObj' => $employmentEndDateObj,
+                                'customDate' => $customDate,
+                                'accrual_interval' => $sqlLeaveTypeRuleRow['accrual_interval'],
+                                'amount' => $sqlLeaveTypeRuleRow['amount'],
+                                'CycleStart' =>  $effectiveEndDay['CycleStart'],
+                                'CycleEnd' =>  $effectiveEndDay['CycleEnd']
+                            ];
+
+                            $leaveEarned = paymentPeriodProrataCalculations($ppeConfig, $type = "PPEE");
+                            $earnLeave = true;
+                        }
                     }
 
                     /********************************************
@@ -700,7 +904,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "PPEE");
                 }
             }
-            # Accruel/resetting calculations for the "MONTH CYCLE START" type of leave.
+            # Accrual/resetting calculations for the "MONTH CYCLE START" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'MCST') {
                 # Checks if the leave source is NOT a payslip?
                 if ($leaveSourceType !== 'PAYS') {
@@ -769,7 +973,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "MCST");
                 }
             }
-            # Accruel/resetting calculations for the "Month CYCLE end" type of leave.
+            # Accrual/resetting calculations for the "Month CYCLE end" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'MCEN') {
                 # Checks if the leave source is NOT a payslip?
                 if ($leaveSourceType !== 'PAYS') {
@@ -832,7 +1036,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "MCEN");
                 }
             }
-            # Accruel/resetting calculations for the "YEAR CYCLE START" type of leave.
+            # Accrual/resetting calculations for the "YEAR CYCLE START" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'YCST') {
                 # Checks if the leave source is NOT a payslip?
                 if ($leaveSourceType !== 'PAYS') {
@@ -900,7 +1104,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "YCST");
                 }
             }
-            # Accruel/resetting calculations for the "YEAR END CYCLE" type of leave.
+            # Accrual/resetting calculations for the "YEAR END CYCLE" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'YCEN') {
                 # Is the leave source NOT a payslip?
                 if ($leaveSourceType !== 'PAYS') {
@@ -1294,8 +1498,8 @@ function processEmployeeLeave($leaveDetails, $user, $db)
 
             # Only one rule should be applied per leave type
             break;
+            }
         }
-    }
 
     return $leaveResult;
 }
@@ -2222,6 +2426,229 @@ function checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previ
         'hoursTaken'   => 0,
         'totalHoursTaken' => 0,
     ];
+}
+
+//Helper functions for TWMO leave calculations
+//Ensures 0 as value is converted to that month's last day.
+function resolveTwmoLeaveDay(int $configuredDay, DateTime $date): int {
+    if ($configuredDay === 0) {
+        return (int)$date->format('t');
+    }
+
+    return $configuredDay;
+}
+
+//Returns relevant start and end dates for current period.
+function getTwmoLeavePeriodContext(DateTime $triggerDate, string $triggerType, int $firstPeriodStartDay, int $firstPeriodEndDay, int $secondPeriodStartDay, int $secondPeriodEndDay): ? array {
+    $searchStart = clone $triggerDate;
+    $searchStart->modify('first day of previous month');
+
+    $searchEnd = clone $triggerDate;
+    $searchEnd->modify('last day of next month');
+
+    //Add safeguard to ensure that the function getTwmoPeriods is available before calling it
+    if (!function_exists('\PayslipUtil\getTwmoPeriods')) {
+        \System::includeFile('PayslipUtil.php');
+    }
+
+    if (!function_exists('\PayslipUtil\getTwmoPeriods')) {
+        return null;
+    }
+
+    $periods = \PayslipUtil\getTwmoPeriods(
+        $searchStart,
+        $searchEnd,
+        $firstPeriodStartDay,
+        $firstPeriodEndDay,
+        $secondPeriodStartDay,
+        $secondPeriodEndDay
+    );
+
+    $matchingPeriods = [];
+
+    foreach ($periods as $period) {
+        $dateToCompare = $triggerType === 'PPES'
+                ? $period['startDate']
+                : $period['endDate'];
+
+        if ($dateToCompare->format('Y-m-d') === $triggerDate->format('Y-m-d')) {
+            $matchingPeriods[] = $period;
+        }
+    }
+
+    if (count($matchingPeriods) !== 1) {
+        return null;
+    }
+
+    $currentPeriod = $matchingPeriods[0];
+
+    //The two-period monthly cycle is identified by the month in which the current period ends.
+
+    $cycleStart = new DateTime(
+        $currentPeriod['endDate']->format('Y-m-01')
+    );
+
+    $cycleEnd = clone $cycleStart;
+    $cycleEnd->modify('last day of this month');
+
+    $cyclePeriods = \PayslipUtil\getTwmoPeriods(
+        $cycleStart,
+        $cycleEnd,
+        $firstPeriodStartDay,
+        $firstPeriodEndDay,
+        $secondPeriodStartDay,
+        $secondPeriodEndDay
+    );
+
+    if (count($cyclePeriods) !== 2) {
+        return null;
+    }
+
+    return [
+        'currentPeriod' => $currentPeriod,
+        'cyclePeriods' => $cyclePeriods
+    ];
+}
+
+//Determines if the current day matches the interval of the PPES or PPEE leave earning rule.
+function isTwmoLeaveAccrualBoundary(DateTime $triggerDate, string $triggerType, DateTime $ruleStartDate, int $accrualInterval, int $firstPeriodStartDay, int $firstPeriodEndDay, int $secondPeriodStartDay, int $secondPeriodEndDay): bool {
+    if ($accrualInterval <= 0) {
+        return false;
+    }
+
+    if (!function_exists('\PayslipUtil\getTwmoPeriods')) {
+        \System::includeFile('PayslipUtil.php');
+    }
+
+    if (!function_exists('\PayslipUtil\getTwmoPeriods')) {
+        return false;
+    }
+
+    $searchStart = clone $ruleStartDate;
+    $searchStart->modify('first day of previous month');
+
+    $searchEnd = clone $triggerDate;
+    $searchEnd->modify('last day of next month');
+
+    $periods = \PayslipUtil\getTwmoPeriods(
+        $searchStart,
+        $searchEnd,
+        $firstPeriodStartDay,
+        $firstPeriodEndDay,
+        $secondPeriodStartDay,
+        $secondPeriodEndDay
+    );
+
+    $boundaryCount = 0;
+
+    foreach ($periods as $period) {
+        $boundaryDate = $triggerType === 'PPES'
+            ? $period['startDate']
+            : $period['endDate'];
+
+        if ($boundaryDate < $ruleStartDate || $boundaryDate > $triggerDate) {
+            continue;
+        }
+
+        $boundaryCount++;
+    }
+
+    if ($boundaryCount === 0) {
+        return false;
+    }
+
+    if ($triggerType === 'PPES') {
+        return (($boundaryCount - 1) % $accrualInterval) === 0;
+    }
+
+    return ($boundaryCount % $accrualInterval) === 0;
+}
+
+function calculateTwmoLeaveAmount(float $monthlyAmount, array $currentPeriod, array $cyclePeriods, ?array $scheduledDays, DateTime $employmentStartDate, ?DateTime $employmentEndDate): float {
+    $periodStart = clone $currentPeriod['startDate'];
+    $periodEnd = clone $currentPeriod['endDate'];
+
+    $eligibleStart = $employmentStartDate > $periodStart
+            ? clone $employmentStartDate
+            : clone $periodStart;
+
+    $eligibleEnd = clone $periodEnd;
+
+    if ($employmentEndDate !== null && $employmentEndDate < $eligibleEnd) {
+        $eligibleEnd = clone $employmentEndDate;
+    }
+
+    if ($eligibleStart > $eligibleEnd) {
+        return 0.0;
+    }
+
+    //Preferred calculation: proportion of the full cycle's scheduled working days falling in this eligible period.
+    if ($scheduledDays !== null) {
+        $cycleScheduledDays = 0;
+
+        foreach ($cyclePeriods as $cyclePeriod) {
+            $cycleScheduledDays += countScheduledDays(
+                $cyclePeriod['startDate'],
+                $cyclePeriod['endDate'],
+                $scheduledDays
+            );
+        }
+
+        $eligibleScheduledDays = countScheduledDays(
+            $eligibleStart,
+            $eligibleEnd,
+            $scheduledDays
+        );
+
+        if ($cycleScheduledDays > 0) {
+            return $monthlyAmount *
+                ($eligibleScheduledDays / $cycleScheduledDays);
+        }
+    }
+
+    //Fallback: half of the monthly amount per period. A partial employment period is prorated by calendar days.
+    $fullPeriodDays =
+        (int)$periodStart->diff($periodEnd)->format('%a') + 1;
+
+    $eligiblePeriodDays =
+        (int)$eligibleStart->diff($eligibleEnd)->format('%a') + 1;
+
+    if ($fullPeriodDays <= 0) {
+        return 0.0;
+    }
+
+    return ($monthlyAmount / 2) *
+        ($eligiblePeriodDays / $fullPeriodDays);
+}
+
+function countScheduledDays(DateTime $startDate, DateTime $endDate, array $scheduledDays): int {
+    if ($startDate > $endDate) {
+        return 0;
+    }
+
+    $count = 0;
+    $date = clone $startDate;
+
+    while ($date <= $endDate) {
+        $dayOfWeek = (int)$date->format('w');
+
+        if (!empty($scheduledDays[$dayOfWeek])) {
+            $count++;
+        }
+
+        $date->modify('+1 day');
+    }
+
+    return $count;
+}
+
+function databaseBoolean($value): bool
+{
+    return $value === true ||
+        $value === 1 ||
+        $value === '1' ||
+        $value === 't' ||
+        $value === 'true';
 }
 
 function payslipDateConvertion($resetDate, $pped, $periodCode, $currentDate, $db, $employeeId, $payrunId, $type): DateTime

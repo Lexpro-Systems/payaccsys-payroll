@@ -68,6 +68,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
     $row = $sqlResult->fetchAssociative();
     $employmentStartDate = $row['employment_start_date'];
     $employmentEndDate = $row['employment_end_date'];
+            
     $workScheduleLeaveEnabled = $row['enable_work_schedule_leave'];
 
     /********************************************
@@ -537,21 +538,22 @@ function processEmployeeLeave($leaveDetails, $user, $db)
 
                     # Check if todays date is the Payment Period End day.
                     if ($currentDay == $PeriodstartDay) {
+                            $empStart = new DateTime($employmentStartDate);
 
-                        $empStart = new DateTime($employmentStartDate);
-                        $isFirstMonth = $empStart->format('Y-m') === $currentDate->format('Y-m');
-                        # Checks if it is the employees first month of employment for pro-rata calculations.
-                        if ($isFirstMonth) {
-                            $monthStart = new DateTime($currentDate->format('Y-m-01'));
-                            $actualStart = ($empStart > $monthStart) ? $empStart : $monthStart;
-                            $daysWorked = $actualStart->diff($currentDate)->days + 1;
-                            $leaveEarned = $daysWorked / 17;
-                            $earnLeave = true;
-                        } else {
-                            $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
-                            $earnLeave = true;
+                            $isFirstMonth = $empStart->format('Y-m') === $currentDate->format('Y-m');
+
+                            # Checks if it is the employees first month of employment for pro-rata calculations.
+                            if ($isFirstMonth) {
+                                $monthStart = new DateTime($currentDate->format('Y-m-01'));
+                                $actualStart = ($empStart > $monthStart) ? $empStart : $monthStart;
+                                $daysWorked = $actualStart->diff($currentDate)->days + 1;
+                                $leaveEarned = $daysWorked / 17;
+                                $earnLeave = true;
+                            } else {
+                                $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
+                                $earnLeave = true;
+                            }
                         }
-                    }
 
                     /********************************************
                                         RESETING LEAVE.
