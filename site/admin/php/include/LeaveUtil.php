@@ -89,8 +89,8 @@ function processEmployeeLeave($leaveDetails, $user, $db)
     $employmentStartDateObject = new DateTime($employmentStartDate);
 
     $employmentEndDateObject = $employmentEndDate !== null
-            ? new DateTime($employmentEndDate)
-            : null;
+        ? new DateTime($employmentEndDate)
+        : null;
 
     $workScheduleLeaveEnabled = $row['enable_work_schedule_leave'];
 
@@ -269,13 +269,25 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             return false;
         }
         $PPErow = $sqlPPEDResult->fetchAssociative();
+        // $PPEE = $PPErow['payment_period_end_day'];
+        // $MonthlyWeeklyBiweek = $PPErow['payment_period_code'];
+        // $paymentPeriodEndDay = intval($PPEE);
         $PPEE = $PPErow['payment_period_end_day'];
         $MonthlyWeeklyBiweek = $PPErow['payment_period_code'];
-        $paymentPeriodEndDay = intval($PPEE);
+        if ($PPEE === null && $MonthlyWeeklyBiweek === 'BWEE') {
+            $employmentStartDateForPPE = new DateTime($employmentStartDate);
+            $paymentPeriodEndDay = (int)$employmentStartDateForPPE->format('w') - 1;
+
+            if ($paymentPeriodEndDay < 0) {
+                $paymentPeriodEndDay = 6;
+            }
+        } else {
+            $paymentPeriodEndDay = intval($PPEE);
+        }
 
         //Add Twice a month period days.
         $firstPeriodStartDay =
-        $PPErow['first_period_start'] === null
+            $PPErow['first_period_start'] === null
             ? null
             : (int)$PPErow['first_period_start'];
 
@@ -284,7 +296,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             : (int)$PPErow['first_period_end'];
 
         $secondPeriodStartDay =
-        $PPErow['second_period_start'] === null
+            $PPErow['second_period_start'] === null
             ? null
             : (int)$PPErow['second_period_start'];
 
@@ -825,7 +837,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                         $isTwmoPeriodEnd = $currentDay === $effectiveFirstEndDay || $currentDay === $effectiveSecondEndDay;
 
                         //On a normal non-boundary day, no leave accrues.
-                        if($isTwmoPeriodEnd) {
+                        if ($isTwmoPeriodEnd) {
                             $twmoContext = getTwmoLeavePeriodContext($currentDate, 'PPEE', $firstPeriodStartDay, $firstPeriodEndDay, $secondPeriodStartDay, $secondPeriodEndDay);
 
                             if ($twmoContext === null) {
@@ -872,7 +884,6 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                         //Existing calculations retained unchanged for every payment period other than TWMO.
                         if ($employmentEndDateObj !== null && $currentDate == $employmentEndDateObj) {
                             $effectiveEndDay['Result'] = true;
-
                         } else if ($employmentEndDateObj !== null && $currentDate > $employmentEndDateObj) {
                             $effectiveEndDay['Result'] = false;
                         }
@@ -1498,8 +1509,8 @@ function processEmployeeLeave($leaveDetails, $user, $db)
 
             # Only one rule should be applied per leave type
             break;
-            }
         }
+    }
 
     return $leaveResult;
 }
@@ -2430,7 +2441,8 @@ function checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previ
 
 //Helper functions for TWMO leave calculations
 //Ensures 0 as value is converted to that month's last day.
-function resolveTwmoLeaveDay(int $configuredDay, DateTime $date): int {
+function resolveTwmoLeaveDay(int $configuredDay, DateTime $date): int
+{
     if ($configuredDay === 0) {
         return (int)$date->format('t');
     }
@@ -2439,7 +2451,8 @@ function resolveTwmoLeaveDay(int $configuredDay, DateTime $date): int {
 }
 
 //Returns relevant start and end dates for current period.
-function getTwmoLeavePeriodContext(DateTime $triggerDate, string $triggerType, int $firstPeriodStartDay, int $firstPeriodEndDay, int $secondPeriodStartDay, int $secondPeriodEndDay): ? array {
+function getTwmoLeavePeriodContext(DateTime $triggerDate, string $triggerType, int $firstPeriodStartDay, int $firstPeriodEndDay, int $secondPeriodStartDay, int $secondPeriodEndDay): ?array
+{
     $searchStart = clone $triggerDate;
     $searchStart->modify('first day of previous month');
 
@@ -2468,8 +2481,8 @@ function getTwmoLeavePeriodContext(DateTime $triggerDate, string $triggerType, i
 
     foreach ($periods as $period) {
         $dateToCompare = $triggerType === 'PPES'
-                ? $period['startDate']
-                : $period['endDate'];
+            ? $period['startDate']
+            : $period['endDate'];
 
         if ($dateToCompare->format('Y-m-d') === $triggerDate->format('Y-m-d')) {
             $matchingPeriods[] = $period;
@@ -2511,7 +2524,8 @@ function getTwmoLeavePeriodContext(DateTime $triggerDate, string $triggerType, i
 }
 
 //Determines if the current day matches the interval of the PPES or PPEE leave earning rule.
-function isTwmoLeaveAccrualBoundary(DateTime $triggerDate, string $triggerType, DateTime $ruleStartDate, int $accrualInterval, int $firstPeriodStartDay, int $firstPeriodEndDay, int $secondPeriodStartDay, int $secondPeriodEndDay): bool {
+function isTwmoLeaveAccrualBoundary(DateTime $triggerDate, string $triggerType, DateTime $ruleStartDate, int $accrualInterval, int $firstPeriodStartDay, int $firstPeriodEndDay, int $secondPeriodStartDay, int $secondPeriodEndDay): bool
+{
     if ($accrualInterval <= 0) {
         return false;
     }
@@ -2564,13 +2578,14 @@ function isTwmoLeaveAccrualBoundary(DateTime $triggerDate, string $triggerType, 
     return ($boundaryCount % $accrualInterval) === 0;
 }
 
-function calculateTwmoLeaveAmount(float $monthlyAmount, array $currentPeriod, array $cyclePeriods, ?array $scheduledDays, DateTime $employmentStartDate, ?DateTime $employmentEndDate): float {
+function calculateTwmoLeaveAmount(float $monthlyAmount, array $currentPeriod, array $cyclePeriods, ?array $scheduledDays, DateTime $employmentStartDate, ?DateTime $employmentEndDate): float
+{
     $periodStart = clone $currentPeriod['startDate'];
     $periodEnd = clone $currentPeriod['endDate'];
 
     $eligibleStart = $employmentStartDate > $periodStart
-            ? clone $employmentStartDate
-            : clone $periodStart;
+        ? clone $employmentStartDate
+        : clone $periodStart;
 
     $eligibleEnd = clone $periodEnd;
 
@@ -2621,7 +2636,8 @@ function calculateTwmoLeaveAmount(float $monthlyAmount, array $currentPeriod, ar
         ($eligiblePeriodDays / $fullPeriodDays);
 }
 
-function countScheduledDays(DateTime $startDate, DateTime $endDate, array $scheduledDays): int {
+function countScheduledDays(DateTime $startDate, DateTime $endDate, array $scheduledDays): int
+{
     if ($startDate > $endDate) {
         return 0;
     }

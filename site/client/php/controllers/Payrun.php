@@ -2942,6 +2942,7 @@ class Payrun extends Controller
         $payslipQuery =
             'SELECT DISTINCT ' .
             'payslips.id, ' .
+            'payslips.from_date, ' .
             'payslips.to_date, ' .
             'payslips.employee_id ' .
             'FROM ' .
@@ -3021,7 +3022,8 @@ class Payrun extends Controller
                 'hoursWorked' => $hoursWorked,
                 'daysWorked' => $daysWorked,
                 'leaveSourceType' => 'PAYS',
-                'leaveDate' => $payslipRow['to_date']
+                'leaveDate' => $payslipRow['to_date'],
+                'payslipStartDate' => $payslipRow['from_date'],
             ];
 
             // Calculate employee leave

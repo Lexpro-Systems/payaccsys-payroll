@@ -68,7 +68,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
     $row = $sqlResult->fetchAssociative();
     $employmentStartDate = $row['employment_start_date'];
     $employmentEndDate = $row['employment_end_date'];
-            
+
     $workScheduleLeaveEnabled = $row['enable_work_schedule_leave'];
 
     /********************************************
@@ -204,10 +204,21 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             return false;
         }
         $PPErow = $sqlPPEDResult->fetchAssociative();
+        // $PPEE = $PPErow['payment_period_end_day'];
+        // $MonthlyWeeklyBiweek = $PPErow['payment_period_code'];
+        // $paymentPeriodEndDay = intval($PPEE);
         $PPEE = $PPErow['payment_period_end_day'];
         $MonthlyWeeklyBiweek = $PPErow['payment_period_code'];
-        $paymentPeriodEndDay = intval($PPEE);
+        if ($PPEE === null && $MonthlyWeeklyBiweek === 'BWEE') {
+            $employmentStartDateForPPE = new DateTime($employmentStartDate);
+            $paymentPeriodEndDay = (int)$employmentStartDateForPPE->format('w') - 1;
 
+            if ($paymentPeriodEndDay < 0) {
+                $paymentPeriodEndDay = 6;
+            }
+        } else {
+            $paymentPeriodEndDay = intval($PPEE);
+        }
 
         # Loops through each rule of each subscribed leave type
         while ($sqlLeaveTypeRuleRow = $sqlLeaveTypeRuleResult->fetchAssociative()) {
@@ -416,6 +427,9 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     # (we are assuming that the payrun of which the source payslip is part has already been processed)?
                     if (($sqlLeaveTypeRuleRow['accrual_interval'] > 0) && ($numPayslips % $sqlLeaveTypeRuleRow['accrual_interval']) === 0) {
                         $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
+                        if ($MonthlyWeeklyBiweek === 'BWEE') {
+                            $leaveEarned = TransistionBweeLeaveAmount($db, $employeeId, $sqlLeaveTypeRuleRow['accrual_interval'], $leaveEarned);
+                        }
                         $earnLeave = true;
                     }
 
@@ -538,22 +552,22 @@ function processEmployeeLeave($leaveDetails, $user, $db)
 
                     # Check if todays date is the Payment Period End day.
                     if ($currentDay == $PeriodstartDay) {
-                            $empStart = new DateTime($employmentStartDate);
+                        $empStart = new DateTime($employmentStartDate);
 
-                            $isFirstMonth = $empStart->format('Y-m') === $currentDate->format('Y-m');
+                        $isFirstMonth = $empStart->format('Y-m') === $currentDate->format('Y-m');
 
-                            # Checks if it is the employees first month of employment for pro-rata calculations.
-                            if ($isFirstMonth) {
-                                $monthStart = new DateTime($currentDate->format('Y-m-01'));
-                                $actualStart = ($empStart > $monthStart) ? $empStart : $monthStart;
-                                $daysWorked = $actualStart->diff($currentDate)->days + 1;
-                                $leaveEarned = $daysWorked / 17;
-                                $earnLeave = true;
-                            } else {
-                                $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
-                                $earnLeave = true;
-                            }
+                        # Checks if it is the employees first month of employment for pro-rata calculations.
+                        if ($isFirstMonth) {
+                            $monthStart = new DateTime($currentDate->format('Y-m-01'));
+                            $actualStart = ($empStart > $monthStart) ? $empStart : $monthStart;
+                            $daysWorked = $actualStart->diff($currentDate)->days + 1;
+                            $leaveEarned = $daysWorked / 17;
+                            $earnLeave = true;
+                        } else {
+                            $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
+                            $earnLeave = true;
                         }
+                    }
 
                     /********************************************
                                         RESETING LEAVE.
@@ -1672,6 +1686,38 @@ function payslipDateConvertion($resetDate, $pped, $periodCode, $currentDate, $db
     }
 
     return $resetDate;
+}
+
+function TransistionBweeLeaveAmount($db, $employeeId, $accrualInterval, $leaveAmount)
+{
+    $sqlQuery =
+        'SELECT ' .
+        'payslips.from_date, ' .
+        'payslips.to_date, ' .
+        'FROM payslips ' .
+        'WHERE ' .
+        'payslips.employee_id = $1 AND ' .
+        'payslips.status_code = \'ACTI\' ' .
+        'ORDER BY payslips.to_date DESC ' .
+        'LIMIT $2;';
+    $sqlResult = $db->paramQuery($sqlQuery, [$employeeId, $accrualInterval]);
+    if (!$sqlResult->isValid()) {
+        return $leaveAmount;
+    }
+
+    $actualDays = 0;
+    while ($sqlRow = $sqlResult->fetchAssociative()) {
+        $fromDate = new DateTime($sqlRow['from_date']);
+        $toDate = new DateTime($sqlRow['to_date']);
+        $actualDays += $fromDate->diff($toDate)->days + 1;
+    }
+
+    $expectedDays = $accrualInterval * 14;
+    if ($actualDays < $expectedDays) {
+        $leaveAmount = ($leaveAmount / $expectedDays) * $actualDays;
+    }
+
+    return $leaveAmount;
 }
 // Function to get all leave balances for a specified employee (this includes only processed leave up to the current date)
 //
