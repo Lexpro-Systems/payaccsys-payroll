@@ -393,11 +393,21 @@
                     
                     // Set the description
                     $description = $itemRow['description'];
-                    
+
                     // Is it an overtime item?
-                    if( $itemRow['payslip_item_type_code'] == '1005' ) {
+                    if ($itemRow['payslip_item_type_code'] == '1005' || $itemRow['payslip_item_type_code'] == '5008' || $itemRow['payslip_item_type_code'] == '5009') {
                         // Add the number of hours worked to the payslip item description
-                        $description = $description . ' (' . $hoursWorked . ' hours)';
+                        $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                    }
+
+                    // Add hours worked and hourly rate to description
+                    if ($itemRow['payslip_item_type_code'] == '1001') {
+                        $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                    }
+
+                    // Add days worked and daily rate to description
+                    if ($itemRow['payslip_item_type_code'] == '1002') {
+                        $description = $description . ' (' . $daysWorked . ' days @ ' . $itemRow['rate'] . ' per day)';
                     }
                     
                     // Add the specified item details to the payslip printer
@@ -985,9 +995,19 @@
                 $description = $itemRow['description'];
                 
                 // Is it an overtime item?
-                if( $itemRow['payslip_item_type_code'] == '1005' ) {
+                if ($itemRow['payslip_item_type_code'] == '1005' || $itemRow['payslip_item_type_code'] == '5008' || $itemRow['payslip_item_type_code'] == '5009') {
                     // Add the number of hours worked to the payslip item description
-                    $description = $description . ' (' . $hoursWorked . ' hours)';
+                    $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                }
+
+                // Add hours worked and hourly rate to description
+                if ($itemRow['payslip_item_type_code'] == '1001') {
+                    $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                }
+
+                // Add days worked and daily rate to description
+                if ($itemRow['payslip_item_type_code'] == '1002') {
+                    $description = $description . ' (' . $daysWorked . ' days @ ' . $itemRow['rate'] . ' per day)';
                 }
                 
                 // Add the specified item details to the payslip printer

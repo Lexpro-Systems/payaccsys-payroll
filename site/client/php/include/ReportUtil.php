@@ -691,7 +691,7 @@ function getDetailedPayrollData($data, $user, $db)
                         THEN 'Bonus'
                     END,
                     CASE
-                        WHEN SUM(CASE WHEN payslip_item_types.payslip_category_code = 'INCO' and payslip_item_types.code = '1005' THEN 1 ELSE 0 END) > 0
+                        WHEN SUM(CASE WHEN payslip_item_types.payslip_category_code = 'INCO' and payslip_item_types.code IN ('1005', '5008', '5009') THEN 1 ELSE 0 END) > 0
                         THEN 'Overtime'
                     END,
                     CASE 
@@ -3652,7 +3652,7 @@ function getOvertimeData($data, $user, $db)
         'payslip_item_types ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
         'WHERE ' .
         'payslips.status_code = \'ACTI\' AND ' .
-        'payslip_items.payslip_item_type_code = \'1005\' ' .
+        'payslip_items.payslip_item_type_code IN (\'1005\',\'5008\',\'5009\') ' .
         $filterClause .
         '), ' .
         'overtime_details AS ( ' .

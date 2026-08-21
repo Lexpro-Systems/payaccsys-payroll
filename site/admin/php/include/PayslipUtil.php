@@ -1233,7 +1233,7 @@
                 $taxableIncome = $taxableIncome + $item['amount'];
                 $totalOnceOffIncome = $totalOnceOffIncome + $item['amount'];
             }
-            else if( $item['type']['code'] === '1005' ) {           // Overtime
+            else if( $item['type']['code'] === '1005' || $item['type']['code'] === '5008' || $item['type']['code'] === '5009') {           // Overtime
                 $taxableIncome = $taxableIncome + $item['amount'];
                 $totalIncome = $totalIncome + $item['amount'];
             }
@@ -1521,7 +1521,7 @@
                 $taxableIncome = $taxableIncome + $item['amount'];
                 $totalOnceOffIncome = $totalOnceOffIncome + $item['amount'];
             }
-            else if( $item['type']['code'] === '1005' ) {   // Overtime
+            else if( $item['type']['code'] === '1005' || $item['type']['code'] === '5008' || $item['type']['code'] === '5009') {   // Overtime
                 $taxableIncome = $taxableIncome + $item['amount'];
                 $totalIncome = $totalIncome + $item['amount'];
             }
