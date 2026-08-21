@@ -2327,6 +2327,17 @@ function prorataPPECheck($cycleStart, $cycleEnd, $config, $leaveEarned, $type): 
             return $leaveEarned;
         } else if ($config['employmentEndDateObj'] !== null && $cycleStart <= $config['employmentEndDateObj'] && $cycleEnd >= $config['employmentEndDateObj']) {
 
+            //When employment ends exactly on the PPES boundary, no full accrual exists yet for this period (thus no negative accrual should take place).
+            //The employment end date is inclusive, so accrue only the working days from the period start until the employment end date.
+            if ($config['employmentEndDateObj']->format('Y-m-d') === $cycleStart->format('Y-m-d')) {
+                $employedWorkingDays = prorataWorkingDays($cycleStart, $config['employmentEndDateObj']);
+
+                $leaveEarned = $employedWorkingDays * $accrualAmount;
+
+                return $leaveEarned;
+            }
+            //If employment ended after a PPES boundary, but before the next one, the full amount earned at the beginning must be adjusted,
+            //to reverse the working days that should not be earned (negative accrual).
             $unemploymentStart = (clone $config['employmentEndDateObj'])->modify('+1 day');
             $lastMonthDiff =  prorataWorkingDays($unemploymentStart, $cycleEnd);
             //$lastMonthDiff =  $config['employmentEndDateObj']->diff($cycleEnd)->days;
@@ -2449,6 +2460,22 @@ function prorataWorkingDays(DateTime $start, DateTime $end): int
     return $workingDays;
 }
 
+//Helper to centralise the duplicated reset and carry-over date alignment logic for PPEE and PPES.
+//Aligns nominal dates to the appropriate payment-period dates.
+function alignPaymentPeriodLeaveResetDate(DateTime $nominalDate, DateTime $currentDate, array $config, $db, int $employeeId, string $type): ?DateTime {
+    if ($type !== 'PPEE' && $type !== 'PPES') {
+        return clone $nominalDate;
+    }
+
+    $periodCode = $config['MonthlyWeeklyBiweek'];
+
+    if ($periodCode === 'TWMO') {
+        return resolveTwmoLeaveBoundaryDate(clone $nominalDate, $type, $config['firstPeriodStartDay'], $config['firstPeriodEndDay'], $config['secondPeriodStartDay'], $config['secondPeriodEndDay']);
+    }
+
+    return payslipDateConversion(clone $nominalDate, $config['paymentPeriodEndDay'], $periodCode, $currentDate, $db, $employeeId, $config['payrunId'], $type);
+}
+
 function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type): array
 {
 
@@ -2460,15 +2487,83 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
     $carryOverInterval = $config['carryOverInterval'];
     $getAccrueReset    = $config['accrueReset'];
     $getTakenReset     = $config['takenReset'];
-    $pped = $config['paymentPeriodEndDay'];
-    $periodCode = $config['MonthlyWeeklyBiweek'];
-    $payrunId = $config['payrunId'];
+    // $pped = $config['paymentPeriodEndDay'];
+    // $periodCode = $config['MonthlyWeeklyBiweek'];
+    // $payrunId = $config['payrunId'];
 
-    if (
-        !$getAccrueReset &&
-        !$getTakenReset
-    ) {
+    if (!$getAccrueReset && !$getTakenReset) {
         return emptyLeaveResetResult();
+    }
+
+    //Updated logic to ensure payment period boundaries that crosses months are handled correctly.
+    $isPaymentPeriodRule = $type === 'PPEE' || $type === 'PPES';
+
+    if ($isPaymentPeriodRule) {
+        $resetInterval = (int)$resetInterval;
+        $carryOverInterval = (int)$carryOverInterval;
+
+        if ($resetInterval <= 0) {
+            return emptyLeaveResetResult();
+        }
+
+        $interval = date_diff($startDate, $endDate);
+        
+        $totalMonthsEmployed = ($interval->y * 12) + $interval->m;
+
+        //When carry-over applies, calculate the underlying reset cycle after removing the carry-over delay.
+        $effectiveCycleMonths = max(0, $totalMonthsEmployed - $carryOverInterval);
+
+        $completedCycleCount = (int)floor($effectiveCycleMonths / $resetInterval);
+
+        //Check both the cycle that may just have completed and the next cycle. This covers boundaries aligned backward for PPES and forward for PPEE.
+        $candidateCycleNumbers = array_values(array_unique([max(1, $completedCycleCount), max(1, $completedCycleCount + 1)]));
+
+        $matchedPreviousCycleStart = null;
+        $matchedPreviousCycleEnd = null;
+
+        foreach ($candidateCycleNumbers as $cycleNumber) {
+            $previousCycleStart = ($cycleNumber - 1) * $resetInterval;
+
+            $previousCycleEnd = $cycleNumber * $resetInterval;
+
+            //With no carry-over: employment start + cycle end - 1 day
+            //With carry-over: employment start + cycle end + carry-over months - 1 day
+            $nominalTriggerMonth = $previousCycleEnd + $carryOverInterval;
+
+            $nominalTriggerDate = (clone $startDate)->modify("+{$nominalTriggerMonth} months")->modify('-1 day');
+
+            $alignedTriggerDate = alignPaymentPeriodLeaveResetDate($nominalTriggerDate, $currentDate, $config, $db, $employeeId, $type);
+
+            if ($alignedTriggerDate === null) {
+                return ['error' => true];
+            }
+
+            if ($currentDate->format('Y-m-d') === $alignedTriggerDate->format('Y-m-d')) {
+                $matchedPreviousCycleStart = $previousCycleStart;
+                $matchedPreviousCycleEnd = $previousCycleEnd;
+                break;
+            }
+        }
+
+        if ($matchedPreviousCycleStart === null || $matchedPreviousCycleEnd === null) {
+            return emptyLeaveResetResult();
+        }
+
+        if ($carryOverInterval > 0) {
+            return checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $matchedPreviousCycleStart, $matchedPreviousCycleEnd, $employeeId, $type);
+        }
+
+        return [
+            'carryOverExecuted' => false,
+            'resetAccrued' => $getAccrueReset,
+            'resetTaken' => $getTakenReset,
+            'daysAccrue' => 0,
+            'daysTaken' => 0,
+            'totalDaysTaken' => 0,
+            'hoursAccrue' => 0,
+            'hoursTaken' => 0,
+            'totalHoursTaken' => 0
+        ];
     }
 
     /********************************************
@@ -2481,15 +2576,15 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
     $numCycles = $resetInterval > 0 ? floor($totalMonthsEmployed / $resetInterval) : 0;
 
     #Configures the leave cycle for HoursWorked, DaysWorked and PayslipsProcessed
-    if ($type == "PPEE" || $type == "PPES") {
-        if ((int)$numCycles == 0) {
-            $numMonths = $resetInterval;
-        } else {
-            $numMonths = ($numCycles + 1) * $resetInterval;
-        }
-    } else {
+    // if ($type == "PPEE" || $type == "PPES") {
+    //     if ((int)$numCycles == 0) {
+    //         $numMonths = $resetInterval;
+    //     } else {
+    //         $numMonths = ($numCycles + 1) * $resetInterval;
+    //     }
+    // } else {
         $numMonths = ($numCycles + 1) * $resetInterval;
-    }
+    //}
 
     /********************************************
             CALCULATE RESET DATE
@@ -2517,21 +2612,18 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
         $resetDate = $previousCycleEndMonth;
     }
 
-    # Formats the reseting date for Payment periodes
-    if (($type == "PPEE" || $type == "PPES") && $carryOverInterval <= 0) {
-        if($periodCode === 'TWMO'){
-            $resetDate = resolveTwmoLeaveBoundaryDate($resetDate, $type, $config['firstPeriodStartDay'], $config['firstPeriodEndDay'], $config['secondPeriodStartDay'], $config['secondPeriodEndDay']);
-            if ($resetDate === null) {
-                return ['error' => true];
-            }
-        }
-        else{
-            $resetDate = payslipDateConversion($resetDate, $pped, $periodCode, $currentDate, $db, $employeeId, $payrunId, $type);
-        }
-    }
-
-
-        
+    // # Formats the reseting date for Payment periodes
+    // if (($type == "PPEE" || $type == "PPES") && $carryOverInterval <= 0) {
+    //     if($periodCode === 'TWMO'){
+    //         $resetDate = resolveTwmoLeaveBoundaryDate($resetDate, $type, $config['firstPeriodStartDay'], $config['firstPeriodEndDay'], $config['secondPeriodStartDay'], $config['secondPeriodEndDay']);
+    //         if ($resetDate === null) {
+    //             return ['error' => true];
+    //         }
+    //     }
+    //     else{
+    //         $resetDate = payslipDateConversion($resetDate, $pped, $periodCode, $currentDate, $db, $employeeId, $payrunId, $type);
+    //     }
+    // }  
 
     /********************************************
             HANDLE CARRY OVER LOGIC
@@ -2586,9 +2678,9 @@ function checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previ
     $getAccrueReset    = $config['accrueReset'];
     $getTakenReset     = $config['takenReset'];
     $leaveType         = $config['leaveTypeId'];
-    $pped = $config['paymentPeriodEndDay'];
-    $periodCode = $config['MonthlyWeeklyBiweek'];
-    $payrunId = $config['payrunId'];
+    // $pped = $config['paymentPeriodEndDay'];
+    // $periodCode = $config['MonthlyWeeklyBiweek'];
+    // $payrunId = $config['payrunId'];
 
     /********************************************
         CONFIGURING CARRY_OVER DATES.
@@ -2648,18 +2740,24 @@ function checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previ
             FINAL Date CHECK
      ********************************************/
 
-    $payslipResetDate = $resetCarryOverDateObj;
+    // $payslipResetDate = $resetCarryOverDateObj;
 
-    if ($type == "PPEE" || $type == "PPES") {
-        if ($periodCode === 'TWMO') {
-            $payslipResetDate = resolveTwmoLeaveBoundaryDate($resetCarryOverDateObj, $type, $config['firstPeriodStartDay'], $config['firstPeriodEndDay'], $config['secondPeriodStartDay'], $config['secondPeriodEndDay']);
+    // if ($type == "PPEE" || $type == "PPES") {
+    //     if ($periodCode === 'TWMO') {
+    //         $payslipResetDate = resolveTwmoLeaveBoundaryDate($resetCarryOverDateObj, $type, $config['firstPeriodStartDay'], $config['firstPeriodEndDay'], $config['secondPeriodStartDay'], $config['secondPeriodEndDay']);
 
-            if ($payslipResetDate === null) {
-                return ['error' => true];
-            }
-        } else {
-            $payslipResetDate = payslipDateConversion($resetCarryOverDateObj, $pped, $periodCode, $currentDate, $db, $employeeId, $payrunId, $type);
-        }
+    //         if ($payslipResetDate === null) {
+    //             return ['error' => true];
+    //         }
+    //     } else {
+    //         $payslipResetDate = payslipDateConversion($resetCarryOverDateObj, $pped, $periodCode, $currentDate, $db, $employeeId, $payrunId, $type);
+    //     }
+    // }
+
+    $payslipResetDate = alignPaymentPeriodLeaveResetDate($resetCarryOverDateObj, $currentDate, $config, $db, $employeeId, $type);
+
+    if ($payslipResetDate === null) {
+        return ['error' => true];
     }
 
     if ($baseEndDate === $payslipResetDate->format('Y-m-d')) {
@@ -2676,17 +2774,7 @@ function checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previ
         ];
     }
 
-    return [
-        'carryOverExecuted' => false,
-        'resetAccrued' => false,
-        'resetTaken'   => false,
-        'daysAccrue'   => 0,
-        'daysTaken'    => 0,
-        'totalDaysTaken' => 0,
-        'hoursAccrue'  => 0,
-        'hoursTaken'   => 0,
-        'totalHoursTaken' => 0,
-    ];
+    return emptyLeaveResetResult();
 }
 
 //Helper functions for TWMO leave calculations
@@ -3026,7 +3114,7 @@ function payslipDateConversion($resetDate, $pped, $periodCode, $currentDate, $db
         if ($effectiveStartDay >= $daysInMonth) {
             $effectiveStartDay = 1;
         } else {
-            $effectiveStartDay + 1;
+            $effectiveStartDay += 1;
         }
         $year = $resetDate->format('Y');
         $month = $resetDate->format('m');
