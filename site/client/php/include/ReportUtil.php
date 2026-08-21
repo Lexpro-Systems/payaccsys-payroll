@@ -2108,7 +2108,7 @@ function getNettPayData($data, $user, $db)
         'WHERE ' .
         'payslips.status_code = \'ACTI\' ' .
         $filterClause .
-        'ORDER BY ' .
+        ' ORDER BY ' .
         'employee_alias ASC, ' .
         'employee_code ASC ';
     $sqlResult = $db->paramQuery($sqlQuery, $filterValues);
