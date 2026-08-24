@@ -1464,9 +1464,9 @@ app.panel.EditPayslip = function (config) {
                     app.route.popState();
                     me.addItems(event.items);
 
-                    // Check if Annual Payment was added
+                    // Check if Annual Payment or Leave payout was added
                     var annualItem = event.items.find(function (item) {
-                        return item.type.code === '1004';
+                        return item.type.code === '1004' || item.type.code === '1006';
                     });
 
                     if (annualItem && annualItem.amount) {

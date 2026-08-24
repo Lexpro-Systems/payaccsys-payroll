@@ -1372,7 +1372,7 @@ function calculatePayslipItems(&$payslip): bool
             $taxableIncome = $taxableIncome + $item['amount'];
             $commissionIncome = $commissionIncome + $item['amount'];
             $totalIncome = $totalIncome + $item['amount'];
-        } else if ($item['type']['code'] === '1004') {           // Annual Payment
+        } else if ($item['type']['code'] === '1004' || $item['type']['code'] === '1006') {   // Annual Payment || Leave Payout
             $taxableIncome = $taxableIncome + $item['amount'];
             $totalOnceOffIncome = $totalOnceOffIncome + $item['amount'];
         } else if ($item['type']['code'] === '1005') {           // Overtime
@@ -1634,7 +1634,7 @@ function calculatePayslipTotals($payslip): array
             $taxableIncome = $taxableIncome + $item['amount'];
             $commissionIncome = $commissionIncome + $item['amount'];
             $totalIncome = $totalIncome + $item['amount'];
-        } else if ($item['type']['code'] === '1004') {   // Annual Payment
+        } else if ($item['type']['code'] === '1004' || $item['type']['code'] === '1006') {   // Annual Payment || Leave Payout
             $taxableIncome = $taxableIncome + $item['amount'];
             $totalOnceOffIncome = $totalOnceOffIncome + $item['amount'];
         } else if ($item['type']['code'] === '1005') {   // Overtime

@@ -787,6 +787,9 @@ class TaxReconciliation extends Controller
                     } else if ($itemRow['payslip_item_type_code'] === '1005') {
                         $sarsItems[] = ['code' => '3607', 'amount' => $amount];
                         $totalIncome = $totalIncome + $amount;
+                    } else if ($itemRow['payslip_item_type_code'] === '1006') {
+                        $sarsItems[] = ['code' => '3605', 'amount' => $amount];
+                        $totalIncome = $totalIncome + $amount;
                     } else if ($itemRow['payslip_item_type_code'] === '2000') {
                         $totalPaye = $totalPaye + $amount;
                     } else if ($itemRow['payslip_item_type_code'] === '2001') {
@@ -5478,6 +5481,8 @@ class TaxReconciliation extends Controller
                     } else if ($itemRow['payslip_item_type_code'] === '1004') {
                         $hasIncomeItem = true;
                     } else if ($itemRow['payslip_item_type_code'] === '1005' || $itemRow['payslip_item_type_code'] === '5008' || $itemRow['payslip_item_type_code'] === '5009') {
+                        $hasIncomeItem = true;
+                    } else if ($itemRow['payslip_item_type_code'] === '1006') {
                         $hasIncomeItem = true;
                     } else if ($itemRow['payslip_item_type_code'] === '2000') {
                     } else if ($itemRow['payslip_item_type_code'] === '2001') {

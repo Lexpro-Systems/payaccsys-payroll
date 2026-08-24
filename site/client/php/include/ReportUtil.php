@@ -694,6 +694,10 @@ function getDetailedPayrollData($data, $user, $db)
                         WHEN SUM(CASE WHEN payslip_item_types.payslip_category_code = 'INCO' and payslip_item_types.code IN ('1005', '5008', '5009') THEN 1 ELSE 0 END) > 0
                         THEN 'Overtime'
                     END,
+                    CASE
+                        WHEN SUM(CASE WHEN payslip_item_types.payslip_category_code = 'INCO' AND payslip_item_types.code = '1006' THEN 1 ELSE 0 END) > 0
+                        THEN 'Leave Payout'
+                    END,
                     CASE 
                         WHEN SUM(CASE WHEN payslip_item_types.payslip_category_code = 'ALLO' THEN 1 ELSE 0 END) > 0 
                         THEN 'Allowances' 

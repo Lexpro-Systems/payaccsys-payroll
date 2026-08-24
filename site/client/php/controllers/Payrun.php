@@ -5004,11 +5004,11 @@ class Payrun extends Controller
                             ]
                         ];
                     } else {
-                        // Is there a bonus payable
+                        // Is there a bonus or leave payout item payable
                         for ($k = 0; $k < count($payslip['items']); $k++) {
                             // Is there an annual payment?
-                            if ($payslip['items'][$k]['type']['code'] == '1004') {
-                                // Remove the annual payment from the payslip
+                            if ($payslip['items'][$k]['type']['code'] == '1004' || $payslip['items'][$k]['type']['code'] == '1006') {
+                                // Remove the annual payment or leave payout from the payslip
                                 $tmpPayslip = $payslip;
                                 array_splice($tmpPayslip['items'], $k, 1);
 
@@ -8166,6 +8166,14 @@ class Payrun extends Controller
             $config = $this->getPayslipConfigItem($db, $payslip['employee']['id'], '1000');
             if ($config !== null) {
                 $this->addImportedPayslipItem($payslip, $config, $payrunImportData->basicSalary);
+            }
+        }
+
+        # Leave Payout
+        if ($payrunImportData->leavePaidOut !== null) {
+            $config = $this->getPayslipConfigItem($db, $payslip['employee']['id'], '1006');
+            if ($config !== null) {
+                $this->addImportedPayslipItem($payslip, $config, $payrunImportData->leavePaidOut);
             }
         }
 
