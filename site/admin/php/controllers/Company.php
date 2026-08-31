@@ -600,10 +600,12 @@
                         'leave_accrual_type_code, ' .
                         'amount, ' .
                         'reset_accrued, ' .
-                        'reset_taken ' .
+                        'reset_taken, ' .
+                        'reset_interval, ' .
+                        'carry_over_interval ' .
                     ') ' .
                     'VALUES ' .
-                        '(  $1, $2, $3, $4, $5, $6, $7 );';
+                        '(  $1, $2, $3, $4, $5, $6, $7, $8, $9 );';
                 $sqlResult = $db->paramQuery($sqlQuery, [
                     $leaveTypeId,   // leave_type_id
                     1,              // start_month
@@ -611,7 +613,9 @@
                     'HWOR',         // leave_accrual_type_code
                     1,              // amount
                     false,          // reset_accrued
-                    false           // reset_taken
+                    false,          // reset_taken
+                    0,              // reset_interval
+                    0               // carry_over_interval
                 ]);
                 if( !$sqlResult->isValid() ) {
                     echo( json_encode(['ok' => false, 'error' => 'Database error.']) );
@@ -648,10 +652,12 @@
                         'leave_accrual_type_code, ' .
                         'amount, ' .
                         'reset_accrued, ' .
-                        'reset_taken ' .
+                        'reset_taken, ' .
+                        'reset_interval, ' .
+                        'carry_over_interval ' .
                     ') ' .
                     'VALUES ' .
-                        '(  $1, $2, $3, $4, $5, $6, $7 );';
+                        '(  $1, $2, $3, $4, $5, $6, $7, $8, $9 );';
                 $sqlResult = $db->paramQuery($sqlQuery, [
                     $leaveTypeId,   // leave_type_id
                     1,              // start_month
@@ -659,7 +665,9 @@
                     'DWOR',         // leave_accrual_type_code
                     1,              // amount
                     false,          // reset_accrued
-                    false           // reset_taken
+                    false,          // reset_taken
+                    0,              // reset_interval
+                    0               // carry_over_interval
                 ]);
                 if( !$sqlResult->isValid() ) {
                     echo( json_encode(['ok' => false, 'error' => 'Database error.']) );
@@ -696,10 +704,12 @@
                         'leave_accrual_type_code, ' .
                         'amount, ' .
                         'reset_accrued, ' .
-                        'reset_taken ' .
+                        'reset_taken, ' .
+                        'reset_interval, ' .
+                        'carry_over_interval ' .
                     ') ' .
                     'VALUES ' .
-                        '(  $1, $2, $3, $4, $5, $6, $7 );';
+                        '(  $1, $2, $3, $4, $5, $6, $7, $8, $9 );';
                 $sqlResult = $db->paramQuery($sqlQuery, [
                     $leaveTypeId,   // leave_type_id
                     1,              // start_month
@@ -707,7 +717,9 @@
                     'MCEN',         // leave_accrual_type_code
                     1.25,           // amount
                     false,          // reset_accrued
-                    false           // reset_taken
+                    false,          // reset_taken
+                    0,              // reset_interval
+                    0               // carry_over_interval
                 ]);
                 if( !$sqlResult->isValid() ) {
                     echo( json_encode(['ok' => false, 'error' => 'Database error.']) );
@@ -744,10 +756,12 @@
                         'leave_accrual_type_code, ' .
                         'amount, ' .
                         'reset_accrued, ' .
-                        'reset_taken ' .
+                        'reset_taken, ' .
+                        'reset_interval, ' .
+                        'carry_over_interval ' .
                     ') ' .
                     'VALUES ' .
-                        '(  $1, $2, $3, $4, $5, $6, $7 );';
+                        '(  $1, $2, $3, $4, $5, $6, $7, $8, $9 );';
                 $sqlResult = $db->paramQuery($sqlQuery, [
                     $leaveTypeId,   // leave_type_id
                     1,              // start_month
@@ -755,7 +769,9 @@
                     'YCST',         // leave_accrual_type_code
                     15,             // amount
                     false,          // reset_accrued
-                    false           // reset_taken
+                    false,           // reset_taken
+                    0,              // reset_interval
+                    0               // carry_over_interval
                 ]);
                 if( !$sqlResult->isValid() ) {
                     echo( json_encode(['ok' => false, 'error' => 'Database error.']) );
@@ -792,16 +808,19 @@
                         'leave_accrual_type_code, ' .
                         'amount, ' .
                         'reset_accrued, ' .
-                        'reset_taken ' .
+                        'reset_taken, ' .
+                        'reset_interval, ' .
+                        'carry_over_interval ' .
                     ') ' .
                     'VALUES ' .
-                        '(   $1,  $2,  $3,  $4,  $5,  $6,  $7 ), ' .
-                        '(   $8,  $9, $10, $11, $12, $13, $14 ), ' .
-                        '(  $15, $16, $17, $18, $19, $20, $21 );';
+                        '(  $1,  $2,  $3,  $4,  $5,  $6,  $7, $8,  $9 ), ' .
+                        '(  $10, $11, $12, $13, $14, $15, $16, $17, $18  );';
+                        //'(  $19, $20, $21, $22, $23, $24, $25, $26, $27 );';
                 $sqlResult = $db->paramQuery($sqlQuery, [
-                    $leaveTypeId,  1, 26, 'DWOR',  1, false, false,
-                    $leaveTypeId,  7,  3, 'YCST', 30, true, false,
-                    $leaveTypeId, 37,  3, 'YCST', 30, true, true
+                    //Reset accrued leave after six months, no carry over
+                    $leaveTypeId,  1, 26, 'DWOR',  1, true, false, 6, 0,
+                    //Reset both after (3 years = 36 months) 
+                    $leaveTypeId,  7,  3, 'YCST', 30, true, true, 36, 0,
                 ]);
                 if( !$sqlResult->isValid() ) {
                     echo( json_encode(['ok' => false, 'error' => 'Database error.']) );
@@ -838,18 +857,35 @@
                         'leave_accrual_type_code, ' .
                         'amount, ' .
                         'reset_accrued, ' .
-                        'reset_taken ' .
+                        'reset_taken, ' .
+                        'reset_interval, ' .
+                        'carry_over_interval ' .
                     ') ' .
                     'VALUES ' .
-                        '(  $1, $2, $3, $4, $5, $6, $7 );';
+                        '(  $1, $2, $3, $4, $5, $6, $7, $8, $9 ), ' .
+                        '(  $10, $11, $12, $13, $14, $15, $16, $17, $18 );';
                 $sqlResult = $db->paramQuery($sqlQuery, [
+                    //Rule for first 4 months of employment - earn 3 days after having worked 4 months, reset after a year of employment.
                     $leaveTypeId,   // leave_type_id
-                    1,              // start_month
+                    5,              // start_month
+                    8,              // accrual_interval
+                    'MCST',         // leave_accrual_type_code
+                    3,              // amount
+                    true,           // reset_accrued
+                    true,           // reset_taken
+                    8,              // reset_interval
+                    0,              // carry_over_interval
+
+                    //Second rule to continue after first cycle has completed - earn 3 days yearly, reset after 12 months.
+                    $leaveTypeId,   // leave_type_id
+                    13,             // start_month
                     1,              // accrual_interval
                     'YCST',         // leave_accrual_type_code
                     3,              // amount
                     true,           // reset_accrued
-                    true            // reset_taken
+                    true,           // reset_taken
+                    12,             // reset_interval
+                    0,               // carry_over_interval
                 ]);
                 if( !$sqlResult->isValid() ) {
                     echo( json_encode(['ok' => false, 'error' => 'Database error.']) );
@@ -862,11 +898,46 @@
                 // Insert the leave type
                 $sqlQuery =
                     'INSERT INTO leave_types ( name, leave_unit_code, is_deleted ) ' .
-                    'VALUES (  $1, $2, $3 );';
+                    'VALUES (  $1, $2, $3 ) ' .
+                    'RETURNING id;';
                 $sqlResult = $db->paramQuery($sqlQuery, [
                     'Maternity Leave',  // name
                     'DAYS',             // leave_unit_code
                     false               // is_deleted
+                ]);
+                if( !$sqlResult->isValid() ) {
+                    echo( json_encode(['ok' => false, 'error' => 'Database error.']) );
+                    return false;
+                }
+
+                $sqlRow = $sqlResult->fetchAssociative();
+                $leaveTypeId = $sqlRow['id'];
+                
+                // Insert the leave type rule(s)
+                $sqlQuery =
+                    'INSERT INTO leave_type_rules ( ' .
+                        'leave_type_id, ' .
+                        'start_month, ' .
+                        'accrual_interval, ' .
+                        'leave_accrual_type_code, ' .
+                        'amount, ' .
+                        'reset_accrued, ' .
+                        'reset_taken, ' .
+                        'reset_interval, ' .
+                        'carry_over_interval ' .
+                    ') ' .
+                    'VALUES ' .
+                        '(  $1, $2, $3, $4, $5, $6, $7, $8, $9 );';
+                $sqlResult = $db->paramQuery($sqlQuery, [
+                    $leaveTypeId,   // leave_type_id
+                    1,              // start_month
+                    4,              // accrual_interval
+                    'MCST',         // leave_accrual_type_code
+                    121,            // amount (121 days roughly = 4 months; should legally be calculated as 4 calendar months based on BCEA regulations)
+                    true,           // reset_accrued
+                    true,           // reset_taken
+                    4,              // reset_interval
+                    0               // carry_over_interval
                 ]);
                 if( !$sqlResult->isValid() ) {
                     echo( json_encode(['ok' => false, 'error' => 'Database error.']) );
