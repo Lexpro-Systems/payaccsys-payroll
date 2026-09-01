@@ -994,12 +994,6 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
             !isEmpty(firstStart) &&
             !isNextDay(secondEnd, firstStart);
 
-        const periodOrderInvalid =
-            !isEmpty(firstEnd) &&
-            !isEmpty(secondEnd) &&
-            comparableDay(firstEnd) >=
-            comparableDay(secondEnd);
-
         if (firstBoundaryInvalid || secondBoundaryInvalid) {
             saveBtn.showWarning(
                 'The payment periods must cover every day of the month without gaps or overlaps.'
@@ -1007,13 +1001,6 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
             return false;
         }
 
-        if (periodOrderInvalid) {
-            saveBtn.showWarning(
-                'The first payment period must occur before the second payment period.'
-            );
-
-            return false;
-        }
         return true;
     }
 

@@ -1827,22 +1827,6 @@ class Employee extends Controller
                 return false;
             }
 
-            $comparableFirstEnd =
-                $firstEnd === 0 ? 32 : $firstEnd;
-
-            $comparableSecondEnd =
-                $secondEnd === 0 ? 32 : $secondEnd;
-
-            if ($comparableFirstEnd >= $comparableSecondEnd) {
-                echo (json_encode([
-                    'ok' => false,
-                    'error' =>
-                        'The first twice-monthly payment period must occur before the second payment period.'
-                ]));
-
-                return false;
-            }
-
             if (!$this->isNextTwmoDay($firstEnd, $secondStart) || !$this->isNextTwmoDay($secondEnd, $firstStart)) {
                 echo (json_encode([
                     'ok' => false,
@@ -1851,7 +1835,6 @@ class Employee extends Controller
                 return false;
             }
         }
-
 
         // Check that either id number or passport number is given
         if ((!isset($data['idNumber']) && !isset($data['passportNumber'])) ||
@@ -3348,20 +3331,6 @@ class Employee extends Controller
                 echo (json_encode([
                     'ok' => false,
                     'error' => 'One or more twice-monthly payment period days are invalid.'
-                ]));
-                return false;
-            }
-
-            $comparableFirstEnd =
-                $firstEnd === 0 ? 32 : $firstEnd;
-
-            $comparableSecondEnd =
-                $secondEnd === 0 ? 32 : $secondEnd;
-
-            if ($comparableFirstEnd >= $comparableSecondEnd) {
-                echo (json_encode([
-                    'ok' => false,
-                    'error' => 'The first twice-monthly payment period must occur before the second payment period.'
                 ]));
                 return false;
             }
