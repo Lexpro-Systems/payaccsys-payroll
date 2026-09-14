@@ -814,13 +814,15 @@
                     ') ' .
                     'VALUES ' .
                         '(  $1,  $2,  $3,  $4,  $5,  $6,  $7, $8,  $9 ), ' .
-                        '(  $10, $11, $12, $13, $14, $15, $16, $17, $18  );';
-                        //'(  $19, $20, $21, $22, $23, $24, $25, $26, $27 );';
+                        '(  $10, $11, $12, $13, $14, $15, $16, $17, $18  ), ' .
+                        '(  $19, $20, $21, $22, $23, $24, $25, $26, $27 );';
                 $sqlResult = $db->paramQuery($sqlQuery, [
-                    //Reset accrued leave after six months, no carry over
-                    $leaveTypeId,  1, 26, 'DWOR',  1, true, false, 6, 0,
+                    //Adjust leave rule to reset accrued and taken after six months; taken is deducted from the first-cycle entitlement (LeaveUtil.php calculations).
+                    $leaveTypeId,  1, 26, 'DWOR',  1, true, true, 6, 0,
+                    //Second rule to continue after first six months has completed - earn 30 days every 30 months, reset after 30 months.
+                    $leaveTypeId,  7,  30, 'MCST', 30, true, true, 30, 0,
                     //Reset both after (3 years = 36 months) 
-                    $leaveTypeId,  7,  3, 'YCST', 30, true, true, 36, 0,
+                    $leaveTypeId,  37,  3, 'YCST', 30, true, true, 36, 0,
                 ]);
                 if( !$sqlResult->isValid() ) {
                     echo( json_encode(['ok' => false, 'error' => 'Database error.']) );

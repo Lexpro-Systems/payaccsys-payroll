@@ -256,6 +256,7 @@ app.panel.ListDepartments = function(config) {
         // Create departmentsGridMenuOptions array
         var departmentsGridMenuOptions = [
             {name: '<i class="fas fa-pencil-alt" style="margin: 0px 15px 0px 0px;"></i>Edit', value: 'edit'},
+            {name: '<i class="fas fa-cog" style="margin: 0px 15px 0px 0px;"></i>Default Settings', value: 'settings'},
             {name: '<i class="fa fa-fw fa-times" style="margin: 0px 15px 0px 0px;"></i>Remove', value: 'remove'}
         ];
         
