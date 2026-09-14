@@ -47,27 +47,12 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             Retrieving Employee info SECTION
      ********************************************/
 
-    # Retrieves the employee's Work schedule, Workdays & Employement Start and End Date,
+    # Retrieves the employee's Work schedule & Employement Start and End Date,
     $sqlQuery =
         'SELECT ' .
         'employees.employment_start_date, ' .
         'employees.employment_end_date, ' .
-        'work_schedules.enable_leave AS enable_work_schedule_leave, ' .
-        'work_schedules.monday_hours, ' .
-        'work_schedules.tuesday_hours, ' .
-        'work_schedules.wednesday_hours, ' .
-        'work_schedules.thursday_hours, ' .
-        'work_schedules.friday_hours, ' .
-        'work_schedules.saturday_hours, ' .
-        'work_schedules.sunday_hours, ' .
-        'work_schedules.wd_enable_leave, ' .
-        'work_schedules.monday_wd, ' .
-        'work_schedules.tuesday_wd, ' .
-        'work_schedules.wednesday_wd, ' .
-        'work_schedules.thursday_wd, ' .
-        'work_schedules.friday_wd, ' .
-        'work_schedules.saturday_wd, ' .
-        'work_schedules.sunday_wd ' .
+        'work_schedules.enable_leave AS enable_work_schedule_leave ' .
         'FROM ' .
         'employees ' .
         'LEFT JOIN ' .
@@ -82,44 +67,8 @@ function processEmployeeLeave($leaveDetails, $user, $db)
 
     $row = $sqlResult->fetchAssociative();
     $employmentStartDate = $row['employment_start_date'];
-    //$employmentStartDate = '2026-05-15';
     $employmentEndDate = $row['employment_end_date'];
-
-    $employmentStartDateObject = new DateTime($employmentStartDate);
-
-    $employmentEndDateObject = $employmentEndDate !== null
-        ? new DateTime($employmentEndDate)
-        : null;
-
     $workScheduleLeaveEnabled = $row['enable_work_schedule_leave'];
-
-    $scheduledDays = null;
-
-    $workScheduleDays = [
-        1 => $row['monday_hours'] !== null,
-        2 => $row['tuesday_hours'] !== null,
-        3 => $row['wednesday_hours'] !== null,
-        4 => $row['thursday_hours'] !== null,
-        5 => $row['friday_hours'] !== null,
-        6 => $row['saturday_hours'] !== null,
-        0 => $row['sunday_hours'] !== null
-    ];
-
-    $selectedWorkdays = [
-        1 => databaseBoolean($row['monday_wd']),
-        2 => databaseBoolean($row['tuesday_wd']),
-        3 => databaseBoolean($row['wednesday_wd']),
-        4 => databaseBoolean($row['thursday_wd']),
-        5 => databaseBoolean($row['friday_wd']),
-        6 => databaseBoolean($row['saturday_wd']),
-        0 => databaseBoolean($row['sunday_wd'])
-    ];
-
-    if (databaseBoolean($row['enable_work_schedule_leave']) && in_array(true, $workScheduleDays, true)) {
-        $scheduledDays = $workScheduleDays;
-    } elseif (databaseBoolean($row['wd_enable_leave']) && in_array(true, $selectedWorkdays, true)) {
-        $scheduledDays = $selectedWorkdays;
-    }
 
     /********************************************
             Retrieving subscribed Leave SECTION
@@ -161,18 +110,6 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             $customDate = new DateTime($customDate);
         }
 
-            // if( $sqlLeaveConfigRow['employee_leave_start_date'] !== null ) {
-            //     if( $employmentStartDate <= $sqlLeaveConfigRow['employee_leave_start_date'] ) {
-            //         $leaveStartDate = $sqlLeaveConfigRow['employee_leave_start_date'];
-            //     }
-            // }
-            // else if( $sqlLeaveConfigRow['leave_type_start_date'] !== null ) {
-            //     if( $employmentStartDate <= $sqlLeaveConfigRow['leave_type_start_date'] ) {
-            //         $leaveStartDate = $sqlLeaveConfigRow['leave_type_start_date'];
-            //         $customDate = $sqlLeaveConfigRow['leave_type_start_date'];
-            //     }
-            // }
-
         /********************************************
                ACCRUAL/RESETTING DATE Calculations
          ********************************************/
@@ -202,15 +139,35 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                This if statement checks if the employee has worked the full month of the end date,if the 
                employee has worked the full month then just continue, else subtract 1 month from the total months employed 
             --------------------------------------------------------------------------------------------------------------*/
-        # Check if the start and end dates are in different months.
-        if (intval(date('m', $startTime)) != intval(date('m', $endTime))) {
-            # Check if the start day is after the end day (i.e., a full month hasn't passed yet)?
-            if (date('d', $startTime) > date('d', $endTime)) {
-                $monthsEmployed = $monthsEmployed - 1;
-                # Is the end day on the last day of the ending month and the start day greater or equal to the ending day?
-                if ((date('d', $endTime) == $daysInEndMonth) && (date('d', $startTime) >= $daysInEndMonth)) {
-                    $monthsEmployed = $monthsEmployed + 1;
-                }
+
+        // # Check if the start and end dates are in different months.
+        // if (intval(date('m', $startTime)) != intval(date('m', $endTime))) {
+        //     # Check if the start day is after the end day (i.e., a full month hasn't passed yet)?
+        //     if (date('d', $startTime) > date('d', $endTime)) {
+        //         $monthsEmployed = $monthsEmployed - 1;
+        //         # Is the end day on the last day of the ending month and the start day greater or equal to the ending day?
+        //         if ((date('d', $endTime) == $daysInEndMonth) && (date('d', $startTime) >= $daysInEndMonth)) {
+        //             $monthsEmployed = $monthsEmployed + 1;
+        //         }
+        //     }
+        // }
+
+        //Remove the outer “months are different” condition that was used above, to avoid missing the adjustment for anniversary edge cases. 
+        //For example the above monthsEmployed adjustment would be skipped for: 19 Jan 2026 and 18 Jan 2027, which would be incorrect. 
+        //Whether the last employment month is complete depends on the day numbers, 
+        //even when the dates fall in the same calendar month in different years.
+        # If the current day is before the employment-start day,
+        # the current employment month has not yet been completed.
+        if ((int)date('d', $startTime) > (int)date('d', $endTime)) {
+            $monthsEmployed--;
+
+            # Treat the last day of a shorter month as completing the month
+            # for employees who started later in a longer month.
+            if (
+                (int)date('d', $endTime) === (int)$daysInEndMonth &&
+                (int)date('d', $startTime) >= (int)$daysInEndMonth
+            ) {
+                $monthsEmployed++;
             }
         }
 
