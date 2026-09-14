@@ -1372,12 +1372,18 @@ function calculatePayslipItems(&$payslip): bool
             $taxableIncome = $taxableIncome + $item['amount'];
             $commissionIncome = $commissionIncome + $item['amount'];
             $totalIncome = $totalIncome + $item['amount'];
-        } else if ($item['type']['code'] === '1004') {           // Annual Payment
+        } else if ($item['type']['code'] === '1004' || $item['type']['code'] === '1006') {   // Annual Payment || Leave Payout
             $taxableIncome = $taxableIncome + $item['amount'];
             $totalOnceOffIncome = $totalOnceOffIncome + $item['amount'];
         } else if ($item['type']['code'] === '1005') {           // Overtime
             $taxableIncome = $taxableIncome + $item['amount'];
             $totalIncome = $totalIncome + $item['amount'];
+        } else if ($item['type']['code'] === '5008') {   // Overtime 1.5
+            $taxableIncome = $taxableIncome + $item['amount'];
+            $totalIncome = $totalIncome + $item['amount'];
+        } else if ($item['type']['code'] === '5009') {   // Overtime 2.0
+            $taxableIncome = $taxableIncome + $item['amount'];
+            $totalIncome = $totalIncome + $item['amount']; 
         } else if ($item['type']['code'] === '2005') {
             $rtfDeduction = $rtfDeduction + $item['amount'];
         } else if ($item['type']['code'] === '2006') {
@@ -1628,10 +1634,16 @@ function calculatePayslipTotals($payslip): array
             $taxableIncome = $taxableIncome + $item['amount'];
             $commissionIncome = $commissionIncome + $item['amount'];
             $totalIncome = $totalIncome + $item['amount'];
-        } else if ($item['type']['code'] === '1004') {   // Annual Payment
+        } else if ($item['type']['code'] === '1004' || $item['type']['code'] === '1006') {   // Annual Payment || Leave Payout
             $taxableIncome = $taxableIncome + $item['amount'];
             $totalOnceOffIncome = $totalOnceOffIncome + $item['amount'];
         } else if ($item['type']['code'] === '1005') {   // Overtime
+            $taxableIncome = $taxableIncome + $item['amount'];
+            $totalIncome = $totalIncome + $item['amount'];
+        } else if ($item['type']['code'] === '5008') {   // Overtime 1.5
+            $taxableIncome = $taxableIncome + $item['amount'];
+            $totalIncome = $totalIncome + $item['amount'];
+        } else if ($item['type']['code'] === '5009') {   // Overtime 2.0
             $taxableIncome = $taxableIncome + $item['amount'];
             $totalIncome = $totalIncome + $item['amount'];
         } else if ($item['type']['code'] === '2005') {

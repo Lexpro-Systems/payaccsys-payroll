@@ -7068,12 +7068,6 @@ app.panel.AddEmployeeWizard = function (config) {
             !isEmpty(secondEnd) &&
             !isEmpty(firstStart) &&
             !isNextDay(secondEnd, firstStart);
-        
-        const periodOrderInvalid =
-            !isEmpty(firstEnd) &&
-            !isEmpty(secondEnd) &&
-            comparableDay(firstEnd) >=
-                comparableDay(secondEnd);
 
         if (firstBoundaryInvalid || secondBoundaryInvalid) {
             wizardNextBtn.showWarning(
@@ -7081,14 +7075,6 @@ app.panel.AddEmployeeWizard = function (config) {
             );
             return false;
         }
-
-        if (periodOrderInvalid) {
-            wizardNextBtn.showWarning(
-                'The first payment period must occur before the second payment period.'
-            );
-            return false;
-        }
-
 
         return true;
     }

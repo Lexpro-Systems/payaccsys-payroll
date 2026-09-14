@@ -129,7 +129,7 @@ app.panel.ViewPayslip = function(config) {
                         let description = response.payslip.payslipItems[i].description;
                         
                         // Is it an overtime item?
-                        if( response.payslip.payslipItems[i].payslipItemTypeCode == '1005' ) {
+                        if( response.payslip.payslipItems[i].payslipItemTypeCode == '1005' || response.payslip.payslipItems[i].payslipItemTypeCode == '5008' || response.payslip.payslipItems[i].payslipItemTypeCode == '5009') {
                             description = description + ' (' + response.payslip.payslipItems[i].units + ' hours)';
                         }
                         
