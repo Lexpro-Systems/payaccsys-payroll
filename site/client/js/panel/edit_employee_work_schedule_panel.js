@@ -17,97 +17,101 @@
 //  onCancel            This event is fired when the user click the cancel button
 //  onDestroy           This event is fired just before the component is destroyed.
 //
-app.panel.EditEmployeeWorkSchedule = function(config) {
-    
+app.panel.EditEmployeeWorkSchedule = function (config) {
+
     //
     // PRIVATE VARIABLES
     //
-    
+
     var me = this;
     var confirmDestroy = null;
-    
+
     var el = null;
-    
+
     var contentEl = null;
     var loader = null;
-    
+
     var workScheduleDetailsSection = null;
-    
+
     var mondayContainer = null;
     var mondayCb = null;
     var mondayHoursTxt = null;
     var mondayHoursLabel = null;
-    
+
     var tuesdayContainer = null;
     var tuesdayCb = null;
     var tuesdayHoursTxt = null;
     var tuesdayHoursLabel = null;
-    
+
     var wednesdayContainer = null;
     var wednesdayCb = null;
     var wednesdayHoursTxt = null;
     var wednesdayHoursLabel = null;
-    
+
     var thursdayContainer = null;
     var thursdayCb = null;
     var thursdayHoursTxt = null;
     var thursdayHoursLabel = null;
-    
+
     var fridayContainer = null;
     var fridayCb = null;
     var fridayHoursTxt = null;
     var fridayHoursLabel = null;
-    
+
     var saturdayContainer = null;
     var saturdayCb = null;
     var saturdayHoursTxt = null;
     var saturdayHoursLabel = null;
-    
+
     var sundayContainer = null;
     var sundayCb = null;
     var sundayHoursTxt = null;
     var sundayHoursLabel = null;
-    
+
     var buttonContainerEl = null;
     var cancelBtn = null;
     var saveBtnContainerEl = null;
     var saveBtn = null;
-    
+
     var employeeId = null;
-    
-    
+    var departmentId = null;
+
+
     //
     // OBJECT EXTENSIONS
     //
-    
+
     lx.EventEmitter.call(this);
-    
-    
+
+
     //
     // PRIVATE FUNCTIONS
     //
-    
+
     function loadWorkSchedule() {
-        loader.show( false );
-        
+        loader.show(false);
+
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=getWorkSchedule',
             data: {
-                employeeId: employeeId
+                employeeId: employeeId,
+                departmentId: departmentId
             },
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 loader.hide();
-                
+
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+                console.log("Work Schedule", response);
+                console.log("hello");
+
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Loading Schedule Failed',
                         message: response.error
                     });
                 }
                 // return;
-                if ( response.workSchedule.length === 0 ) {
+                if (response.workSchedule.length === 0) {
                     mondayCb.setValue(false);
                     mondayHoursTxt.disable();
                     mondayHoursTxt.setValue('');
@@ -131,8 +135,8 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                     sundayHoursTxt.setValue('');
                 }
                 else {
-                    
-                    if(response.workSchedule.monday !== null) {
+
+                    if (response.workSchedule.monday !== null) {
                         mondayCb.setValue(true);
                         mondayHoursTxt.setValue(response.workSchedule.monday);
                     }
@@ -140,7 +144,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                         mondayCb.setValue(false);
                         mondayHoursTxt.disable();
                     }
-                    if(response.workSchedule.tuesday !== null) {
+                    if (response.workSchedule.tuesday !== null) {
                         tuesdayCb.setValue(true);
                         tuesdayHoursTxt.setValue(response.workSchedule.tuesday);
                     }
@@ -148,7 +152,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                         tuesdayCb.setValue(false);
                         tuesdayHoursTxt.disable();
                     }
-                    if(response.workSchedule.wednesday !== null) {
+                    if (response.workSchedule.wednesday !== null) {
                         wednesdayCb.setValue(true);
                         wednesdayHoursTxt.setValue(response.workSchedule.wednesday);
                     }
@@ -156,7 +160,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                         wednesdayCb.setValue(false);
                         wednesdayHoursTxt.disable();
                     }
-                    if(response.workSchedule.thursday !== null) {
+                    if (response.workSchedule.thursday !== null) {
                         thursdayCb.setValue(true);
                         thursdayHoursTxt.setValue(response.workSchedule.thursday);
                     }
@@ -164,7 +168,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                         thursdayCb.setValue(false);
                         thursdayHoursTxt.disable();
                     }
-                    if(response.workSchedule.friday !== null) {
+                    if (response.workSchedule.friday !== null) {
                         fridayCb.setValue(true);
                         fridayHoursTxt.setValue(response.workSchedule.friday);
                     }
@@ -172,7 +176,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                         fridayCb.setValue(false);
                         fridayHoursTxt.disable();
                     }
-                    if(response.workSchedule.saturday !== null) {
+                    if (response.workSchedule.saturday !== null) {
                         saturdayCb.setValue(true);
                         saturdayHoursTxt.setValue(response.workSchedule.saturday);
                     }
@@ -180,7 +184,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                         saturdayCb.setValue(false);
                         saturdayHoursTxt.disable();
                     }
-                    if(response.workSchedule.sunday !== null) {
+                    if (response.workSchedule.sunday !== null) {
                         sundayCb.setValue(true);
                         sundayHoursTxt.setValue(response.workSchedule.sunday);
                     }
@@ -189,18 +193,17 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                         sundayHoursTxt.disable();
                     }
                 }
-                
-                
+
             }
         });
     }
-    
-    
+
+
     //
     // PUBLIC FUNCTIONS
     //
-    
-    me.init = function( config ) {
+
+    me.init = function (config) {
         // Initialize component config
         var compConfig = {
             renderTo: null,
@@ -208,26 +211,27 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             height: '100%',
             flex: '1 1 100%',
             show: false,
-            
+            departmentId: null,
             employeeId: null
         };
-        
+
         // Parse user config
-        if( typeof config !== 'undefined' && config !== null ) {
-            for( var property in config ) {
-                if( config.hasOwnProperty(property) ) compConfig[property] = config[property];
+        if (typeof config !== 'undefined' && config !== null) {
+            for (var property in config) {
+                if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
-        
+
         // Attach external event handlers
-        if( compConfig.hasOwnProperty('onSave') ) me.addEventListener('save', compConfig.onSave);
-        if( compConfig.hasOwnProperty('onCancel') ) me.addEventListener('cancel', compConfig.onCancel);
-        if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
-        
+        if (compConfig.hasOwnProperty('onSave')) me.addEventListener('save', compConfig.onSave);
+        if (compConfig.hasOwnProperty('onCancel')) me.addEventListener('cancel', compConfig.onCancel);
+        if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
+
         // Initialize state
         confirmDestroy = false;
         employeeId = compConfig.employeeId;
-        
+        departmentId = compConfig.departmentId;
+
         // Create root element
         el = lx.createElement('DIV', {
             parent: compConfig.renderTo,
@@ -242,7 +246,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                 backgroundColor: '#FFFFFF'
             }
         });
-        
+
         // Create the heading
         lx.createElement('DIV', {
             parent: el,
@@ -257,7 +261,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             },
             innerHTML: 'Edit Work Schedule'
         });
-        
+
         // Create the contentEl element
         contentEl = lx.createElement('DIV', {
             parent: el,
@@ -270,17 +274,17 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                 padding: '15px 0px 15px 0px'
             }
         });
-        
+
         // Create the loader
         loader = new lx.component.Loader({
             renderTo: contentEl
         });
-        
-        
+
+
         //
         // WORK SCHEDULE SECTION
         //
-        
+
         // Create the workScheduleDetailsSection section
         workScheduleDetailsSection = lx.createElement('DIV', {
             parent: contentEl,
@@ -293,7 +297,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                 padding: '15px'
             }
         });
-        
+
         mondayContainer = lx.createElement('DIV', {
             parent: workScheduleDetailsSection,
             style: {
@@ -301,29 +305,29 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
         });
         mondayContainer.className = 'flex-row flex-justify-content flex-align-center';
-        
+
         mondayCb = new lx.component.Checkbox({
             renderTo: mondayContainer,
             margin: '0px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Monday',
             width: '120px',
-            
+
             onChange: mondayCbOnChangeEventHandler
         });
-        
+
         mondayHoursTxt = new lx.component.Textbox({
             renderTo: mondayContainer,
             margin: '0px 0px 0px 0px',
             width: '200px'
         });
-        
+
         mondayHoursLabel = new lx.component.Label({
             renderTo: mondayContainer,
             text: 'Hours',
             padding: '0px 0px 0px 10px'
         });
-        
+
         tuesdayContainer = lx.createElement('DIV', {
             parent: workScheduleDetailsSection,
             style: {
@@ -331,29 +335,29 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
         });
         tuesdayContainer.className = 'flex-row flex-justify-content flex-align-center';
-        
+
         tuesdayCb = new lx.component.Checkbox({
             renderTo: tuesdayContainer,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Tuesday',
             width: '120px',
-            
+
             onChange: tuesdayCbOnChangeEventHandler
         });
-        
+
         tuesdayHoursTxt = new lx.component.Textbox({
             renderTo: tuesdayContainer,
             margin: '15px 0px 0px 0px',
             width: '200px'
         });
-        
+
         tuesdayHoursLabel = new lx.component.Label({
             renderTo: tuesdayContainer,
             text: 'Hours',
             padding: '0px 0px 0px 10px'
         });
-        
+
         wednesdayContainer = lx.createElement('DIV', {
             parent: workScheduleDetailsSection,
             style: {
@@ -361,29 +365,29 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
         });
         wednesdayContainer.className = 'flex-row flex-justify-content flex-align-center';
-        
+
         wednesdayCb = new lx.component.Checkbox({
             renderTo: wednesdayContainer,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Wednesday',
             width: '120px',
-            
+
             onChange: wednesdayCbOnChangeEventHandler
         });
-        
+
         wednesdayHoursTxt = new lx.component.Textbox({
             renderTo: wednesdayContainer,
             margin: '15px 0px 0px 0px',
             width: '200px'
         });
-        
+
         wednesdayHoursLabel = new lx.component.Label({
             renderTo: wednesdayContainer,
             text: 'Hours',
             padding: '0px 0px 0px 10px'
         });
-        
+
         thursdayContainer = lx.createElement('DIV', {
             parent: workScheduleDetailsSection,
             style: {
@@ -391,29 +395,29 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
         });
         thursdayContainer.className = 'flex-row flex-justify-content flex-align-center';
-        
+
         thursdayCb = new lx.component.Checkbox({
             renderTo: thursdayContainer,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Thursday',
             width: '120px',
-            
+
             onChange: thursdayCbOnChangeEventHandler
         });
-        
+
         thursdayHoursTxt = new lx.component.Textbox({
             renderTo: thursdayContainer,
             margin: '15px 0px 0px 0px',
             width: '200px'
         });
-        
+
         thursdayHoursLabel = new lx.component.Label({
             renderTo: thursdayContainer,
             text: 'Hours',
             padding: '0px 0px 0px 10px'
         });
-        
+
         fridayContainer = lx.createElement('DIV', {
             parent: workScheduleDetailsSection,
             style: {
@@ -421,29 +425,29 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
         });
         fridayContainer.className = 'flex-row flex-justify-content flex-align-center';
-        
+
         fridayCb = new lx.component.Checkbox({
             renderTo: fridayContainer,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Friday',
             width: '120px',
-            
+
             onChange: fridayCbOnChangeEventHandler
         });
-        
+
         fridayHoursTxt = new lx.component.Textbox({
             renderTo: fridayContainer,
             margin: '15px 0px 0px 0px',
             width: '200px'
         });
-        
+
         fridayHoursLabel = new lx.component.Label({
             renderTo: fridayContainer,
             text: 'Hours',
             padding: '0px 0px 0px 10px'
         });
-        
+
         saturdayContainer = lx.createElement('DIV', {
             parent: workScheduleDetailsSection,
             style: {
@@ -451,30 +455,30 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
         });
         saturdayContainer.className = 'flex-row flex-justify-content flex-align-center';
-        
+
         saturdayCb = new lx.component.Checkbox({
             renderTo: saturdayContainer,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Saturday',
             width: '120px',
-            
+
             onChange: saturdayCbOnChangeEventHandler
         });
-        
+
         saturdayHoursTxt = new lx.component.Textbox({
             renderTo: saturdayContainer,
             margin: '15px 0px 0px 0px',
             width: '200px'
-            
+
         });
-        
+
         saturdayHoursLabel = new lx.component.Label({
             renderTo: saturdayContainer,
             text: 'Hours',
             padding: '0px 0px 0px 10px'
         });
-        
+
         sundayContainer = lx.createElement('DIV', {
             parent: workScheduleDetailsSection,
             style: {
@@ -482,35 +486,35 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
         });
         sundayContainer.className = 'flex-row flex-justify-content flex-align-center';
-        
+
         sundayCb = new lx.component.Checkbox({
             renderTo: sundayContainer,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
-            label:' Sunday',
+            label: ' Sunday',
             width: '120px',
-            
+
             onChange: sundayCbOnChangeEventHandler
         });
-        
+
         sundayHoursTxt = new lx.component.Textbox({
             renderTo: sundayContainer,
             margin: '15px 0px 0px 0px',
             width: '200px'
-            
+
         });
-        
+
         sundayHoursLabel = new lx.component.Label({
             renderTo: sundayContainer,
             text: 'Hours',
             padding: '0px 0px 0px 10px'
-            
+
         });
-        
+
         //
         // BUTTON CONTAINER SECTION
         //
-        
+
         // Create the buttonContainerEl element
         buttonContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -524,16 +528,16 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                 borderColor: '#DFDFDF'
             }
         });
-        
+
         // Create the cancelBtn component
         cancelBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
             label: 'Cancel',
             style: 'text',
-            
+
             onClick: cancelBtnClickEventHandler
         });
-        
+
         // Create the saveBtnContainerEl element
         saveBtnContainerEl = lx.createElement('DIV', {
             parent: buttonContainerEl,
@@ -542,87 +546,87 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
                 margin: '0px 0px 0px 30px'
             }
         });
-        
+
         // Create the saveBtn component
         saveBtn = new lx.component.Button({
             renderTo: saveBtnContainerEl,
             label: 'Save',
             width: '120px',
-            
+
             onClick: saveBtnClickEventHandler
         });
-        
+
         // Load panel data
         loadWorkSchedule();
-        
+
         // If show is set to true show the panel.
-        if( compConfig.show === true ) me.show();
+        if (compConfig.show === true) me.show();
     };
-    
+
     // Function to set the renderTo target of the panel.
     //
     // renderTo         The new DOM element to render this component to.
-    me.setRenderTarget = function(renderTo) {
+    me.setRenderTarget = function (renderTo) {
         // Remove it from its current target
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         // Add it to the new renderTo element
-        renderTo.appendChild( el );
+        renderTo.appendChild(el);
     };
-    
+
     // Function to show the panel
-    me.show = function() {
-        lx.applyStyle(el, {display: 'flex'});
+    me.show = function () {
+        lx.applyStyle(el, { display: 'flex' });
     };
-    
+
     // Function to hide the panel
-    me.hide = function() {
-        lx.applyStyle(el, {display: 'none'});
+    me.hide = function () {
+        lx.applyStyle(el, { display: 'none' });
     };
-    
+
     // Function to set focus to the panel.
-    me.focus = function() {
+    me.focus = function () {
         mondayCb.setFocus();
     };
-    
+
     // Function to destroy the panel and all its contents.
     //
     // NOTE: Must return true if the panel was destroyed successfully and false if the panel was not destroyed.
-    me.destroy = function() {
+    me.destroy = function () {
         // Check if we need to confirm before destroying the panel.
-        if( confirmDestroy === true ) {
+        if (confirmDestroy === true) {
             new lx.component.Messagebox({
                 title: 'You have unsaved changes',
                 message: 'If you continue the changes will be lost.',
                 buttons: [
-                    {name: 'cancel', label: 'Cancel', style: 'text', isCancel: true},
-                    {name: 'continue', label: 'Continue', isDefault: true}
+                    { name: 'cancel', label: 'Cancel', style: 'text', isCancel: true },
+                    { name: 'continue', label: 'Continue', isDefault: true }
                 ],
-                onClose: function( event ) {
-                    if( event.button === 'continue' ) {
+                onClose: function (event) {
+                    if (event.button === 'continue') {
                         confirmDestroy = false;
                         me.destroy();
                     }
                 }
             });
-            
+
             return false;
         }
-        
+
         // If there is a onDestroy event run that before destroying the panel
         me.fireEvent('destroy', null);
-        
+
         // Remove the panel from its parent
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         return true;
     };
-    
-    
+
+
     //
     // EVENT HANDLERS
     //
-    
+
     function mondayCbOnChangeEventHandler() {
         if (mondayCb.getValue()) {
             mondayHoursTxt.enable();
@@ -632,7 +636,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             mondayHoursTxt.setValue('');
         }
     }
-    
+
     function tuesdayCbOnChangeEventHandler() {
         if (tuesdayCb.getValue()) {
             tuesdayHoursTxt.enable();
@@ -642,7 +646,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             tuesdayHoursTxt.setValue('');
         }
     }
-    
+
     function wednesdayCbOnChangeEventHandler() {
         if (wednesdayCb.getValue()) {
             wednesdayHoursTxt.enable();
@@ -652,7 +656,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             wednesdayHoursTxt.setValue('');
         }
     }
-    
+
     function thursdayCbOnChangeEventHandler() {
         if (thursdayCb.getValue()) {
             thursdayHoursTxt.enable();
@@ -662,7 +666,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             thursdayHoursTxt.setValue('');
         }
     }
-    
+
     function fridayCbOnChangeEventHandler() {
         if (fridayCb.getValue()) {
             fridayHoursTxt.enable();
@@ -672,7 +676,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             fridayHoursTxt.setValue('');
         }
     }
-    
+
     function saturdayCbOnChangeEventHandler() {
         if (saturdayCb.getValue()) {
             saturdayHoursTxt.enable();
@@ -682,7 +686,7 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             saturdayHoursTxt.setValue('');
         }
     }
-    
+
     function sundayCbOnChangeEventHandler() {
         if (sundayCb.getValue()) {
             sundayHoursTxt.enable();
@@ -692,15 +696,15 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             sundayHoursTxt.setValue('');
         }
     }
-    
+
     // Cancel button click event handler
     function cancelBtnClickEventHandler() {
-        me.fireEvent('cancel', {srcPanel: me});
+        me.fireEvent('cancel', { srcPanel: me });
     }
-    
+
     // Save button click event handler
     function saveBtnClickEventHandler() {
-        
+
         let mondayValue = null;
         let tuesdayValue = null;
         let wednesdayValue = null;
@@ -708,9 +712,17 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
         let fridayValue = null;
         let saturdayValue = null;
         let sundayValue = null;
-        
+        let wdEnableLeave = false;
+        let mondayWd = false;
+        let tuesdayWd = false;
+        let wednesdayWd = false;
+        let thursdayWd = false;
+        let fridayWd = false;
+        let saturdayWd = false;
+        let sundayWd = false;
+
         // Check all required values
-        if( mondayCb.getValue() ) {
+        if (mondayCb.getValue()) {
             if (mondayHoursTxt.getValue() === '') {
                 saveBtn.showWarning('Please enter the number of hours for Monday.');
                 return;
@@ -723,8 +735,8 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
             mondayValue = mondayHoursTxt.getValue();
         }
-        
-        if( tuesdayCb.getValue() ) {
+
+        if (tuesdayCb.getValue()) {
             if (tuesdayHoursTxt.getValue() === '') {
                 saveBtn.showWarning('Please enter the number of hours for Tuesday.');
                 return;
@@ -737,8 +749,8 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
             tuesdayValue = tuesdayHoursTxt.getValue();
         }
-        
-        if( wednesdayCb.getValue() ) {
+
+        if (wednesdayCb.getValue()) {
             if (wednesdayHoursTxt.getValue() === '') {
                 saveBtn.showWarning('Please enter the number of hours for Wednesday.');
                 return;
@@ -751,8 +763,8 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
             wednesdayValue = wednesdayHoursTxt.getValue();
         }
-        
-        if( thursdayCb.getValue() ) {
+
+        if (thursdayCb.getValue()) {
             if (thursdayHoursTxt.getValue() === '') {
                 saveBtn.showWarning('Please enter the number of hours for Thursday.');
                 return;
@@ -765,8 +777,8 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
             thursdayValue = thursdayHoursTxt.getValue();
         }
-        
-        if( fridayCb.getValue() ) {
+
+        if (fridayCb.getValue()) {
             if (fridayHoursTxt.getValue() === '') {
                 saveBtn.showWarning('Please enter the number of hours for Friday.');
                 return;
@@ -779,8 +791,8 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
             fridayValue = fridayHoursTxt.getValue();
         }
-        
-        if( saturdayCb.getValue() ) {
+
+        if (saturdayCb.getValue()) {
             if (saturdayHoursTxt.getValue() === '') {
                 saveBtn.showWarning('Please enter the number of hours for Saturday.');
                 return;
@@ -793,8 +805,8 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
             saturdayValue = saturdayHoursTxt.getValue();
         }
-        
-        if( sundayCb.getValue() ) {
+
+        if (sundayCb.getValue()) {
             if (sundayHoursTxt.getValue() === '') {
                 saveBtn.showWarning('Please enter the number of hours for Sunday.');
                 return;
@@ -807,43 +819,52 @@ app.panel.EditEmployeeWorkSchedule = function(config) {
             }
             sundayValue = sundayHoursTxt.getValue();
         }
-        
+
         saveBtn.showLoader();
         saveBtn.disable();
-        
+
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=updateEmployeeWorkSchedule',
             data: {
                 employeeId: parseInt(employeeId),
+                departmentId: parseInt(departmentId),
                 monday: parseInt(mondayValue),
                 tuesday: parseInt(tuesdayValue),
                 wednesday: parseInt(wednesdayValue),
                 thursday: parseInt(thursdayValue),
                 friday: parseInt(fridayValue),
                 saturday: parseInt(saturdayValue),
-                sunday: parseInt(sundayValue)
+                sunday: parseInt(sundayValue),
+                wdEnableLeave: wdEnableLeave,
+                mondayWd: mondayWd,
+                tuesdayWd: tuesdayWd,
+                wednesdayWd: wednesdayWd,
+                thursdayWd: thursdayWd,
+                fridayWd: fridayWd,
+                saturdayWd: saturdayWd,
+                sundayWd: sundayWd
             },
-            onSuccess: function( responseText ) {
-                
+            onSuccess: function (responseText) {
+
                 saveBtn.hideLoader();
                 saveBtn.enable();
-                
+
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     saveBtn.showWarning(response.error);
                     return;
                 }
-                
-                me.fireEvent('save', {srcPanel: me});
+
+                me.fireEvent('save', { srcPanel: me });
             }
         });
     }
-    
-    
+
+
     //
     // INITIALIZE OBJECT
     //
-    
-    me.init( config );
+
+    me.init(config);
 };

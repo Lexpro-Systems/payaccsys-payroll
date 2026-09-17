@@ -147,7 +147,7 @@ app.panel.ViewEmployeeDetails = function (config) {
     //
     // PRIVATE FUNCTIONS
     //
-    function setDayValue(display, day){
+    function setDayValue(display, day) {
         if (day === null || day === undefined || day === '') {
             display.setValue('-');
             return;
@@ -399,7 +399,7 @@ app.panel.ViewEmployeeDetails = function (config) {
 
                 value = '-';
                 if (response.employee.departmentName !== null) value = response.employee.departmentName;
-                departmentDisplay.setValue(value); 
+                departmentDisplay.setValue(value);
 
                 value = '-';
                 if (response.employee.paymentMethodName !== '') value = response.employee.paymentMethodName;
@@ -511,7 +511,7 @@ app.panel.ViewEmployeeDetails = function (config) {
                         customPaymentDayDisplay.setValue(response.employee.bweeCustomPaymentDay);
                     }
 
-                } else if(response.employee.paymentPeriodCode === 'TWMO'){
+                } else if (response.employee.paymentPeriodCode === 'TWMO') {
                     paymentPeriodEndDayDisplay.hide();
                     paymentDayDisplay.hide();
 
@@ -527,7 +527,7 @@ app.panel.ViewEmployeeDetails = function (config) {
                     setDayValue(twiceMonthlySecondStartDay, response.employee.twiceMonthlySecondStartDay);
                     setDayValue(twiceMonthlySecondEndDay, response.employee.twiceMonthlySecondEndDay);
                     setDayValue(twiceMonthlySecondPaymentDay, response.employee.twiceMonthlySecondPaymentDay);
-                }else {
+                } else {
                     //standardPaymentContainerEl.style.display = 'none';
                     customDateContainerEl.style.display = 'none';
                 }
@@ -1334,7 +1334,7 @@ app.panel.ViewEmployeeDetails = function (config) {
 
         //SECOND BATCH START DAY
 
-         twiceMonthlySecondStartDay = new lx.component.Display({
+        twiceMonthlySecondStartDay = new lx.component.Display({
             renderTo: twiceMonthlySecondBatchContainerEl,
             margin: '10px 0px 0px 0px',
             label: 'Second Payment Period Start:',
@@ -1791,7 +1791,7 @@ app.panel.ViewEmployeeDetails = function (config) {
         var editEmployeeWorkSchedulePanel = new app.panel.EditEmployeeWorkSchedule({
             renderTo: editEmployeeWorkScheduleModal.getContainer(),
             show: true,
-
+            departmentId: null,
             employeeId: employeeId,
 
             onCancel: function () {
@@ -1834,7 +1834,7 @@ app.panel.ViewEmployeeDetails = function (config) {
         var editEmployeeWorkDaysPanel = new app.panel.EditEmployeeWorkDays({
             renderTo: editEmployeeWorkDaysModal.getContainer(),
             show: true,
-
+            departmentId: null,
             employeeId: employeeId,
 
             onCancel: function () {
@@ -1922,7 +1922,6 @@ app.panel.ViewEmployeeDetails = function (config) {
         var editContactDetailsPanel = new app.panel.EditEmployeeContactDetails({
             renderTo: editContactDetailsModal.getContainer(),
             show: true,
-
             employeeId: employeeId,
 
             onCancel: function () {
