@@ -1763,6 +1763,7 @@ app.panel.ViewEmployeeDetails = function (config) {
             url: 'exec.php?c=Employee&fn=updateEmployeeWorkSchedule',
             data: {
                 employeeId: employeeId,
+                departmentId: null,
                 enableLeave: enableLeaveCb.getValue()
             },
             onSuccess: function (responseText) {

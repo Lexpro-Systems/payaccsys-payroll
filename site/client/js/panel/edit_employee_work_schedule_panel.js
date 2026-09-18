@@ -101,8 +101,6 @@ app.panel.EditEmployeeWorkSchedule = function (config) {
                 loader.hide();
 
                 var response = JSON.parse(responseText);
-                console.log("Work Schedule", response);
-                console.log("hello");
 
                 if (response.ok !== true) {
                     new lx.component.Messagebox({

@@ -33,6 +33,7 @@ app.panel.ViewDefaultDetails = function (config) {
     var WDDetailsHeadingEl = null;
     var WDDetailsEditBtn = null;
     var WDDetailsSectionEl = null;
+    var WDDetailsEmptyEl = null;
     var mondayDWCb = null;
     var tuesdayDWCb = null;
     var wednesdayDWCb = null;
@@ -116,25 +117,25 @@ app.panel.ViewDefaultDetails = function (config) {
                         scheduleDetailsDisplayEl.setValue('No work schedule set.');
                     }
 
-                    if (response.department.workSchedule.wdEnableLeave) {
+                    // if (response.department.workSchedule.wdEnableLeave) {
 
-                        mondayDWCb.setValue(response.department.workSchedule.mondaywd);
-                        tuesdayDWCb.setValue(response.department.workSchedule.tuesdaywd);
-                        wednesdayDWCb.setValue(response.department.workSchedule.wednesdaywd);
-                        thursdayDWCb.setValue(response.department.workSchedule.thursdaywd);
-                        fridayDWCb.setValue(response.department.workSchedule.fridaywd);
-                        saturdayDWCb.setValue(response.department.workSchedule.saturdaywd);
-                        sundayDWCb.setValue(response.department.workSchedule.sundaywd);
+                    // mondayDWCb.setValue(response.department.workSchedule.mondaywd);
+                    // tuesdayDWCb.setValue(response.department.workSchedule.tuesdaywd);
+                    // wednesdayDWCb.setValue(response.department.workSchedule.wednesdaywd);
+                    // thursdayDWCb.setValue(response.department.workSchedule.thursdaywd);
+                    // fridayDWCb.setValue(response.department.workSchedule.fridaywd);
+                    // saturdayDWCb.setValue(response.department.workSchedule.saturdaywd);
+                    // sundayDWCb.setValue(response.department.workSchedule.sundaywd);
 
-                    } else {
-                        WDDetailsSectionEl.innerHTML = "No workdays configured.";
-                    }
-
-
+                    // } else {
+                    //     WDDetailsSectionEl.innerHTML = "No workdays configured.";
+                    // }
+                    refreshWorkDaysSection(response.department.workSchedule);
                 }
                 else {
                     scheduleDetailsDisplayEl.setValue('No work schedule set.');
-                    WDDetailsSectionEl.innerHTML = "No workdays configured.";
+                    // WDDetailsSectionEl.innerHTML = "No workdays configured.";
+                    refreshWorkDaysSection(null);
                 }
 
                 var enableLeaveStatus = false;
@@ -358,6 +359,22 @@ app.panel.ViewDefaultDetails = function (config) {
             width: '100px',
         });
 
+        WDDetailsEmptyEl = lx.createElement('DIV', {
+            parent: contentContainerEl,
+            style: {
+                backgroundColor: '#FFFFFF',
+                borderStyle: 'solid',
+                borderColor: '#DFDFDF',
+                borderWidth: '1px',
+                padding: '15px',
+                width: '100%',
+                maxWidth: '900px',
+                boxSizing: 'border-box',
+                display: 'none'
+            },
+            innerHTML: 'No workdays configured.'
+        });
+
         //
         // WORK SCHEDULE SECTION
         //
@@ -533,7 +550,7 @@ app.panel.ViewDefaultDetails = function (config) {
 
             onSave: function () {
                 app.route.popState();
-                loadDepartment();
+                loadDepartment(departmentId);
             }
         });
 
@@ -575,6 +592,80 @@ app.panel.ViewDefaultDetails = function (config) {
                 }
             }
         });
+    }
+
+    function refreshWorkDaysSection(workSchedule) {
+        WDDetailsSectionEl.innerHTML = '';
+        mondayDWCb = null;
+        tuesdayDWCb = null;
+        wednesdayDWCb = null;
+        thursdayDWCb = null;
+        fridayDWCb = null;
+        saturdayDWCb = null;
+        sundayDWCb = null;
+
+        if (workSchedule === null || !workSchedule.wdEnableLeave) {
+            WDDetailsSectionEl.innerHTML = 'No workdays configured.';
+            return;
+        }
+
+        mondayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            margin: '0px',
+            labelAlign: 'right',
+            label: 'Monday',
+            width: '100px'
+        });
+        tuesdayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            margin: '0px',
+            labelAlign: 'right',
+            label: 'Tuesday',
+            width: '100px'
+        });
+        wednesdayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            margin: '0px 15px 0px 0px',
+            labelAlign: 'right',
+            label: 'Wednesday',
+            width: '100px'
+        });
+        thursdayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            margin: '0px',
+            labelAlign: 'right',
+            label: 'Thursday',
+            width: '100px'
+        });
+        fridayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            margin: '0px',
+            labelAlign: 'right',
+            label: 'Friday',
+            width: '100px'
+        });
+        saturdayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            margin: '0px',
+            labelAlign: 'right',
+            label: 'Saturday',
+            width: '100px'
+        });
+        sundayDWCb = new lx.component.Checkbox({
+            renderTo: WDDetailsSectionEl,
+            margin: '0px',
+            labelAlign: 'right',
+            label: 'Sunday',
+            width: '100px'
+        });
+
+        mondayDWCb.setValue(workSchedule.mondaywd);
+        tuesdayDWCb.setValue(workSchedule.tuesdaywd);
+        wednesdayDWCb.setValue(workSchedule.wednesdaywd);
+        thursdayDWCb.setValue(workSchedule.thursdaywd);
+        fridayDWCb.setValue(workSchedule.fridaywd);
+        saturdayDWCb.setValue(workSchedule.saturdaywd);
+        sundayDWCb.setValue(workSchedule.sundaywd);
     }
 
     //
