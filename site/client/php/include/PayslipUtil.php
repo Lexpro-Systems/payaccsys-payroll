@@ -1383,7 +1383,7 @@ function calculatePayslipItems(&$payslip): bool
             $totalIncome = $totalIncome + $item['amount'];
         } else if ($item['type']['code'] === '5009') {   // Overtime 2.0
             $taxableIncome = $taxableIncome + $item['amount'];
-            $totalIncome = $totalIncome + $item['amount']; 
+            $totalIncome = $totalIncome + $item['amount'];
         } else if ($item['type']['code'] === '2005') {
             $rtfDeduction = $rtfDeduction + $item['amount'];
         } else if ($item['type']['code'] === '2006') {
@@ -1617,6 +1617,15 @@ function calculatePayslipTotals($payslip): array
     $totalAllowances = 0;
     $rtfDeduction = 0;
     $travelAllowanceDeduction = 0;
+    $hasTravelAllowance5000 = false;
+
+    foreach ($payslip['items'] as $item) {
+        if ($item['type']['code'] === '5000') {
+            $hasTravelAllowance5000 = true;
+            break;
+        }
+    }
+
     foreach ($payslip['items'] as $item) {
         // If the amount is null skip it.
         if ($item['amount'] === null) continue;
@@ -1695,27 +1704,35 @@ function calculatePayslipTotals($payslip): array
             $totalAllowances = $totalAllowances + $item['amount'];
         } else if ($item['type']['code'] === '5001') {
             if ($item['units'] !== null) {
-                //$taxableIncome = $taxableIncome + $item['amount'];
+
                 $totalAllowances = $totalAllowances + $item['amount'];
                 $taxThreshold = getTravelAllowancePrescribedRate(new DateTime($payslip['toDate'])) * $item['units'];
 
-                if ($item['amount'] > $taxThreshold) {
-                    $travelAllowanceDeduction = $travelAllowanceDeduction + $taxThreshold; // ($item['amount'] - $taxThreshold);
-                    $taxableIncome = $taxableIncome + ($item['amount'] - $taxThreshold);
-                    $nonTaxableIncome = $nonTaxableIncome + $taxThreshold;
-                    // $nonTaxableIncome = $nonTaxableIncome + $taxThreshold;
+                if ($hasTravelAllowance5000) {
+                    // Employee also receives a travel allowance (5000),
+                    // therefore the reimbursive travel allowance is taxable.
+                    $taxableIncome = $taxableIncome + $item['amount'];
+                } else if ($item['amount'] > $taxThreshold) {
+                    // Reimbursement exceeds the prescribed rate.
+                    // Both the prescribed portion (3702) and excess (3722)
+                    // are taxable.
+                    $taxableIncome = $taxableIncome + $item['amount'];
                 } else {
+                    // Reimbursement does not exceed the prescribed rate
+                    // and there is no 5000 travel allowance.
                     $travelAllowanceDeduction = $travelAllowanceDeduction + $item['amount'];
                     $nonTaxableIncome = $nonTaxableIncome + $item['amount'];
                 }
             }
             // if ($item['units'] !== null) {
-            //     $taxableIncome = $taxableIncome + $item['amount'];
+            //     //$taxableIncome = $taxableIncome + $item['amount'];
             //     $totalAllowances = $totalAllowances + $item['amount'];
             //     $taxThreshold = getTravelAllowancePrescribedRate(new DateTime($payslip['toDate'])) * $item['units'];
 
             //     if ($item['amount'] > $taxThreshold) {
             //         $travelAllowanceDeduction = $travelAllowanceDeduction + $taxThreshold; // ($item['amount'] - $taxThreshold);
+            //         $taxableIncome = $taxableIncome + ($item['amount'] - $taxThreshold);
+            //         $nonTaxableIncome = $nonTaxableIncome + $taxThreshold;
             //         // $nonTaxableIncome = $nonTaxableIncome + $taxThreshold;
             //     } else {
             //         $travelAllowanceDeduction = $travelAllowanceDeduction + $item['amount'];

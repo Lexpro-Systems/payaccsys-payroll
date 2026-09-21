@@ -63,7 +63,8 @@ class Employee extends Controller
         // Validate data.
         $validationResult = Json::validate($data, [
             // Required parameters
-            'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
 
 
             // Optional parameters
@@ -97,18 +98,34 @@ class Employee extends Controller
         $db->query('LOCK TABLE work_schedules IN EXCLUSIVE MODE;');
 
         // Load the workshedule details
-        $sqlQuery =
-            'SELECT ' .
-            'id ' .
-            'FROM ' .
-            'work_schedules ' .
-            'WHERE ' .
-            'employee_id = $1;';
-        $sqlResult = $db->paramQuery($sqlQuery, [$data['employeeId']]);
-        if (!$sqlResult->isValid()) {
-            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-            return false;
+        if ($data['departmentId'] === null) {
+            $sqlQuery =
+                'SELECT ' .
+                'id ' .
+                'FROM ' .
+                'work_schedules ' .
+                'WHERE ' .
+                'employee_id = $1;';
+            $sqlResult = $db->paramQuery($sqlQuery, [$data['employeeId']]);
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        } else {
+            $sqlQuery =
+                'SELECT ' .
+                'id ' .
+                'FROM ' .
+                'work_schedules ' .
+                'WHERE ' .
+                'department_id = $1;';
+            $sqlResult = $db->paramQuery($sqlQuery, [$data['departmentId']]);
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
         }
+
 
         if ($sqlResult->getRowCount() === 0) {
             $enableLeave = false;
@@ -181,17 +198,18 @@ class Employee extends Controller
             // Build the query to insert the item.
             $sqlQuery =
                 'INSERT INTO work_schedules( ' .
-                'employee_id, enable_leave, monday_hours, tuesday_hours, wednesday_hours,  ' .
-                'thursday_hours, friday_hours, saturday_hours, sunday_hours ' .
+                'employee_id, department_id, enable_leave, monday_hours, tuesday_hours, wednesday_hours,  ' .
+                'thursday_hours, friday_hours, saturday_hours, sunday_hours, ' .
                 'monday_wd, tuesday_wd, wednesday_wd, thursday_wd, friday_wd, saturday_wd, sunday_wd, wd_enable_leave) ' .
-                'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17); ';
+                'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18); ';
             $sqlResult = $db->paramQuery($sqlQuery, [
-                $data['employeeId'],        // employee_id
-                $enableLeave,               // enable_leave
-                $monday,                    // monday hours
-                $tuesday,                   // tuesday hours
-                $wednesday,                 // wednesday hours
-                $thursday,                  // thursday hours
+                $data['employeeId'],                        // employee_id
+                $data['departmentId'],                    // department_id
+                $enableLeave,                               // enable_leave
+                $monday,                                    // monday hours
+                $tuesday,                                   // tuesday hours
+                $wednesday,                                 // wednesday hours
+                $thursday,                                  // thursday hours
                 $friday,                    // friday hours
                 $saturday,                  // saturday hours
                 $sunday,
@@ -327,8 +345,13 @@ class Employee extends Controller
 
             // Set where clause
             $updateCount++;
-            $updateQuery = $updateQuery . ' WHERE employee_id = $' . $updateCount . ';';
-            $updateValues[] = $data['employeeId'];
+            if ($data['departmentId'] === null) {
+                $updateQuery = $updateQuery . ' WHERE employee_id = $' . $updateCount . ';';
+                $updateValues[] = $data['employeeId'];
+            } else {
+                $updateQuery = $updateQuery . ' WHERE department_id = $' . $updateCount . ';';
+                $updateValues[] = $data['departmentId'];
+            }
 
             $updateResult = $db->paramQuery($updateQuery, $updateValues);
             if (!$updateResult->isValid()) {
@@ -368,7 +391,8 @@ class Employee extends Controller
         // Validate data.
         $validationResult = Json::validate($data, [
             // Required parameters
-            'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
         ]);
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
@@ -376,18 +400,33 @@ class Employee extends Controller
         }
 
 
-        // Load the employee from the employees table
-        $sqlQuery =
-            'SELECT ' .
-            'id, employee_id, enable_leave, monday_hours, tuesday_hours, wednesday_hours, ' .
-            'thursday_hours, friday_hours, saturday_hours, sunday_hours ' .
-            'FROM work_schedules ' .
-            'WHERE ' .
-            'employee_id = $1;';
-        $sqlResult = $db->paramQuery($sqlQuery, [$data['employeeId']]);
-        if (!$sqlResult->isValid()) {
-            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-            return false;
+        if ($data['departmentId'] === null) {
+            $sqlQuery =
+                'SELECT ' .
+                'id, employee_id, enable_leave, monday_hours, tuesday_hours, wednesday_hours, ' .
+                'thursday_hours, friday_hours, saturday_hours, sunday_hours ' .
+                'FROM work_schedules ' .
+                'WHERE ' .
+                'employee_id = $1;';
+            $sqlResult = $db->paramQuery($sqlQuery, [$data['employeeId']]);
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        } else {
+            // Load the employee from the employees table
+            $sqlQuery =
+                'SELECT ' .
+                'id, department_id, enable_leave, monday_hours, tuesday_hours, wednesday_hours, ' .
+                'thursday_hours, friday_hours, saturday_hours, sunday_hours ' .
+                'FROM work_schedules ' .
+                'WHERE ' .
+                'department_id = $1;';
+            $sqlResult = $db->paramQuery($sqlQuery, [$data['departmentId']]);
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
         }
 
         // Create workschedule details
@@ -1616,7 +1655,7 @@ class Employee extends Controller
             'twiceMonthlySelectFirstPaymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
             'twiceMonthlySelectSecondStartDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
             'twiceMonthlySelectSecondEndDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
-            'twiceMonthlySelectSecondPaymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],             
+            'twiceMonthlySelectSecondPaymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
             'incomeTaxNumber' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
             'enablePayeCorrection' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false],
             'sicCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false],
@@ -1816,10 +1855,10 @@ class Employee extends Controller
                 !$this->isValidTwmoConfigurationDay($firstStart, 'start') ||
                 !$this->isValidTwmoConfigurationDay($firstEnd, 'end') ||
                 !$this->isValidTwmoConfigurationDay($firstPaymentDay, 'payment') ||
-                !$this->isValidTwmoConfigurationDay($secondStart, 'start') || 
+                !$this->isValidTwmoConfigurationDay($secondStart, 'start') ||
                 !$this->isValidTwmoConfigurationDay($secondEnd, 'end') ||
                 !$this->isValidTwmoConfigurationDay($secondPaymentDay, 'payment')
-                ) {
+            ) {
                 echo (json_encode([
                     'ok' => false,
                     'error' => 'One or more twice-monthly payment period days are invalid.'
@@ -3058,30 +3097,30 @@ class Employee extends Controller
                 : (int)$sqlRow['first_period_start'],
 
             'twiceMonthlyFirstEndDay' =>
-                $sqlRow['first_period_end'] === null
-                    ? null
-                    : (int)$sqlRow['first_period_end'],
+            $sqlRow['first_period_end'] === null
+                ? null
+                : (int)$sqlRow['first_period_end'],
 
             'twiceMonthlyFirstPaymentDay' =>
-                $sqlRow['first_period_payment_day'] === null
-                    ? null
-                    : (int)$sqlRow['first_period_payment_day'],
+            $sqlRow['first_period_payment_day'] === null
+                ? null
+                : (int)$sqlRow['first_period_payment_day'],
 
             'twiceMonthlySecondStartDay' =>
-                $sqlRow['second_period_start'] === null
-                    ? null
-                    : (int)$sqlRow['second_period_start'],
+            $sqlRow['second_period_start'] === null
+                ? null
+                : (int)$sqlRow['second_period_start'],
 
             'twiceMonthlySecondEndDay' =>
-                $sqlRow['second_period_end'] === null
-                    ? null
-                    : (int)$sqlRow['second_period_end'],
+            $sqlRow['second_period_end'] === null
+                ? null
+                : (int)$sqlRow['second_period_end'],
 
             'twiceMonthlySecondPaymentDay' =>
-                $sqlRow['second_period_payment_day'] === null
-                    ? null
-                    : (int)$sqlRow['second_period_payment_day'],
-            
+            $sqlRow['second_period_payment_day'] === null
+                ? null
+                : (int)$sqlRow['second_period_payment_day'],
+
             'incomeTaxNumber' => $sqlRow['income_tax_number'],
             'enablePayeCorrection' => $sqlRow['enable_paye_correction'],
             'incomeTaxDirective1' => $sqlRow['income_tax_directive_1'],
@@ -3324,10 +3363,10 @@ class Employee extends Controller
                 !$this->isValidTwmoConfigurationDay($firstStart, 'start') ||
                 !$this->isValidTwmoConfigurationDay($firstEnd, 'end') ||
                 !$this->isValidTwmoConfigurationDay($firstPaymentDay, 'payment') ||
-                !$this->isValidTwmoConfigurationDay($secondStart, 'start') || 
+                !$this->isValidTwmoConfigurationDay($secondStart, 'start') ||
                 !$this->isValidTwmoConfigurationDay($secondEnd, 'end') ||
                 !$this->isValidTwmoConfigurationDay($secondPaymentDay, 'payment')
-                ) {
+            ) {
                 echo (json_encode([
                     'ok' => false,
                     'error' => 'One or more twice-monthly payment period days are invalid.'
@@ -3920,7 +3959,7 @@ class Employee extends Controller
             $updateQuery .= 'bwee_custom_payment_day = $' . $updateCount;
             $updateValues[] = $data['bweeCustomPaymentDay'];
         }
-        
+
         if (array_key_exists('twiceMonthlySelectFirstStartDay', $data)) {
             $updateCount++;
             if ($updateCount > 1) $updateQuery .= ', ';
@@ -7764,7 +7803,8 @@ class Employee extends Controller
         return $nextStartDay === $endDay + 1;
     }
 
-    private function isValidTwmoConfigurationDay(int $day, string $fieldType): bool {
+    private function isValidTwmoConfigurationDay(int $day, string $fieldType): bool
+    {
         if ($fieldType === 'start') {
             return $day >= 1 && $day <= 28;
         }

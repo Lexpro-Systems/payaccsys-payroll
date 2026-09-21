@@ -17,17 +17,17 @@
 //  onCancel            This event is fired when the user click the cancel button
 //  onDestroy           This event is fired just before the component is destroyed.
 //
-app.panel.EditEmployeeWorkDays = function(config) {
-    
+app.panel.EditEmployeeWorkDays = function (config) {
+
     //
     // PRIVATE VARIABLES
     //
-    
+
     var me = this;
     var confirmDestroy = null;
-    
+
     var el = null;
-    
+
     var contentEl = null;
     var loader = null;
 
@@ -44,24 +44,25 @@ app.panel.EditEmployeeWorkDays = function(config) {
     var saveBtnContainerEl = null;
     var saveBtn = null;
     var employeeId = null;
-    
-    
+    var departmentId = null;
+
+
     //
     // OBJECT EXTENSIONS
     //
-    
+
     lx.EventEmitter.call(this);
-    
-    
+
+
     //
     // PRIVATE FUNCTIONS
     //
-    
+
     //
     // PUBLIC FUNCTIONS
     //
-    
-    me.init = function( config ) {
+
+    me.init = function (config) {
         // Initialize component config
         var compConfig = {
             renderTo: null,
@@ -69,26 +70,27 @@ app.panel.EditEmployeeWorkDays = function(config) {
             height: '100%',
             flex: '1 1 100%',
             show: false,
-            
+
             employeeId: null
         };
-        
+
         // Parse user config
-        if( typeof config !== 'undefined' && config !== null ) {
-            for( var property in config ) {
-                if( config.hasOwnProperty(property) ) compConfig[property] = config[property];
+        if (typeof config !== 'undefined' && config !== null) {
+            for (var property in config) {
+                if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
-        
+
         // Attach external event handlers
-        if( compConfig.hasOwnProperty('onSave') ) me.addEventListener('save', compConfig.onSave);
-        if( compConfig.hasOwnProperty('onCancel') ) me.addEventListener('cancel', compConfig.onCancel);
-        if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
-        
+        if (compConfig.hasOwnProperty('onSave')) me.addEventListener('save', compConfig.onSave);
+        if (compConfig.hasOwnProperty('onCancel')) me.addEventListener('cancel', compConfig.onCancel);
+        if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
+
         // Initialize state
         confirmDestroy = false;
         employeeId = compConfig.employeeId;
-        
+        departmentId = compConfig.departmentId;
+
         // Create root element
         el = lx.createElement('DIV', {
             parent: compConfig.renderTo,
@@ -103,7 +105,7 @@ app.panel.EditEmployeeWorkDays = function(config) {
                 backgroundColor: '#FFFFFF'
             }
         });
-        
+
         // Create the heading
         lx.createElement('DIV', {
             parent: el,
@@ -118,7 +120,7 @@ app.panel.EditEmployeeWorkDays = function(config) {
             },
             innerHTML: 'Edit Employee Work Days'
         });
-        
+
         // Create the contentEl element
         contentEl = lx.createElement('DIV', {
             parent: el,
@@ -131,17 +133,17 @@ app.panel.EditEmployeeWorkDays = function(config) {
                 padding: '15px 0px 15px 0px'
             }
         });
-        
+
         // Create the loader
         loader = new lx.component.Loader({
             renderTo: contentEl
         });
-        
-        
+
+
         //
         // WORK SCHEDULE SECTION
         //
-        
+
         // Create the workScheduleDetailsSection section
         workScheduleDetailsSection = lx.createElement('DIV', {
             parent: contentEl,
@@ -155,74 +157,74 @@ app.panel.EditEmployeeWorkDays = function(config) {
                 display: 'flex'
             }
         });
-        
+
         mondayCb = new lx.component.Checkbox({
             renderTo: workScheduleDetailsSection,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Monday',
             width: '120px',
-            
+
         });
-        
+
         tuesdayCb = new lx.component.Checkbox({
             renderTo: workScheduleDetailsSection,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Tuesday',
             width: '120px',
-        
+
         });
-        
+
         wednesdayCb = new lx.component.Checkbox({
             renderTo: workScheduleDetailsSection,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Wednesday',
             width: '120px',
-            
+
         });
-        
+
         thursdayCb = new lx.component.Checkbox({
             renderTo: workScheduleDetailsSection,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Thursday',
             width: '120px',
-            
+
         });
-        
+
         fridayCb = new lx.component.Checkbox({
             renderTo: workScheduleDetailsSection,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Friday',
             width: '120px',
-            
+
         });
-        
+
         saturdayCb = new lx.component.Checkbox({
             renderTo: workScheduleDetailsSection,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
             label: 'Saturday',
             width: '120px',
-            
+
         });
-        
+
         sundayCb = new lx.component.Checkbox({
             renderTo: workScheduleDetailsSection,
             margin: '15px 0px 0px 0px',
             labelAlign: 'right',
-            label:' Sunday',
+            label: ' Sunday',
             width: '120px',
 
         });
-        
+
         //
         // BUTTON CONTAINER SECTION
         //
-        
+
         // Create the buttonContainerEl element
         buttonContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -236,16 +238,16 @@ app.panel.EditEmployeeWorkDays = function(config) {
                 borderColor: '#DFDFDF'
             }
         });
-        
+
         // Create the cancelBtn component
         cancelBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
             label: 'Cancel',
             style: 'text',
-            
+
             onClick: cancelBtnClickEventHandler
         });
-        
+
         // Create the saveBtnContainerEl element
         saveBtnContainerEl = lx.createElement('DIV', {
             parent: buttonContainerEl,
@@ -254,95 +256,95 @@ app.panel.EditEmployeeWorkDays = function(config) {
                 margin: '0px 0px 0px 30px'
             }
         });
-        
+
         // Create the saveBtn component
         saveBtn = new lx.component.Button({
             renderTo: saveBtnContainerEl,
             label: 'Save',
             width: '120px',
-            
+
             onClick: saveBtnClickEventHandler
         });
-        
+
         // Load panel data
         //loadWorkSchedule();
-        
+
         // If show is set to true show the panel.
-        if( compConfig.show === true ) me.show();
+        if (compConfig.show === true) me.show();
     };
-    
+
     // Function to set the renderTo target of the panel.
     //
     // renderTo         The new DOM element to render this component to.
-    me.setRenderTarget = function(renderTo) {
+    me.setRenderTarget = function (renderTo) {
         // Remove it from its current target
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         // Add it to the new renderTo element
-        renderTo.appendChild( el );
+        renderTo.appendChild(el);
     };
-    
+
     // Function to show the panel
-    me.show = function() {
-        lx.applyStyle(el, {display: 'flex'});
+    me.show = function () {
+        lx.applyStyle(el, { display: 'flex' });
     };
-    
+
     // Function to hide the panel
-    me.hide = function() {
-        lx.applyStyle(el, {display: 'none'});
+    me.hide = function () {
+        lx.applyStyle(el, { display: 'none' });
     };
-    
+
     // Function to set focus to the panel.
-    me.focus = function() {
+    me.focus = function () {
         mondayCb.setFocus();
     };
-    
+
     // Function to destroy the panel and all its contents.
     //
     // NOTE: Must return true if the panel was destroyed successfully and false if the panel was not destroyed.
-    me.destroy = function() {
+    me.destroy = function () {
         // Check if we need to confirm before destroying the panel.
-        if( confirmDestroy === true ) {
+        if (confirmDestroy === true) {
             new lx.component.Messagebox({
                 title: 'You have unsaved changes',
                 message: 'If you continue the changes will be lost.',
                 buttons: [
-                    {name: 'cancel', label: 'Cancel', style: 'text', isCancel: true},
-                    {name: 'continue', label: 'Continue', isDefault: true}
+                    { name: 'cancel', label: 'Cancel', style: 'text', isCancel: true },
+                    { name: 'continue', label: 'Continue', isDefault: true }
                 ],
-                onClose: function( event ) {
-                    if( event.button === 'continue' ) {
+                onClose: function (event) {
+                    if (event.button === 'continue') {
                         confirmDestroy = false;
                         me.destroy();
                     }
                 }
             });
-            
+
             return false;
         }
-        
+
         // If there is a onDestroy event run that before destroying the panel
         me.fireEvent('destroy', null);
-        
+
         // Remove the panel from its parent
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         return true;
     };
-    
-    
+
+
     //
     // EVENT HANDLERS
     //
-    
+
     // Cancel button click event handler
     function cancelBtnClickEventHandler() {
-        me.fireEvent('cancel', {srcPanel: me});
+        me.fireEvent('cancel', { srcPanel: me });
     }
-    
+
     // Save button click event handler
     function saveBtnClickEventHandler() {
-        
+
         let enableLeave = false;
         let mondayValue = null;
         let tuesdayValue = null;
@@ -359,28 +361,30 @@ app.panel.EditEmployeeWorkDays = function(config) {
         let saturdayWd = saturdayCb.getValue();
         let sundayWd = sundayCb.getValue();
         let wdEnableLeave = false;
-        if(mondayWd || tuesdayWd || wednesdayWd || thursdayWd || fridayWd || saturdayWd || sundayWd){
-          wdEnableLeave = true;
+        if (mondayWd || tuesdayWd || wednesdayWd || thursdayWd || fridayWd || saturdayWd || sundayWd) {
+            wdEnableLeave = true;
         };
-        
-        
+
+
         saveBtn.showLoader();
         saveBtn.disable();
-        
-        console.log(`
-        Monday: ${mondayWd}
-        Tuesday: ${tuesdayWd}
-        Wednesday: ${wednesdayWd}
-        Thursday: ${thursdayWd}
-        Friday: ${fridayWd}
-        Saturday: ${saturdayWd}
-        Sunday: ${sundayWd}
-        wdEnableLeave: ${wdEnableLeave}
-        `);
+
+        // console.log(`
+        // Monday: ${mondayWd}
+        // Tuesday: ${tuesdayWd}
+        // Wednesday: ${wednesdayWd}
+        // Thursday: ${thursdayWd}
+        // Friday: ${fridayWd}
+        // Saturday: ${saturdayWd}
+        // Sunday: ${sundayWd}
+        // wdEnableLeave: ${wdEnableLeave}
+        // `);
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=updateEmployeeWorkSchedule',
             data: {
                 employeeId: parseInt(employeeId),
+                departmentId: parseInt(departmentId),
+                enableLeave: enableLeave,
                 monday: mondayValue,
                 tuesday: tuesdayValue,
                 wednesday: wednesdayValue,
@@ -389,7 +393,7 @@ app.panel.EditEmployeeWorkDays = function(config) {
                 saturday: saturdayValue,
                 sunday: sundayValue,
                 mondayWd: mondayWd,
-                tuesdayWd:  tuesdayWd,
+                tuesdayWd: tuesdayWd,
                 wednesdayWd: wednesdayWd,
                 thursdayWd: thursdayWd,
                 fridayWd: fridayWd,
@@ -397,27 +401,27 @@ app.panel.EditEmployeeWorkDays = function(config) {
                 sundayWd: sundayWd,
                 wdEnableLeave: wdEnableLeave
             },
-            onSuccess: function( responseText ) {
-                
+            onSuccess: function (responseText) {
+
                 saveBtn.hideLoader();
                 saveBtn.enable();
-                
+
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     saveBtn.showWarning(response.error);
                     return;
                 }
-                
-                me.fireEvent('save', {srcPanel: me});
+
+                me.fireEvent('save', { srcPanel: me });
             }
         });
     }
-    
-    
+
+
     //
     // INITIALIZE OBJECT
     //
-    
-    me.init( config );
+
+    me.init(config);
 };

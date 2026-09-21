@@ -876,31 +876,67 @@ class TaxReconciliation extends Controller
                         $sarsItems[] = ['code' => '4582', 'amount' => ($amount / 100) * 80];
                         $totalDeductions = $totalDeductions + ($amount / 100) * 80;
                     } else if ($itemRow['payslip_item_type_code'] === '5001') {
+
+                        // Check if the current payslip contains a 5000 travel allowance
+                        $travelAllowanceQuery =
+                            'SELECT 1 ' .
+                            'FROM payslip_items ' .
+                            'WHERE payslip_items.payslip_id = $1 ' .
+                            'AND payslip_items.payslip_item_type_code = \'5000\' ' .
+                            'LIMIT 1;';
+                        $travelAllowanceResult = $db->paramQuery($travelAllowanceQuery, [
+                            $payslipRow['id']
+                        ]);
+                        if (!$travelAllowanceResult->isValid()) {
+                            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                            return false;
+                        }
+                        $hasTravelAllowance5000 = $travelAllowanceResult->getRowCount() > 0;
+
                         // Calculate the reimbursive travel allowance limit
                         $reimbursiveLimit = \PayslipUtil\getTravelAllowancePrescribedRate(new DateTime($payslipRow['to_date'])) * $itemRow['units'];
+
                         $limitAmount = (int) round($amount * 100);
                         $limitReimbursiveLimit = (int) round($reimbursiveLimit * 100);
-                        // Is the amount under the limit?
+
+                        // Is the amount under the prescribed rate?
                         if ($limitAmount <= $limitReimbursiveLimit) {
-                            // Add reimbursive travel allowance
-                            $sarsItems[] = ['code' => '3703', 'amount' => $amount];
+
+                            // If the employee also receives a 5000 travel allowance,
+                            // the reimbursive allowance is taxable.
+                            if ($hasTravelAllowance5000) {
+                                $sarsItems[] = ['code' => '3702', 'amount' => $amount];
+                            } else {
+                                // Reimbursive allowance is non-taxable
+                                $sarsItems[] = ['code' => '3703', 'amount' => $amount];
+                            }
                         } else {
-                            // Add reimbursive travel allowance
-                            error_log("Amount: {$amount}, Thershold: {$reimbursiveLimit} , Code: 3702");
+
+                            // Reimbursement exceeds the prescribed rate.
+                            // The prescribed portion is taxable under 3702
+                            // and the excess is reported under 3722.
+                            // error_log(
+                            //     "Amount: {$amount}, Thershold: {$reimbursiveLimit}, Code: 3702"
+                            // );
                             $sarsItems[] = ['code' => '3702', 'amount' => $reimbursiveLimit];
                             $sarsItems[] = ['code' => '3722', 'amount' => ($amount - $reimbursiveLimit)];
                         }
                         $totalIncome = $totalIncome + $amount;
-
-                        // // Add the amount above the tax threshold, if any
-                        // if( $itemRow['units'] !== null ) {
-                        //     $taxThreshold = \PayslipUtil\getTravelAllowancePrescribedRate( new DateTime( $payslipRow['to_date'] ) ) * $itemRow['units'];
-
-                        //     if( $itemRow['total'] > $taxThreshold ) {
-                        //         $sarsItems[] = ['code' => '3722', 'amount' => ($itemRow['total'] - $taxThreshold)];
-                        //         $totalIncome = $totalIncome + ($itemRow['total'] - $taxThreshold);
-                        //     }
+                        // // Calculate the reimbursive travel allowance limit
+                        // $reimbursiveLimit = \PayslipUtil\getTravelAllowancePrescribedRate(new DateTime($payslipRow['to_date'])) * $itemRow['units'];
+                        // $limitAmount = (int) round($amount * 100);
+                        // $limitReimbursiveLimit = (int) round($reimbursiveLimit * 100);
+                        // // Is the amount under the limit?
+                        // if ($limitAmount <= $limitReimbursiveLimit) {
+                        //     // Add reimbursive travel allowance
+                        //     $sarsItems[] = ['code' => '3703', 'amount' => $amount];
+                        // } else {
+                        //     // Add reimbursive travel allowance
+                        //     error_log("Amount: {$amount}, Thershold: {$reimbursiveLimit} , Code: 3702");
+                        //     $sarsItems[] = ['code' => '3702', 'amount' => $reimbursiveLimit];
+                        //     $sarsItems[] = ['code' => '3722', 'amount' => ($amount - $reimbursiveLimit)];
                         // }
+                        // $totalIncome = $totalIncome + $amount;
 
                     } else if ($itemRow['payslip_item_type_code'] === '5002') {
                         // $sarsItems[] = ['code' => '3706', 'amount' => $amount]; // Not applicable form 2010
