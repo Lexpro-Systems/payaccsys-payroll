@@ -1846,7 +1846,7 @@ class Employee extends Controller
             if ($firstStart === null || $firstEnd === null || $firstPaymentDay === null || $secondStart === null || $secondEnd === null || $secondPaymentDay === null) {
                 echo (json_encode([
                     'ok' => false,
-                    'error' => 'All twice-monthly payment period dates are required.'
+                    'error' => 'All twice-monthly payment period days are required.'
                 ]));
                 return false;
             }
@@ -2425,7 +2425,7 @@ class Employee extends Controller
 
                 // If auto calculate is set, check that the item supports it.
                 if ($autoCalculate === true && $sqlRow['auto_calculate'] !== true) {
-                    echo (json_encode(['ok' => false, 'error' => 'This item can not be set to auto calculate.']));
+                    echo (json_encode(['ok' => false, 'error' => 'This item cannot be set to auto calculate.']));
                     return false;
                 }
 
@@ -3317,12 +3317,12 @@ class Employee extends Controller
             'paymentDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
             'bweeCustomPpsd' => ['type' => Json::TYPE_DATE, 'required' => false, 'nullable' => true],
             'bweeCustomPaymentDay' => ['type' => Json::TYPE_DATE, 'required' => false, 'nullable' => true],
-            'twiceMonthlySelectFirstStartDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
-            'twiceMonthlySelectFirstEndDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
-            'twiceMonthlySelectFirstPaymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
-            'twiceMonthlySelectSecondStartDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
-            'twiceMonthlySelectSecondEndDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
-            'twiceMonthlySelectSecondPaymentDay' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'twiceMonthlySelectFirstStartDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
+            'twiceMonthlySelectFirstEndDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
+            'twiceMonthlySelectFirstPaymentDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
+            'twiceMonthlySelectSecondStartDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
+            'twiceMonthlySelectSecondEndDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
+            'twiceMonthlySelectSecondPaymentDay' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
             'incomeTaxNumber' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
             'sicCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => false, 'nullable' => false],
             'incomeTaxDirective1' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
@@ -3354,7 +3354,7 @@ class Employee extends Controller
             if ($firstStart === null || $firstEnd === null || $firstPaymentDay === null || $secondStart === null || $secondEnd === null || $secondPaymentDay === null) {
                 echo (json_encode([
                     'ok' => false,
-                    'error' => 'All twice-monthly payment period dates are required.'
+                    'error' => 'All twice-monthly payment period days are required.'
                 ]));
                 return false;
             }
@@ -4852,7 +4852,7 @@ class Employee extends Controller
     //  employeeId              The ID of the employee this item is for.
     //  typeCode                The code of the item type to add.
     //  description             A description for the item
-    //  accrualDate             The date the item will accrue.  If the type is once off then this value can not be null.  If it is a recurring type
+    //  accrualDate             The date the item will accrue.  If the type is once off then this value cannot be null.  If it is a recurring type
     //                          the value must be null.
     //  autoCalculate           Should this item be auto calculated.
     //  amount                  The amount for the item.  Can be null.
@@ -4930,7 +4930,7 @@ class Employee extends Controller
 
         // If auto calculate is set, check that the item supports it.
         if ($data['autoCalculate'] === true && $sqlRow['auto_calculate'] !== true) {
-            echo (json_encode(['ok' => false, 'error' => 'This item can not be set to auto calculate.']));
+            echo (json_encode(['ok' => false, 'error' => 'This item cannot be set to auto calculate.']));
             return false;
         }
 
@@ -4994,7 +4994,7 @@ class Employee extends Controller
     //  employeeId              The ID of the employee this item is for.
     //  typeCode                The code of the item type to edit.
     //  description             A description for the item
-    //  accrualDate             The date the item will accrue.  If the type is once off then this value can not be null.  If it is a recurring type
+    //  accrualDate             The date the item will accrue.  If the type is once off then this value cannot be null.  If it is a recurring type
     //                          the value must be null.
     //  amount                  The amount for the item.  Can be null.
     //

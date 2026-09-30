@@ -1185,7 +1185,7 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
     function saveBtnClickEventHandler() {
         // Check all required values
         if (employmentStartDate.getValue() === '' || employmentStartDate.getValue() === null) {
-            saveBtn.showWarning('The employment date can not be empty.');
+            saveBtn.showWarning('The employment date cannot be empty.');
             return;
         }
 
@@ -1195,12 +1195,12 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
         // }
 
         if (paymentMethodSelect.getValue() === null) {
-            saveBtn.showWarning('The payment method can not be empty.');
+            saveBtn.showWarning('The payment method cannot be empty.');
             return;
         }
 
         if (paymentPeriodSelect.getValue() === null) {
-            saveBtn.showWarning('The payment period can not be empty.');
+            saveBtn.showWarning('The payment period cannot be empty.');
             return;
         }
 
@@ -1214,27 +1214,27 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
 
         if (isTwiceMonthly) {
             if (isEmptySelect(twiceMonthlySelectFirstStartDay)) {
-                saveBtn.showWarning('The First Payment Period Start can not be empty.');
+                saveBtn.showWarning('The First Payment Period Start cannot be empty.');
                 return;
             }
             if (isEmptySelect(twiceMonthlySelectFirstEndDay)) {
-                saveBtn.showWarning('The First Payment Period End can not be empty.');
+                saveBtn.showWarning('The First Payment Period End cannot be empty.');
                 return;
             }
             if (isEmptySelect(twiceMonthlySelectFirstPaymentDay)) {
-                saveBtn.showWarning('The First Payment Day can not be empty.');
+                saveBtn.showWarning('The First Payment Day cannot be empty.');
                 return;
             }
             if (isEmptySelect(twiceMonthlySelectSecondStartDay)) {
-                saveBtn.showWarning('The Second Payment Period Start can not be empty.');
+                saveBtn.showWarning('The Second Payment Period Start cannot be empty.');
                 return;
             }
             if (isEmptySelect(twiceMonthlySelectSecondEndDay)) {
-                saveBtn.showWarning('The Second Payment Period End can not be empty.');
+                saveBtn.showWarning('The Second Payment Period End cannot be empty.');
                 return;
             }
             if (isEmptySelect(twiceMonthlySelectSecondPaymentDay)) {
-                saveBtn.showWarning('The Second Payment Day can not be empty.');
+                saveBtn.showWarning('The Second Payment Day cannot be empty.');
                 return;
             }
             if (!validateTwiceMonthlyCoverage()) {
@@ -1243,12 +1243,12 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
         } else if (hasCustomBwee) {
 
             if (bweeCustomPaymentPeriodStartDatePicker.getValue() === '' || bweeCustomPaymentPeriodStartDatePicker.getValue() === null) {
-                saveBtn.showWarning('The Custom Payment Period Start can not be empty.');
+                saveBtn.showWarning('The Custom Payment Period Start cannot be empty.');
                 return;
             }
 
             if (bweeCustomPaymentDayDatePicker.getValue() === '' || bweeCustomPaymentDayDatePicker.getValue() === null) {
-                saveBtn.showWarning('The Custom Payment Day can not be empty.');
+                saveBtn.showWarning('The Custom Payment Day cannot be empty.');
                 return;
             }
 
@@ -1267,11 +1267,11 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
 
         } else if (hasStandard) {
             if (!hasStandardEndDay) {
-                saveBtn.showWarning('The payment period end day can not be empty.');
+                saveBtn.showWarning('The payment period end day cannot be empty.');
                 return;
             }
             if (!hasStandardPaymentDay) {
-                saveBtn.showWarning('The payment day can not be empty.');
+                saveBtn.showWarning('The payment day cannot be empty.');
                 return;
             }
         }

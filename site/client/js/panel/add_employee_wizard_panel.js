@@ -5527,23 +5527,23 @@ app.panel.AddEmployeeWizard = function (config) {
         if (pageNum === 1) {
             // Do sanity checks
             if (titleSelect.getValue() === null) {
-                wizardNextBtn.showWarning('The employee title can not be empty.');
+                wizardNextBtn.showWarning('The employee title cannot be empty.');
                 return;
             }
             else if (initialsTxt.getValue().trim() === '') {
-                wizardNextBtn.showWarning('The employee initials can not be empty.');
+                wizardNextBtn.showWarning('The employee initials cannot be empty.');
                 return;
             }
             else if (fullNamesTxt.getValue().trim() === '') {
-                wizardNextBtn.showWarning('The employee first name can not be empty.');
+                wizardNextBtn.showWarning('The employee first name cannot be empty.');
                 return;
             }
             else if (lastNameTxt.getValue().trim() === '') {
-                wizardNextBtn.showWarning('The employee last name can not be empty.');
+                wizardNextBtn.showWarning('The employee last name cannot be empty.');
                 return;
             }
             else if (aliasTxt.getValue().trim() === '') {
-                wizardNextBtn.showWarning('The employee alias can not be empty.');
+                wizardNextBtn.showWarning('The employee alias cannot be empty.');
                 return;
             }
             else if (idNumberTxt.getValue().trim() === '' && passportNumberTxt.getValue().trim() === '') {
@@ -5559,19 +5559,19 @@ app.panel.AddEmployeeWizard = function (config) {
                 return;
             }
             else if (dateOfBirthDate.getValue() === '' || dateOfBirthDate.getValue() === null) {
-                wizardNextBtn.showWarning('The employee date of birth can not be empty.');
+                wizardNextBtn.showWarning('The employee date of birth cannot be empty.');
                 return;
             }
             else if (employmentStartDate.getValue() === '' || employmentStartDate.getValue() === null) {
-                wizardNextBtn.showWarning('The employment date can not be empty.');
+                wizardNextBtn.showWarning('The employment date cannot be empty.');
                 return;
             }
             else if (paymentMethodSelect.getValue() === null) {
-                wizardNextBtn.showWarning('The payment method can not be empty.');
+                wizardNextBtn.showWarning('The payment method cannot be empty.');
                 return;
             }
             else if (paymentPeriodSelect.getValue() === null) {
-                wizardNextBtn.showWarning('The payment period can not be empty.');
+                wizardNextBtn.showWarning('The payment period cannot be empty.');
                 return;
             }
             let hasStandardEndDay = paymentPeriodEndDaySelect.getValue() !== null;
@@ -5591,27 +5591,27 @@ app.panel.AddEmployeeWizard = function (config) {
 
             if (isTwiceMonthly) {
                 if (isEmptySelect(twiceMonthlySelectFirstStartDay)) {
-                    wizardNextBtn.showWarning('The First Payment Period Start can not be empty.');
+                    wizardNextBtn.showWarning('The First Payment Period Start cannot be empty.');
                     return;
                 }
                 if (isEmptySelect(twiceMonthlySelectFirstEndDay)) {
-                    wizardNextBtn.showWarning('The First Payment Period End can not be empty.');
+                    wizardNextBtn.showWarning('The First Payment Period End cannot be empty.');
                     return;
                 }
                 if (isEmptySelect(twiceMonthlySelectFirstPaymentDay)) {
-                    wizardNextBtn.showWarning('The First Payment Day can not be empty.');
+                    wizardNextBtn.showWarning('The First Payment Day cannot be empty.');
                     return;
                 }
                 if (isEmptySelect(twiceMonthlySelectSecondStartDay)) {
-                    wizardNextBtn.showWarning('The Second Payment Period Start can not be empty.');
+                    wizardNextBtn.showWarning('The Second Payment Period Start cannot be empty.');
                     return;
                 }
                 if (isEmptySelect(twiceMonthlySelectSecondEndDay)) {
-                    wizardNextBtn.showWarning('The Second Payment Period End can not be empty.');
+                    wizardNextBtn.showWarning('The Second Payment Period End cannot be empty.');
                     return;
                 }
                 if (isEmptySelect(twiceMonthlySelectSecondPaymentDay)) {
-                    wizardNextBtn.showWarning('The Second Payment Day can not be empty.');
+                    wizardNextBtn.showWarning('The Second Payment Day cannot be empty.');
                     return;
                 }
                 if (!validateTwiceMonthlyCoverage()) {
@@ -5629,21 +5629,21 @@ app.panel.AddEmployeeWizard = function (config) {
                 }
                 else if (hasStandard) {
                     if (!hasStandardEndDay) {
-                        wizardNextBtn.showWarning('The payment period end day can not be empty.');
+                        wizardNextBtn.showWarning('The payment period end day cannot be empty.');
                         return;
                     }
                     if (!hasStandardPaymentDay) {
-                        wizardNextBtn.showWarning('The payment day can not be empty.');
+                        wizardNextBtn.showWarning('The payment day cannot be empty.');
                         return;
                     }
                 }
                 else if (hasCustom) {
                     if (!hasCustomEndDay) {
-                        wizardNextBtn.showWarning('The custom payment period end day can not be empty.');
+                        wizardNextBtn.showWarning('The custom payment period end day cannot be empty.');
                         return;
                     }
                     if (!hasCustomPayDay) {
-                        wizardNextBtn.showWarning('The custom payment day can not be empty.');
+                        wizardNextBtn.showWarning('The custom payment day cannot be empty.');
                         return;
                     }
 
@@ -5662,17 +5662,17 @@ app.panel.AddEmployeeWizard = function (config) {
             }
             else {
                 if (!hasStandardEndDay) {
-                    wizardNextBtn.showWarning('The payment period end day can not be empty.');
+                    wizardNextBtn.showWarning('The payment period end day cannot be empty.');
                     return;
                 }
                 if (!hasStandardPaymentDay) {
-                    wizardNextBtn.showWarning('The payment day can not be empty.');
+                    wizardNextBtn.showWarning('The payment day cannot be empty.');
                     return;
                 }
             }
 
             if (sicCodeSelect.getValue() === null) {
-                wizardNextBtn.showWarning('The SIC code can not be empty.');
+                wizardNextBtn.showWarning('The SIC code cannot be empty.');
                 return;
             }
 
