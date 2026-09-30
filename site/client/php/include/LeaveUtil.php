@@ -333,8 +333,16 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                         'WHERE ' .
                         'payruns.processed_on IS NOT NULL AND ' .
                         'payslips.status_code = \'ACTI\' AND ' .
-                        'payslips.employee_id = $1;';
-                    $sqlResult = $db->paramQuery($sqlQuery, [$employeeId]);
+                        'payslips.employee_id = $1 ';
+                    $params = [$employeeId];
+                    # For BWEE employees, only count payslips up to the current payslip.
+                    if ($MonthlyWeeklyBiweek === 'BWEE') {
+                        $sqlQuery .= 'AND payslips.to_date <= $2 ';
+                        $params[] = $leaveDate;
+                    }
+                    $sqlQuery .= ';';
+
+                    $sqlResult = $db->paramQuery($sqlQuery, $params);
                     if (!$sqlResult->isValid()) {
                         echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                         return false;
@@ -346,6 +354,9 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     # (we are assuming that the payrun of which the source payslip is part has already been processed)?
                     if (($sqlLeaveTypeRuleRow['accrual_interval'] > 0) && ($numPayslips % $sqlLeaveTypeRuleRow['accrual_interval']) === 0) {
                         $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
+                        if ($MonthlyWeeklyBiweek === 'BWEE') {
+                            $leaveEarned = TransistionBweeLeaveAmount($db, $employeeId, $sqlLeaveTypeRuleRow['accrual_interval'], $leaveEarned, $leaveDate);
+                        }
                         $earnLeave = true;
                     }
                 }
@@ -715,6 +726,75 @@ function getLeaveScheduleTimeWorked($employeeId, $leaveTypeId, $leaveEndDate, $u
         return $leaveTimeWorked;
     }
 }
+
+function TransistionBweeLeaveAmount($db, $employeeId, $accrualInterval, $leaveAmount, $leaveDate)
+{
+    $sqlQuery =
+        'SELECT ' .
+        'payslips.from_date, ' .
+        'payslips.to_date ' .
+        'FROM payslips ' .
+        'LEFT JOIN payruns ON payruns.id = payslips.payrun_id ' .
+        'WHERE ' .
+        'payslips.employee_id = $1 AND ' .
+        'payslips.status_code = \'ACTI\' AND ' .
+        'payruns.processed_on IS NOT NULL AND ' .
+        'payslips.to_date <= $2 ' .
+        'ORDER BY payslips.to_date DESC ' .
+        'LIMIT $3;';
+
+    $sqlResult = $db->paramQuery(
+        $sqlQuery,
+        [$employeeId, $leaveDate, $accrualInterval]
+    );
+
+    if (!$sqlResult->isValid()) {
+        return $leaveAmount;
+    }
+
+    $actualDays = 0;
+
+    while ($sqlRow = $sqlResult->fetchAssociative()) {
+        $fromDate = new DateTime($sqlRow['from_date']);
+        $toDate = new DateTime($sqlRow['to_date']);
+
+        $days = $fromDate->diff($toDate)->days + 1;
+
+        error_log(
+            'BWEE TRANSITION: ' .
+                $sqlRow['from_date'] .
+                ' -> ' .
+                $sqlRow['to_date'] .
+                ' = ' .
+                $days .
+                ' days'
+        );
+
+        $actualDays += $days;
+    }
+
+    $expectedDays = $accrualInterval * 14;
+
+    error_log(
+        'BWEE TRANSITION TOTAL: Actual=' .
+            $actualDays .
+            ' Expected=' .
+            $expectedDays .
+            ' Amount=' .
+            $leaveAmount
+    );
+
+    if ($actualDays < $expectedDays) {
+        $leaveAmount = ($leaveAmount / $expectedDays) * $actualDays;
+    }
+
+    error_log(
+        'BWEE TRANSITION RESULT: ' . $leaveAmount
+    );
+
+    return $leaveAmount;
+}
+
 // Function to get all leave balances for a specified employee (this includes only processed leave up to the current date)
 //
 // Required Parameters
