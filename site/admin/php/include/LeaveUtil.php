@@ -243,7 +243,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
         }
 
         // Checks whether the leave type name contains "sick", ignoring case.
-        $isSickLeave = stripos ((string)$sqlLeaveConfigRow['leave_type_name'], 'sick') !== false;
+        $isSickLeave = stripos((string)$sqlLeaveConfigRow['leave_type_name'], 'sick') !== false;
 
         # Loops through each rule of each subscribed leave type
         while ($sqlLeaveTypeRuleRow = $sqlLeaveTypeRuleResult->fetchAssociative()) {
@@ -331,78 +331,30 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             # Accrual/resetting calculations for the "HWOR" type of leave.
             if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'HWOR') {
 
-                //-----------------------------------------//
-                //                NOTE:
-                //-----------------------------------------//
-
-                # Currently leave cannot be earned on hours worked via the work schedule, since it takes too long
-
-                # Checks if the leave is calculated via a "WSCH"
-                // if( $leaveSourceType === 'WSCH' && $workScheduleLeaveEnabled ) {
-                //     // Get the days and hours worked according to the schedule
-                //     $timeWorked = getLeaveScheduleTimeWorked(
-                //         $employeeId, 
-                //         $sqlLeaveConfigRow['leave_type_id'], 
-                //         $leaveDate, 
-                //         $user, 
-                //         $db 
-                //     );
-                //     $hoursWorked = $timeWorked['hoursWorked'];
-                //     $daysWorked = $timeWorked['daysWorked'];
-
-                //     // echo( 
-                //     //     'Employee ' . $employeeId . ' for ' .
-                //     //     'type ' . $sqlLeaveConfigRow['leave_type_id'] . '-' . $sqlLeaveTypeRuleRow['leave_type_rule_id'] . ': ' .
-                //     //     $daysWorked . ' % ' . 
-                //     //     $sqlLeaveTypeRuleRow['accrual_interval'] . ' = ' . 
-                //     //     $daysWorked % $sqlLeaveTypeRuleRow['accrual_interval'] . '<br>' . PHP_EOL
-                //     // );
-                // }
-
-                # Calculates the amount of leave based on the total hoursworked
-                if ($hoursWorked !== null && $hoursWorked > 0.0000009) {
-                    # Is leave being earned according to the work schedule?
-                    if ($leaveSourceType === 'WSCH' && $workScheduleLeaveEnabled) {
-                        # Only earn leave if the days worked matches the interval
-                        // if( ($sqlLeaveTypeRuleRow['accrual_interval'] > 0) && ($hoursWorked % $sqlLeaveTypeRuleRow['accrual_interval'] == 0) ) {
-                        //     $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
-                        //     $earnLeave = true;
-                        // }
-                    } else {
-                        # Calculate the amount of leave earn that is not based on the "WSCH"
-                        if ($sqlLeaveTypeRuleRow['accrual_interval'] > 0) {
-                            $leaveEarned = ($hoursWorked / $sqlLeaveTypeRuleRow['accrual_interval']) * $sqlLeaveTypeRuleRow['amount'];
-                        }
-                        $earnLeave = true;
-                    }
-                }
                 $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
-                $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "payslipLeaveTypes");
+                $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "HWOR");
             }
             # Accrual/resetting calculations for the "DAYS WORKED" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'DWOR') {
 
                 $isWorkDay = false;
+                $DWORtype = "DWOR";
                 $source = null;
-                # Is leave being calculated according to the work schedule?
+
+                # Checks Earns leave for WSCH days worked.
                 if ($leaveSourceType === 'WSCH' && $workScheduleLeaveEnabled) {
-                    # Get the days and hours worked according to the schedule
                     $timeWorked = getLeaveScheduleTimeWorked($employeeId, $sqlLeaveConfigRow['leave_type_id'], $leaveDate, $user, $db);
                     $hoursWorked = $timeWorked['hoursWorked'];
                     $daysWorked = $timeWorked['daysWorked'];
                     $isWorkDay = $timeWorked['isWorkDay'];
-
-                    // echo( 
-                    //     'Employee ' . $employeeId . ' for ' .
-                    //     'type ' . $sqlLeaveConfigRow['leave_type_id'] . '-' . $sqlLeaveTypeRuleRow['leave_type_rule_id'] . ': ' .
-                    //     $daysWorked . ' % ' . 
-                    //     $sqlLeaveTypeRuleRow['accrual_interval'] . ' = ' . 
-                    //     $daysWorked % $sqlLeaveTypeRuleRow['accrual_interval'] . '<br>' . PHP_EOL
-                    // );
                 }
 
+                # Checks Earns leave for WS (work days) days worked
                 $result = WDCheck($employeeId, $user, $db);
-
+                if ($result === null) {
+                    return false;
+                }
+                $DWORtype = (!$workScheduleLeaveEnabled && !$result) ? 'DW' : 'DWOR';
 
                 if ($result && $workScheduleLeaveEnabled == false) {
                     $timeWorked = getLeaveScheduleDaysWorked($employeeId, $sqlLeaveConfigRow['leave_type_id'], $leaveDate, $user, $db);
@@ -410,146 +362,43 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                     $daysWorked = $timeWorked['daysWorked'];
                     $isWorkDay = $timeWorked['isWorkDay'];
                     $source = 'WDCH';
-                    if ($employeeId == 83) {
-                        error_log("EMP: {$employeeId} == Source: {$source}, daysworked: {$daysWorked}, isworked: {$isWorkDay}");
-                    }
                 }
 
-                //  if($result){
-
-                // $timeWorked = getLeaveScheduleDaysWorked($employeeId,$sqlLeaveConfigRow['leave_type_id'],$leaveDate,$user,$db);
-                // $hoursWorked = $timeWorked['hoursWorked'];
-                // $daysWorked = $timeWorked['daysWorked'];
-                // $isWorkDay = $timeWorked['isWorkDay'];
-                // $source = 'WDCH';
-                if($employeeId == 82){
-                error_log("EMP: {$employeeId} == Source: {$source}, daysworked: {$daysWorked}, isworked: {$isWorkDay}");
+                if ($employeeId == 82) {
+                    error_log("EMP: {$employeeId} == Source: {$source}, daysworked: {$daysWorked}, isworked: {$isWorkDay}");
                 }
 
-                //  }
-
-
-                # Calculate the leave amount based on the days worked.
+                # Calculate the leave amount based on the days worked for WS/WSCH.
                 if ($daysWorked !== null && $daysWorked > 0.0000009) {
-                    # Is leave being earned according to the work schedule?
+
                     if ($leaveSourceType === 'WSCH' && $workScheduleLeaveEnabled) {
-                        if ($employeeId == 83) {
-                            error_log("Entered the WSCH branch");
-                        }
-
-                        # Only earn leave if the days worked matches the interval
+                        # Work schedule:
                         if (($sqlLeaveTypeRuleRow['accrual_interval'] > 0) && ($daysWorked % $sqlLeaveTypeRuleRow['accrual_interval'] == 0)) {
-                            /*Leave can only be earned on work days, otherwise leave may be earned multiple times
-                                  for the same amount of days worked*/
-                            if ($employeeId == 83) {
-                                error_log("Acruedate: {$leaveDate}");
-                            }
-
                             if ($isWorkDay) {
-                                if ($employeeId == 83) {
-                                    error_log("Earned: WSCH");
-                                }
                                 $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
                                 $earnLeave = true;
                             }
                         }
-
-                        $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
-                        // $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "DWOR");
                     } else if ($source !== null && $source == 'WDCH') {
-                        if ($employeeId == 83) {
-                            error_log("Entered the days worked branch");
-                        }
-
-                        # Only earn leave if the days worked matches the interval
+                        # Work days
                         if (($sqlLeaveTypeRuleRow['accrual_interval'] > 0) && ($daysWorked % $sqlLeaveTypeRuleRow['accrual_interval'] == 0)) {
-                            /*Leave can only be earned on work days, otherwise leave may be earned multiple times
-                                  for the same amount of days worked*/
-                            if ($employeeId == 83) {
-                                error_log("Acruedate: {$leaveDate}");
-                            }
-
                             if ($isWorkDay) {
-                                if ($employeeId == 83) {
-                                    error_log("Earned: days worked");
-                                }
                                 $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
                                 $earnLeave = true;
                             }
-                        }
-
-                        $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
-                        // $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "DWOR");
-                    } else {
-                        /*Only calculate daily leave from a different source than the work schedule if the work 
-                              shedule is not enabled for the specified employee*/
-                        if (!$workScheduleLeaveEnabled) {
-                            # Calculate the leave amount when the "WSCH" is absent
-                            if ($sqlLeaveTypeRuleRow['accrual_interval'] > 0) {
-                                # Earn daily leave as a percentage of the interval
-                                $leaveEarned = ($daysWorked / $sqlLeaveTypeRuleRow['accrual_interval']) * $sqlLeaveTypeRuleRow['amount'];
-                            }
-                            $earnLeave = true;
-
-                            $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
-                            //$leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "payslipLeaveTypes");
                         }
                     }
                 }
                 // A reset is calendar-based and must also be checked on non-working days.
                 $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
-
-                error_log(
-                    'ACTIVE LEAVE RULE' .
-                        ' | employee=' . $employeeId .
-                        ' | leaveType=' . $sqlLeaveConfigRow['leave_type_id'] .
-                        ' | ruleId=' . $sqlLeaveTypeRuleRow['leave_type_rule_id'] .
-                        ' | leaveDate=' . $leaveDate .
-                        ' | employmentMonth=' . $employmentMonth .
-                        ' | startMonth=' . $sqlLeaveTypeRuleRow['start_month'] .
-                        ' | accrualType=' . $sqlLeaveTypeRuleRow['leave_accrual_type_code'] .
-                        ' | accrualInterval=' . $sqlLeaveTypeRuleRow['accrual_interval'] .
-                        ' | resetInterval=' . $sqlLeaveTypeRuleRow['reset_interval'] .
-                        ' | startDate=' . $startDate->format('Y-m-d')
-                );
-
-                $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "DWOR");
+                error_log('ACTIVE LEAVE RULE' . ' | employee=' . $employeeId . ' | leaveType=' . $sqlLeaveConfigRow['leave_type_id'] . ' | ruleId=' . $sqlLeaveTypeRuleRow['leave_type_rule_id'] . ' | leaveDate=' . $leaveDate . ' | employmentMonth=' . $employmentMonth . ' | startMonth=' . $sqlLeaveTypeRuleRow['start_month'] . ' | accrualType=' . $sqlLeaveTypeRuleRow['leave_accrual_type_code'] . ' | accrualInterval=' . $sqlLeaveTypeRuleRow['accrual_interval'] . ' | resetInterval=' . $sqlLeaveTypeRuleRow['reset_interval'] . ' | startDate=' . $startDate->format('Y-m-d') . ' | DWORtype=' . $DWORtype);
+                $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = $DWORtype);
             }
             # Accrual/resetting calculations for the "Payslip" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'PAYS') {
-                # Checks is the leave source a payslip.
-                if ($leaveSourceType === 'PAYS') {
-                    # Get the number of payslips issued for the specified employee
-                    $sqlQuery =
-                        'SELECT ' .
-                        'COUNT(payslips.id) AS payslip_count ' .
-                        'FROM ' .
-                        'payruns ' .
-                        'LEFT JOIN ' .
-                        'payslips ON payslips.payrun_id = payruns.id ' .
-                        'WHERE ' .
-                        'payruns.processed_on IS NOT NULL AND ' .
-                        'payslips.status_code = \'ACTI\' AND ' .
-                        'payslips.employee_id = $1;';
-                    $sqlResult = $db->paramQuery($sqlQuery, [$employeeId]);
-                    if (!$sqlResult->isValid()) {
-                        echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                        return false;
-                    }
-                    $sqlRow = $sqlResult->fetchAssociative();
-                    $numPayslips = $sqlRow['payslip_count'];
 
-                    # Do the number of payslips correspond to the accrual interval? 
-                    # (we are assuming that the payrun of which the source payslip is part has already been processed)?
-                    if (($sqlLeaveTypeRuleRow['accrual_interval'] > 0) && ($numPayslips % $sqlLeaveTypeRuleRow['accrual_interval']) === 0) {
-                        $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
-                        $earnLeave = true;
-                    }
-
-                    $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
-                    $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "payslipLeaveTypes");
-                }
-
+                $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
+                $leaveResettingResult = checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $employeeId, $type = "PAYS");
             }
             # Accrual/resetting calculations for the "DAY CYCLE START" type of leave.
             else if ($sqlLeaveTypeRuleRow['leave_accrual_type_code'] === 'DCST') {
@@ -681,7 +530,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                         $effectiveFirstStartDay = resolveTwmoLeaveDay($firstPeriodStartDay, $currentDate);
 
                         $effectiveSecondStartDay = resolveTwmoLeaveDay($secondPeriodStartDay, $currentDate);
-                        
+
                         //Checks if today is the start of either TWMO period.
                         $isTwmoPeriodStart = $currentDay === $effectiveFirstStartDay || $currentDay === $effectiveSecondStartDay;
 
@@ -766,8 +615,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
 
                             $earnLeave = $leaveEarned != 0;
                         }
-                    }
-                    else{
+                    } else {
                         $periodStartDay =  paymentPeriodDay($currentDate, $startDate, $paymentPeriodEndDay, $MonthlyWeeklyBiweek, $type = "PPES");
 
                         //Conditions that override the above periodStartDay result for special dates:
@@ -828,7 +676,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                      ********************************************/
                     # Sets the PPE start and end Date.
                     $currentDate = new DateTime(date('Y-m-d', strtotime($leaveDate)));
-                    
+
                     //TWMO (Twice a month) ppee specific leave accrual calculations/implementation
                     if ($MonthlyWeeklyBiweek === 'TWMO') {
 
@@ -908,8 +756,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                             $leaveEarned = paymentPeriodProrataCalculations($ppeConfig, 'PPEE');
                             $earnLeave = $leaveEarned != 0;
                         }
-                    }
-                    else {
+                    } else {
                         $effectiveEndDay = paymentPeriodDay($currentDate, $startDate, $paymentPeriodEndDay, $MonthlyWeeklyBiweek, $type = "PPEE");
 
                         if ($employmentEndDateObj !== null &&  $currentDate == $employmentEndDateObj) {
@@ -1269,6 +1116,7 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             $cycleEndDate      = $leaveResettingResult['cycleEnd'] ?? null;
             $previousCycleStartDate = $leaveResettingResult['previousCycleStart'] ?? null;
             $previousCycleEndDate   = $leaveResettingResult['previousCycleEnd'] ?? null;
+            $leaveRuleType = $leaveResettingResult['leaveType'] ?? null;
 
             if ($employeeId == 109) {
                 error_log("RESET DEBUG EMP {$employeeId} DATE {$leaveDate} | carryOverExecuted=" . var_export($carryOverExecuted, true) . " | resetAccrued=" . var_export($resetAccrued, true) . " | resetTaken=" . var_export($resetTaken, true) . " | daysAccrue={$daysAccrue} | daysTaken={$daysTaken} | totalDaysTaken={$totalDaysTaken} | hoursAccrue={$hoursAccrue} | hoursTaken={$hoursTaken} | totalHoursTaken={$totalHoursTaken} | cycleStart={$cycleStartDate} | cycleEnd={$cycleEndDate}");
@@ -1322,8 +1170,19 @@ function processEmployeeLeave($leaveDetails, $user, $db)
             } else {
 
                 # A reusable query function that retrieves the total hours or days for a specified period.
-                $runLeaveQuery = function ($actionCodeCondition, $start, $end, $leaveTypeId, $employeeId) use ($db) {
+                $runLeaveQuery = function ($actionCodeCondition, $start, $end, $leaveTypeId, $employeeId, $paysEarnedCutoff = null) use ($db) {
 
+                    // $sql = "
+                    //         SELECT 
+                    //             SUM(leave.hours) AS hours_value,
+                    //             SUM(leave.days) AS days_value
+                    //         FROM leave
+                    //         WHERE leave.leave_action_code {$actionCodeCondition}
+                    //         AND leave.date >= $1
+                    //         AND leave.date <= $2
+                    //         AND leave.leave_type_id = $3
+                    //         AND leave.employee_id = $4
+                    //     ";
                     $sql = "
                             SELECT 
                                 SUM(leave.hours) AS hours_value,
@@ -1334,6 +1193,10 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                             AND leave.date <= $2
                             AND leave.leave_type_id = $3
                             AND leave.employee_id = $4
+                            AND ($5::date IS NULL
+                                 OR leave.leave_action_code IS DISTINCT FROM 'LEAR'
+                                 OR leave.leave_source_type_code IS DISTINCT FROM 'PAYS'
+                                 OR leave.date < $5::date)
                         ";
                     $res = $db->paramQuery($sql, [$start, $end, $leaveTypeId, $employeeId]);
                     if (!$res->isValid()) {
@@ -1352,7 +1215,8 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                  ********************************************/
 
                 # Queries the leave balance for everything that is not "Leave Taken".
-                $accrued = $runLeaveQuery("IN ('LEAR', 'ADJU')", $cycleStartDate, $cycleEndDate, $sqlLeaveConfigRow['leave_type_id'], $employeeId);
+                $paysEarnedCutoff = (in_array($leaveRuleType, ['PAYS', 'HWOR', 'DW'], true) && ($resetAccrued || $resetTaken)) ? $leaveDate : null;
+                $accrued = $runLeaveQuery("IN ('LEAR', 'ADJU')", $cycleStartDate, $cycleEndDate, $sqlLeaveConfigRow['leave_type_id'], $employeeId, $paysEarnedCutoff);
                 if (isset($accrued['error'])) {
                     echo json_encode(['ok' => false, 'error' => 'Database error.']);
                     return false;
@@ -2160,7 +2024,6 @@ function paymentPeriodProrataCalculations($config, $type): int|float
             $cycleEnd = (clone $currentDate)->modify('last day of this month');
 
             error_log("first to last day");
-
         } else {
 
             $effectiveEndDay = min(
@@ -2399,7 +2262,8 @@ function prorataWorkingDays(DateTime $start, DateTime $end): int
     return $workingDays;
 }
 
-function alignPaymentPeriodLeaveResetDate(DateTime $nominalDate, DateTime $currentDate, array $config, $db, int $employeeId, string $type): ?DateTime {
+function alignPaymentPeriodLeaveResetDate(DateTime $nominalDate, DateTime $currentDate, array $config, $db, int $employeeId, string $type): ?DateTime
+{
     if ($type !== 'PPEE' && $type !== 'PPES') {
         return clone $nominalDate;
     }
@@ -2413,7 +2277,8 @@ function alignPaymentPeriodLeaveResetDate(DateTime $nominalDate, DateTime $curre
             $config['firstPeriodStartDay'],
             $config['firstPeriodEndDay'],
             $config['secondPeriodStartDay'],
-            $config['secondPeriodEndDay']);
+            $config['secondPeriodEndDay']
+        );
     }
 
     if ($periodCode === 'MONT') {
@@ -2444,6 +2309,7 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
     $pped              = $config['paymentPeriodEndDay'];
     $periodCode        = $config['MonthlyWeeklyBiweek'];
     $payrunId          = $config['payrunId'];
+    $isPayrollEarned = in_array($type, ['PAYS', 'HWOR', 'DW'], true);
 
     // Handle TWMO payment-period boundaries that cross calendar months.
     $isTwmoPaymentPeriodRule = ($type === 'PPEE' || $type === 'PPES') && $periodCode === 'TWMO';
@@ -2505,7 +2371,7 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
 
         /********************************************
             TWMO MATCHED CYCLE DATES
-        ********************************************/
+         ********************************************/
 
         // The cycle of which accrued/taken balances are being reset.
         $matchedCycleStartDate = (clone $startDate)->modify("+{$matchedPreviousCycleStart} months");
@@ -2542,14 +2408,14 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
             'previousCycleEnd' => $matchedEarlierCycleEndDate !== null ? $matchedEarlierCycleEndDate->format('Y-m-d') : null
         ];
     }
-                    
+
     /********************************************
           CALCULATE PAYMENT PERIOD BASE DATE
      ********************************************/
 
     #Normal leave types use the employee's employment date as the cycle base date. PPEE / PPES use the payment-period boundaries.
     $cycleBaseDate = new DateTime($startDate->format('Y-m-d'));
-    if ($type == "PPEE" || $type == "PPES") {
+    if ($type == "PPEE" || $type == "PPES" || $isPayrollEarned) {
 
         if ($periodCode == "MONT") {
 
@@ -2579,7 +2445,7 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
      ********************************************/
 
     # Configures the leave cycle for HoursWorked,DaysWorked and PayslipsProcessed.
-    if ($type == "PPEE" || $type == "PPES") {
+    if ($type == "PPEE" || $type == "PPES" || $isPayrollEarned) {
         if ((int)$numCycles == 0) {
             $numMonths = $resetInterval;
         } else {
@@ -2662,14 +2528,14 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
     /********************************************
         SPECIAL EMPLOYEE CYCLE TYPES
      ********************************************/
-    if ($type === "MCEN" || $type === "DCEN" || $type === "PPEE") {
+    if ($type === "MCEN" || $type === "DCEN" || $type === "PPEE" || $isPayrollEarned) {
         $currentCycleStart->modify("-1 day");
     }
 
     /********************************************
         FORMAT PAYMENT PERIOD RESET DATE
      ********************************************/
-    if (($type == "PPEE" || $type == "PPES") && $periodCode == "MONT" && $carryOverInterval <= 0) {
+    if (($type == "PPEE" || $type == "PPES" || $isPayrollEarned) && $periodCode == "MONT" && $carryOverInterval <= 0) {
         $resetDate = payslipDateConversion($resetDate, $pped, $periodCode, $currentDate, $db, $employeeId, $payrunId, $type);
     }
 
@@ -2683,6 +2549,9 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
 
     # Carry-over is an alternative to the normal default reset.If carry-over is configured, allow checkCarryOver() to handle the reset.
     if ($carryOverInterval > 0) {
+        if ($isPayrollEarned) {
+            return paslipProcessedCarryOver($db, $startDate, $endDate, $currentDate, $config, $previousCycleStart, $previousCycleEnd, $employeeId, $type);
+        }
         return checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previousCycleStart, $previousCycleEnd, $employeeId, $type);
     }
 
@@ -2711,6 +2580,7 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
             'cycleEnd' => $currentCycleEnd->format('Y-m-d'),
             'previousCycleStart' => $previousCycleStartDate !== null ? $previousCycleStartDate->format('Y-m-d') : null,
             'previousCycleEnd' => $previousCycleEndDate !== null ? $previousCycleEndDate->format('Y-m-d') : null,
+            'leaveType' => $type
         ];
     }
 
@@ -2728,6 +2598,7 @@ function checkResetInterval($db, $startDate, $endDate, $currentDate, $config, $e
         'cycleEnd' => $currentCycleEnd->format('Y-m-d'),
         'previousCycleStart' => $previousCycleStartDate !== null ? $previousCycleStartDate->format('Y-m-d') : null,
         'previousCycleEnd' => $previousCycleEndDate !== null ? $previousCycleEndDate->format('Y-m-d') : null,
+        'leaveType' => $type
     ];
 }
 
@@ -2784,7 +2655,7 @@ function checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previ
 
     if ($isTwmoPaymentPeriodRule) {
         $effectiveCarryOverResetDate = alignPaymentPeriodLeaveResetDate($resetCarryOverDateObj, $currentDate, $config, $db, $employeeId, $type);
-        
+
         if ($effectiveCarryOverResetDate === null) {
             return ['error' => true];
         }
@@ -3126,7 +2997,7 @@ function checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previ
 
     /********************************************
     CALCULATE UNRESOLVED TAKEN LEAVE
-    ********************************************/
+     ********************************************/
 
     /*
     * Ensure that taken leave that was reset in a previous cycle is not used in reset balance calculations again thereafter.
@@ -3227,6 +3098,7 @@ function checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previ
             'cycleEnd' => null,
             'previousCycleStart' => null,
             'previousCycleEnd' => null,
+            'leaveType' => $type
         ];
     }
 
@@ -3244,12 +3116,394 @@ function checkCarryOver($db, $startDate, $endDate, $currentDate, $config, $previ
         'cycleEnd' => null,
         'previousCycleStart' => null,
         'previousCycleEnd' => null,
+        'leaveType' => $type
+    ];
+}
+
+function paslipProcessedCarryOver($db, $startDate, $endDate, $currentDate, $config, $previousCycleStart, $previousCycleEnd, $employeeId, $type, bool $allocationOnly = false): array
+{
+    /********************************************
+            EXTRACT CONFIG
+     ********************************************/
+
+    $carryOverInterval = (int)$config['carryOverInterval'];
+    $resetInterval     = (int)$config['resetInterval'];
+    $getAccrueReset    = $config['accrueReset'];
+    $getTakenReset     = $config['takenReset'];
+    $leaveType         = $config['leaveTypeId'];
+    $pped              = $config['paymentPeriodEndDay'];
+    $periodCode        = $config['MonthlyWeeklyBiweek'];
+    $payrunId          = $config['payrunId'];
+
+    // Include the cycle and mode on every message to distinguish recursive calculations.
+    $logCarry = function (string $stage, array $values = []) use ($employeeId, $leaveType, $type, $previousCycleStart, $previousCycleEnd, $allocationOnly, $currentDate, $payrunId) {
+        // if ($employeeId == 67) {
+        //     error_log('PAYROLL CARRY ' . $stage . ' | ' . json_encode(array_merge([
+        //         'employeeId' => $employeeId,
+        //         'leaveTypeId' => $leaveType,
+        //         'internalType' => $type,
+        //         'previousCycleStart' => $previousCycleStart,
+        //         'previousCycleEnd' => $previousCycleEnd,
+        //         'allocationOnly' => $allocationOnly,
+        //         'processingDate' => $currentDate->format('Y-m-d'),
+        //         'payrunId' => $payrunId
+        //     ], $values), JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR));
+        // }
+    };
+    $logCarry('BEGIN', [
+        'startDate' => $startDate->format('Y-m-d'),
+        'endDate' => $endDate->format('Y-m-d'),
+        'resetInterval' => $resetInterval,
+        'carryOverInterval' => $carryOverInterval,
+        'resetAccrued' => $getAccrueReset,
+        'resetTaken' => $getTakenReset,
+        'periodCode' => $periodCode,
+        'paymentPeriodEndDay' => $pped
+    ]);
+
+    /********************************************
+            CONFIGURE CYCLE DATES
+     ********************************************/
+
+    $cycleBaseDate = new DateTime($startDate->format('Y-m-d'));
+    if ($periodCode == "MONT") {
+        $employmentDay = (int)$startDate->format('d');
+        $paymentEndDay = (int)$pped;
+        if ($employmentDay <= $paymentEndDay) {
+            #Employee joined during the payment period that started in the previous month
+            $cycleBaseDate = (new DateTime($startDate->format('Y-m-01')))->modify('-1 month')->modify('+' . $paymentEndDay . ' days');
+        } else {
+            #Employee joined after the payment period end day, so the payment period starts on the payment period start day of the same month.
+            $cycleBaseDate = (new DateTime($startDate->format('Y-m-01')))->modify('+' . $paymentEndDay . ' days');
+        }
+    }
+    $baseDate    = $cycleBaseDate->format('Y-m-d');
+    $baseEndDate = $endDate->format('Y-m-d');
+
+    /**********************************************************
+        CURRENT DEFAULT CYCLE & CARRY-OVER RESET DATE
+     **********************************************************/
+
+    $prevCycStartDate = (new DateTime($baseDate))->modify("+{$previousCycleStart} months")->format('Y-m-d');
+    $prevCycEndDate = (new DateTime($baseDate))->modify("+{$previousCycleEnd} months")->modify('-1 day')->format('Y-m-d');
+    $resetCarryOverDateObj = (new DateTime($baseDate))->modify('+' . ($previousCycleEnd + $carryOverInterval) . ' months')->modify('-1 day');
+    // Keep the supplied cycle offsets. Align only the expiry, before using it in queries.
+    if ($periodCode === 'MONT') {
+        $resetCarryOverDateObj = payslipDateConversion($resetCarryOverDateObj, $pped, $periodCode, clone $resetCarryOverDateObj, $db, $employeeId, $payrunId, $type);
+    }
+
+    $resetCarryOverDateStr = $resetCarryOverDateObj->format('Y-m-d');
+    $logCarry('DATES', compact('baseDate', 'baseEndDate', 'prevCycStartDate', 'prevCycEndDate', 'resetCarryOverDateStr'));
+    if ($allocationOnly || ($baseEndDate === $resetCarryOverDateStr && $currentDate->format('Y-m-d') === $resetCarryOverDateStr)) {
+
+
+
+        /********************************************
+                QUERY HELPER
+         ********************************************/
+
+        // Carry-over retains the full cycle entitlement, including earnings on its final day.
+        $runQuery = function ($actionCodeCondition, $start, $end) use ($db, $leaveType, $employeeId, $logCarry) {
+
+            $sql = "
+                SELECT
+                    COALESCE(SUM(leave.hours), 0) AS hours_taken,
+                    COALESCE(SUM(leave.days), 0) AS days_taken
+                FROM leave
+                WHERE leave.leave_action_code {$actionCodeCondition}
+                  AND leave.date >= $1::date
+                  AND leave.date <= $2::date
+                  AND leave.leave_type_id = $3
+                  AND leave.employee_id = $4
+            ";
+            $logCarry('SUM QUERY', [
+                'actions' => $actionCodeCondition,
+                'startInclusive' => $start,
+                'endInclusive' => $end
+            ]);
+            $res = $db->paramQuery($sql, [$start, $end, $leaveType, $employeeId]);
+            if (!$res->isValid()) {
+                $logCarry('ERROR', ['stage' => 'sum query', 'actions' => $actionCodeCondition, 'start' => $start, 'end' => $end]);
+                return ['error' => true];
+            }
+
+            $row = $res->fetchAssociative();
+            $logCarry('SUM RESULT', ['actions' => $actionCodeCondition, 'rawDays' => $row['days_taken'] ?? 0, 'rawHours' => $row['hours_taken'] ?? 0]);
+            return [
+                'days' => (float)($row['days_taken'] ?? 0),
+                'hours' => (float)($row['hours_taken'] ?? 0)
+            ];
+        };
+
+        /********************************************
+            CURRENT DEFAULT CYCLE ACCRUAL & TAKEN
+         ********************************************/
+
+        $accrued = $runQuery("IN ('LEAR', 'ADJU')", $prevCycStartDate, $prevCycEndDate);
+        if (isset($accrued['error'])) {
+            return ['error' => true];
+        }
+
+        $taken = $runQuery("= 'LTAK'", $prevCycStartDate, $prevCycEndDate);
+        if (isset($taken['error'])) {
+            return ['error' => true];
+        }
+
+        #LTAK is stored as a negative value. Work with positive values internally.
+        $defaultDaysTaken = abs((float)$taken['days']);
+        $defaultHoursTaken = abs((float)$taken['hours']);
+        $defaultDaysAccrued = max(0, (float)$accrued['days']);
+        $defaultHoursAccrued = max(0, (float)$accrued['hours']);
+
+        /********************************************
+            PREVIOUS CARRY-OVER ALLOCATION
+         ********************************************/
+
+        /* These values represent leave from the PREVIOUS entitlement that was taken during its carry-over period.
+         * If the previous entitlement had unused leave,that unused amount is consumed first.
+         * Anything beyond the unused amount belongs to the CURRENT entitlement.
+         */
+        $previousCarryOverTakenDays = 0;
+        $previousCarryOverTakenHours = 0;
+        $previousDefaultExcessDays = 0;
+        $previousDefaultExcessHours = 0;
+
+        // Internal allocation state is returned only for preceding-offset calculations; no resets are inserted here.
+        $allocatedTaken = [];
+        $previousDefaultStartDate = null;
+        $previousDefaultEndDate = null;
+        if ((int)$previousCycleStart !== 0) {
+            // Refactor the previous-entitlement stage using the preceding supplied offset pair.
+            // This reuses this same calculation; it does not choose cycles from the processing date.
+            $logCarry('PREVIOUS BEGIN', ['targetStartOffset' => $previousCycleStart - $resetInterval, 'targetEndOffset' => $previousCycleStart]);
+            $previous = paslipProcessedCarryOver($db, $startDate, $endDate, $currentDate, $config, $previousCycleStart - $resetInterval, $previousCycleStart, $employeeId, $type, true);
+            if (isset($previous['error'])) {
+                $logCarry('ERROR', ['stage' => 'previous allocation']);
+                return ['error' => true];
+            }
+            $previousDefaultStartDate = $previous['cycleStart'];
+            $previousDefaultEndDate = $previous['cycleEnd'];
+            $previousDefaultExcessDays = $previous['defaultExcessDays'];
+            $previousDefaultExcessHours = $previous['defaultExcessHours'];
+            $allocatedTaken = $previous['allocatedTaken'];
+            $logCarry('PREVIOUS RESULT', ['cycleStart' => $previousDefaultStartDate, 'cycleEnd' => $previousDefaultEndDate, 'earnedDays' => $previous['daysAccrue'], 'earnedHours' => $previous['hoursAccrue'], 'allocatedDays' => $previous['totalDaysTaken'], 'allocatedHours' => $previous['totalHoursTaken'], 'defaultExcessDays' => $previousDefaultExcessDays, 'defaultExcessHours' => $previousDefaultExcessHours, 'allocationCount' => count($allocatedTaken)]);
+
+            // Subtract only portions used by older entitlements, not entire overlapping transactions.
+            // The remainder already belongs to this cycle's raw taken query and must be counted once.
+            foreach ($allocatedTaken as $allocation) {
+                if ($allocation['date'] >= $prevCycStartDate && $allocation['date'] <= $prevCycEndDate) {
+                    $logCarry('OLDER OWNERSHIP IN DEFAULT', $allocation);
+                    $previousCarryOverTakenDays += $allocation['days'];
+                    $previousCarryOverTakenHours += $allocation['hours'];
+                }
+            }
+        }
+
+        /********************************************
+            CURRENT DEFAULT-CYCLE USAGE
+         ********************************************/
+
+        /* The current default-cycle query can include transactions that actually consumed the PREVIOUS entitlement during the previous carry-over period.
+         * Remove only the portions owned by older entitlements; their excess stays in current usage.
+         */
+        $currentDefaultTakenDays = max(0, $defaultDaysTaken - $previousCarryOverTakenDays);
+        $currentDefaultTakenHours = max(0, $defaultHoursTaken - $previousCarryOverTakenHours);
+
+        # Only count leave up to the amount actually accrued for this entitlement.
+        $attributedDefaultDays = $previousDefaultExcessDays + $currentDefaultTakenDays + max(0, -(float)$accrued['days']);
+        $currentDefaultConsumedDays = min($attributedDefaultDays, $defaultDaysAccrued);
+        $defaultExcessDays = max(0, $attributedDefaultDays - $defaultDaysAccrued);
+        $attributedDefaultHours = $previousDefaultExcessHours + $currentDefaultTakenHours + max(0, -(float)$accrued['hours']);
+        $currentDefaultConsumedHours = min($attributedDefaultHours, $defaultHoursAccrued);
+        $defaultExcessHours = max(0, $attributedDefaultHours - $defaultHoursAccrued);
+
+        $logCarry('DEFAULT ALLOCATION', compact('defaultDaysAccrued', 'defaultHoursAccrued', 'defaultDaysTaken', 'defaultHoursTaken', 'previousCarryOverTakenDays', 'previousCarryOverTakenHours', 'previousDefaultExcessDays', 'previousDefaultExcessHours', 'currentDefaultTakenDays', 'currentDefaultTakenHours', 'attributedDefaultDays', 'attributedDefaultHours', 'currentDefaultConsumedDays', 'currentDefaultConsumedHours', 'defaultExcessDays', 'defaultExcessHours'));
+
+        /********************************************
+            CALCULATE CURRENT CARRY-OVER BALANCE
+         ********************************************/
+
+        /* Carry-over is based on the CURRENT entitlement's unused balance after current-entitlement leave has been allocated.
+         * Do NOT use $defaultDaysTaken here because that can include leave belonging to the previous entitlement.
+         */
+        $carryOverDays = max(0, $defaultDaysAccrued - $currentDefaultConsumedDays);
+        $carryOverHours = max(0, $defaultHoursAccrued - $currentDefaultConsumedHours);
+
+        /********************************************
+            CURRENT CARRY-OVER TAKEN WINDOW
+         ********************************************/
+
+        # Current carry-over starts immediately after the current default cycle.
+        $carryTakenStartDate = (new DateTime($prevCycEndDate))->modify('+1 day')->format('Y-m-d');
+        $logCarry('CARRY WINDOW', compact('carryTakenStartDate', 'resetCarryOverDateStr', 'carryOverDays', 'carryOverHours'));
+
+        /********************************************
+            GET CURRENT CARRY-OVER LTAK
+         ********************************************/
+
+        $sql = "
+            SELECT
+                leave.id,
+                leave.date,
+                leave.days,
+                leave.hours
+            FROM leave
+            WHERE leave.employee_id = $1
+              AND leave.leave_type_id = $2
+              AND leave.leave_action_code = 'LTAK'
+              AND leave.date >= $3
+              AND leave.date <= $4
+            ORDER BY leave.date ASC, leave.id ASC
+        ";
+        $res = $db->paramQuery($sql, [$employeeId, $leaveType, $carryTakenStartDate, $resetCarryOverDateStr]);
+        if (!$res->isValid()) {
+            $logCarry('ERROR', ['stage' => 'carry taken query', 'start' => $carryTakenStartDate, 'end' => $resetCarryOverDateStr]);
+            return ['error' => true];
+        }
+
+        /********************************************
+            ALLOCATE CURRENT CARRY-OVER USAGE
+         ********************************************/
+
+        # This represents the UNUSED portion of the CURRENT entitlement.
+        $oldEntitlementDays = $carryOverDays;
+        $oldEntitlementHours = $carryOverHours;
+
+        # Leave from the CURRENT carry-over period that consumes the CURRENT entitlement.
+        $oldCycleTakenDays = 0;
+        $oldCycleTakenHours = 0;
+
+        # Leave from the CURRENT carry-over period that exceeds the CURRENT entitlement and therefore belongs to the NEXT entitlement.
+        $newCycleTakenDays = 0;
+        $newCycleTakenHours = 0;
+
+        while ($row = $res->fetchAssociative()) {
+
+            $logCarry('CARRY TRANSACTION INPUT', ['id' => $row['id'], 'date' => $row['date'], 'rawDays' => $row['days'] ?? 0, 'rawHours' => $row['hours'] ?? 0, 'olderOwnedDays' => $allocatedTaken[$row['id']]['days'] ?? 0, 'olderOwnedHours' => $allocatedTaken[$row['id']]['hours'] ?? 0]);
+            $transactionDays = max(0, abs((float)($row['days'] ?? 0)) - ($allocatedTaken[$row['id']]['days'] ?? 0));
+            $transactionHours = max(0, abs((float)($row['hours'] ?? 0)) - ($allocatedTaken[$row['id']]['hours'] ?? 0));
+
+            # DAYS:
+            $oldDaysUsed = 0;
+            $newDaysUsed = 0;
+            if ($transactionDays > 0) {
+
+                # Consume the unused CURRENT entitlement first
+                $oldDaysUsed = min($transactionDays, $oldEntitlementDays);
+                # Anything beyond that belongs to the NEXT entitlement
+                $newDaysUsed = $transactionDays - $oldDaysUsed;
+                $oldCycleTakenDays += $oldDaysUsed;
+                $newCycleTakenDays += $newDaysUsed;
+                $oldEntitlementDays -= $oldDaysUsed;
+                if ($oldEntitlementDays < 0.000001) {
+                    $oldEntitlementDays = 0;
+                }
+            }
+
+            # HOURS
+            $oldHoursUsed = 0;
+            $newHoursUsed = 0;
+            if ($transactionHours > 0) {
+
+                # Consume the unused CURRENT entitlement first
+                $oldHoursUsed = min($transactionHours, $oldEntitlementHours);
+                # Anything beyond that belongs to the NEXT entitlement
+                $newHoursUsed = $transactionHours - $oldHoursUsed;
+                $oldCycleTakenHours += $oldHoursUsed;
+                $newCycleTakenHours += $newHoursUsed;
+                $oldEntitlementHours -= $oldHoursUsed;
+                if ($oldEntitlementHours < 0.000001) {
+                    $oldEntitlementHours = 0;
+                }
+            }
+
+            $allocatedTaken[$row['id']] = [
+                'date' => $row['date'],
+                'days' => ($allocatedTaken[$row['id']]['days'] ?? 0) + $oldDaysUsed,
+                'hours' => ($allocatedTaken[$row['id']]['hours'] ?? 0) + $oldHoursUsed
+            ];
+
+            $logCarry('CARRY TRANSACTION RESULT', array_merge(['id' => $row['id'], 'date' => $row['date']], compact('transactionDays', 'transactionHours', 'oldDaysUsed', 'oldHoursUsed', 'newDaysUsed', 'newHoursUsed', 'oldEntitlementDays', 'oldEntitlementHours')));
+        }
+
+        /********************************************
+            CALCULATE RESET TAKEN
+         ********************************************/
+
+        /*
+         * The entitlement being reset can have been consumed from THREE places:
+         * 1. Current default-cycle leave and inherited default excess attributed to this entitlement.
+         * 2. Previous carry-over excess, already included in currentDefaultConsumed after removing old-owned portions.
+         * 3. Current carry-over leave that consumed unused entitlement from this entitlement.
+         * IMPORTANT:$newCycleTakenDays is NOT included. That amount belongs to the NEXT entitlement.
+         */
+
+        $totalDaysTaken = $currentDefaultConsumedDays + $oldCycleTakenDays;
+        $totalHoursTaken = $currentDefaultConsumedHours + $oldCycleTakenHours;
+
+        # Never reset more taken leave than the entitlement itself.
+        $totalDaysTaken = min($totalDaysTaken, $defaultDaysAccrued);
+        $totalHoursTaken = min($totalHoursTaken, $defaultHoursAccrued);
+
+        $logCarry('CALCULATED RESULT', compact('defaultDaysAccrued', 'defaultHoursAccrued', 'currentDefaultConsumedDays', 'currentDefaultConsumedHours', 'carryOverDays', 'carryOverHours', 'oldCycleTakenDays', 'oldCycleTakenHours', 'newCycleTakenDays', 'newCycleTakenHours', 'oldEntitlementDays', 'oldEntitlementHours', 'defaultExcessDays', 'defaultExcessHours', 'totalDaysTaken', 'totalHoursTaken'));
+
+        /********************************************
+                PAYSLIP RESET DATE
+         ********************************************/
+
+        $payslipResetDate = clone $resetCarryOverDateObj;
+
+        /********************************************
+                FINAL DATE CHECK
+         ********************************************/
+
+        if ($allocationOnly || $baseEndDate === $payslipResetDate->format('Y-m-d')) {
+            $logCarry('RETURN', ['resultKind' => $allocationOnly ? 'historical allocation' : 'due reset calculation', 'resetAccrued' => $getAccrueReset, 'resetTaken' => $getTakenReset, 'earnedDays' => $defaultDaysAccrued, 'earnedHours' => $defaultHoursAccrued, 'resetTakenDays' => $totalDaysTaken, 'resetTakenHours' => $totalHoursTaken, 'cycleStart' => $prevCycStartDate, 'cycleEnd' => $prevCycEndDate, 'resetDate' => $resetCarryOverDateStr]);
+
+            return [
+                'carryOverExecuted' => true,
+                'resetAccrued' => $getAccrueReset,
+                'resetTaken' => $getTakenReset,
+                'daysAccrue' => $defaultDaysAccrued,
+                'daysTaken' => $totalDaysTaken,
+                'totalDaysTaken' => $totalDaysTaken,
+                'hoursAccrue' => $defaultHoursAccrued,
+                'hoursTaken' => $totalHoursTaken,
+                'totalHoursTaken' => $totalHoursTaken,
+                'cycleStart' => $prevCycStartDate,
+                'cycleEnd' => $prevCycEndDate,
+                'previousCycleStart' => $previousDefaultStartDate,
+                'previousCycleEnd' => $previousDefaultEndDate,
+                'defaultExcessDays' => $defaultExcessDays,
+                'defaultExcessHours' => $defaultExcessHours,
+                'allocatedTaken' => $allocatedTaken,
+                'leaveType' => $type
+            ];
+        }
+    }
+
+    $logCarry('SKIP', ['reason' => 'processing/end date does not match expiry', 'endDate' => $baseEndDate, 'resetDate' => $resetCarryOverDateStr, 'endDateMatches' => $baseEndDate === $resetCarryOverDateStr, 'processingDateMatches' => $currentDate->format('Y-m-d') === $resetCarryOverDateStr]);
+    return [
+        'carryOverExecuted' => false,
+        'resetAccrued' => false,
+        'resetTaken' => false,
+        'daysAccrue' => 0,
+        'daysTaken' => 0,
+        'totalDaysTaken' => 0,
+        'hoursAccrue' => 0,
+        'hoursTaken' => 0,
+        'totalHoursTaken' => 0,
+        'cycleStart' => null,
+        'cycleEnd' => null,
+        'previousCycleStart' => null,
+        'previousCycleEnd' => null,
+        'leaveType' => $type
     ];
 }
 
 /*************************************************
    HELPER FUNCTIONS FOR TWMO LEAVE CALCULATIONS
-*************************************************/
+ *************************************************/
 
 function validateTwmoPeriodDates($firstPeriodStartDay, $firstPeriodEndDay, $secondPeriodStartDay, $secondPeriodEndDay): bool
 {
@@ -3505,7 +3759,7 @@ function payslipDateConversion($resetDate, $pped, $periodCode, $currentDate, $db
     // }
 
     $weekResetDate = clone $resetDate;
-    if ($periodCode === 'MONT' && $type == "PPEE") {
+    if ($periodCode === 'MONT'  && in_array($type, ['PPEE', 'PAYS', 'HWOR', 'DW'], true)) {
         $daysInMonth = (int)$currentDate->format('t'); //Gets the total days in the current month(31/30/28)
         $effectiveEndDay = ($pped == 0) ? $daysInMonth : min($pped, $daysInMonth);
         $year = $resetDate->format('Y');
