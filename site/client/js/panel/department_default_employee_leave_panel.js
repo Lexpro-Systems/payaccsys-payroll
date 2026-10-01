@@ -241,10 +241,10 @@ app.panel.ViewDefaultDepartmentLeave = function (config) {
         }
 
         lx.sendJSON({
-            url: 'exec.php?c=Employee&fn=subscribeLeave',
+            url: 'exec.php?c=Department&fn=subscribeLeave',
             data: {
                 leaveTypeId: leaveTypeId,
-                employeeId: config.employeeId,
+                departmentId: config.departmentId,
                 unsubscribe: leaveType.subscribeCheckboxEl.getValue()
             },
             onSuccess: function (responseText) {
@@ -252,7 +252,7 @@ app.panel.ViewDefaultDepartmentLeave = function (config) {
 
                 if (response.ok !== true) {
                     new lx.component.Messagebox({
-                        title: 'Employee leave',
+                        title: 'Department leave',
                         message: response.error
                     });
                 }

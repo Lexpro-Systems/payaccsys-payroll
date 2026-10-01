@@ -488,4 +488,64 @@ class Department extends Controller
 
         return true;
     }
+
+    public function subscribeLeave($data, $user, $db)
+    {
+        # Set content type header & Set default parameter values
+        header('Content-Type: application/json');
+        $defaults = [];
+        Json::copy($defaults, $data);
+        $validationResult = Json::validate($data, [
+            // Required parameters
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'leaveTypeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'unsubscribe' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        if (!$data['unsubscribe']) {
+
+            $sqlQuery =
+                'INSERT INTO ' .
+                'leave_config_items ( ' .
+                'department_id, ' .
+                'leave_type_id ' .
+                ') ' .
+                'VALUES ( ' .
+                ' $1,  $2 ' .
+                ') ' .
+                'RETURNING id;';
+            $sqlResult = $db->paramQuery($sqlQuery, [
+                $data['departmentId'],                     // department_id
+                $data['leaveTypeId']                     // leave_type_id
+            ]);
+
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        } else {
+            $sqlQuery =
+                'DELETE FROM leave_config_items WHERE department_id = $1 AND leave_type_id = $2';
+            $sqlResult = $db->paramQuery($sqlQuery, [
+                $data['departmentId'],                     // department_id
+                $data['leaveTypeId']                     // leave_type_id
+            ]);
+
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        }
+
+        // Send result
+        echo (json_encode([
+            'ok' => true
+        ]));
+
+        return true;
+    }
 }
