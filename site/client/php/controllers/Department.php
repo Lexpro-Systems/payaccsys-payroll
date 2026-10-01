@@ -432,4 +432,60 @@ class Department extends Controller
 
         return true;
     }
+
+    public function getLeaveTypeList($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        $validationResult = Json::validate($data, [
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        $sqlQuery =
+            'SELECT ' .
+            'id, name ' .
+            'FROM ' .
+            'leave_types ' .
+            'WHERE ' .
+            'is_deleted IS NOT TRUE ' .
+            'ORDER BY ' .
+            'name;';
+        $sqlResult = $db->paramQuery($sqlQuery, []);
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        $leaveTypes = [];
+
+        while ($row = $sqlResult->fetchAssociative()) {
+            $leaveConfigQuery =
+                'SELECT id FROM leave_config_items WHERE department_id = $1 AND leave_type_id = $2;';
+            $leaveConfigResult = $db->paramQuery($leaveConfigQuery, [
+                $data['departmentId'],
+                $row['id']
+            ]);
+            if (!$leaveConfigResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            $leaveTypes[] = [
+                'id' => $row['id'],
+                'isSubscribed' => $leaveConfigResult->getRowCount() > 0,
+                'name' => $row['name']
+            ];
+        }
+
+        echo (json_encode([
+            'ok' => true,
+            'leaveTypes' => $leaveTypes
+        ]));
+
+        return true;
+    }
 }
