@@ -66,6 +66,7 @@ app.panel.ViewEmployee = function (config) {
     var fullname = null;
     var lastname = null;
     var employmentDate = null;
+    var departmentId = null;
     var refreshEmployees = false;
 
 
@@ -130,6 +131,7 @@ app.panel.ViewEmployee = function (config) {
             fullname: null,
             lastname: null,
             employmentDate: null,
+            departmentId: null,
         };
 
         // Parse user config
@@ -149,6 +151,7 @@ app.panel.ViewEmployee = function (config) {
         fullname = compConfig.fullname;
         lastname = compConfig.lastname;
         employmentDate = compConfig.employmentDate;
+        departmentId = compConfig.departmentId;
 
         // Create root element
         el = lx.createElement('DIV', {
@@ -475,13 +478,15 @@ app.panel.ViewEmployee = function (config) {
             fullname: fullname,
             lastname: lastname,
             employmentDate: employmentDate,
+            departmentId: departmentId
         });
 
         leaveRequestsPanel = new app.panel.ListEmployeeLeaveRequests({
             renderTo: contentContainerEl,
             viewEmployeePanel: me,
             employeeId: employeeId,
-            employeeAlias: employeeName
+            employeeAlias: employeeName,
+            departmentId: departmentId
         });
 
         payslipsPanel = new app.panel.ListPayslips({

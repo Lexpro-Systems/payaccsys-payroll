@@ -506,7 +506,25 @@ class Department extends Controller
             return false;
         }
 
+        // Collect the employees in this department for the subscription logic.
+        $employeeIds = [];
+        $employeeQuery = 'SELECT id FROM employees WHERE department_id = $1;';
+        $employeeResult = $db->paramQuery($employeeQuery, [$data['departmentId']]);
+        if (!$employeeResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+        while ($employeeRow = $employeeResult->fetchAssociative()) {
+            $employeeIds[] = $employeeRow['id'];
+        }
+
         if (!$data['unsubscribe']) {
+
+            $transactionResult = $db->query('BEGIN;');
+            if (!$transactionResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
 
             $sqlQuery =
                 'INSERT INTO ' .
@@ -524,10 +542,47 @@ class Department extends Controller
             ]);
 
             if (!$sqlResult->isValid()) {
+                $db->query('ROLLBACK;');
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            foreach ($employeeIds as $employeeId) {
+                $existingQuery =
+                    'SELECT id FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2 LIMIT 1;';
+                $existingResult = $db->paramQuery($existingQuery, [$employeeId, $data['leaveTypeId']]);
+                if (!$existingResult->isValid()) {
+                    $db->query('ROLLBACK;');
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+                if ($existingResult->getRowCount() > 0) {
+                    continue;
+                }
+
+                $employeeInsertQuery =
+                    'INSERT INTO leave_config_items (employee_id, leave_type_id) VALUES ($1, $2);';
+                $employeeInsertResult = $db->paramQuery($employeeInsertQuery, [$employeeId, $data['leaveTypeId']]);
+                if (!$employeeInsertResult->isValid()) {
+                    $db->query('ROLLBACK;');
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+            }
+
+            $commitResult = $db->query('COMMIT;');
+            if (!$commitResult->isValid()) {
+                $db->query('ROLLBACK;');
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                 return false;
             }
         } else {
+            $transactionResult = $db->query('BEGIN;');
+            if (!$transactionResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
             $sqlQuery =
                 'DELETE FROM leave_config_items WHERE department_id = $1 AND leave_type_id = $2';
             $sqlResult = $db->paramQuery($sqlQuery, [
@@ -536,6 +591,37 @@ class Department extends Controller
             ]);
 
             if (!$sqlResult->isValid()) {
+                $db->query('ROLLBACK;');
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            foreach ($employeeIds as $employeeId) {
+                $existingQuery =
+                    'SELECT id FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2 LIMIT 1;';
+                $existingResult = $db->paramQuery($existingQuery, [$employeeId, $data['leaveTypeId']]);
+                if (!$existingResult->isValid()) {
+                    $db->query('ROLLBACK;');
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+                if ($existingResult->getRowCount() === 0) {
+                    continue;
+                }
+
+                $employeeDeleteQuery =
+                    'DELETE FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2;';
+                $employeeDeleteResult = $db->paramQuery($employeeDeleteQuery, [$employeeId, $data['leaveTypeId']]);
+                if (!$employeeDeleteResult->isValid()) {
+                    $db->query('ROLLBACK;');
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+            }
+
+            $commitResult = $db->query('COMMIT;');
+            if (!$commitResult->isValid()) {
+                $db->query('ROLLBACK;');
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                 return false;
             }
