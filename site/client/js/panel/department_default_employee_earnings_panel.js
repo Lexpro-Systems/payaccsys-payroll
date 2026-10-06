@@ -388,7 +388,7 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
 
 
         // Load items
-        //loadItems();
+        loadItems();
 
         // If show is set to true show the panel.
         if (compConfig.show === true) me.show();
