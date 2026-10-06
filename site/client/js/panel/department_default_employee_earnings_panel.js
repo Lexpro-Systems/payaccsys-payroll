@@ -12,7 +12,7 @@
 //  flex:               CSS flex property for the panel
 //  show:               If true the panel will be shown immediately after it was created.  If false the panel will be created but not shown.
 //                      Default to false.
-//  employeeId          The ID of the employee to view.
+//  departmentId        The ID of the department to view/edit.
 //
 // Events:
 //
@@ -26,7 +26,8 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
 
     var me = this;
     var confirmDestroy = null;
-    var employeeId = null;
+    //var employeeId = null;
+    var departmentId = null;
 
     var el = null;
 
@@ -52,114 +53,114 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
     lx.EventEmitter.call(this);
 
 
-    //
+    
     // PRIVATE FUNCTIONS
-    //
+    
 
-    // function loadItems() {
-    //     lx.sendJSON({
-    //         url: 'exec.php?c=Employee&fn=getPayslipItemList',
-    //         data: {
-    //             employeeId: employeeId
-    //         },
-    //         onSuccess: function (responseText) {
-    //             var response = JSON.parse(responseText);
-    //             if (response.ok !== true) {
-    //                 new lx.component.Messagebox({
-    //                     title: 'Loading Payslip Items Failed',
-    //                     message: response.error
-    //                 });
+    function loadItems() {
+        lx.sendJSON({
+            url: 'exec.php?c=Department&fn=getDepartmentDefaultPayslipItemList',
+            data: {
+                departmentId: departmentId
+            },
+            onSuccess: function (responseText) {
+                var response = JSON.parse(responseText);
+                if (response.ok !== true) {
+                    new lx.component.Messagebox({
+                        title: 'Loading Default Payslip Items Failed',
+                        message: response.error
+                    });
 
-    //                 return;
-    //             }
+                    return;
+                }
 
-    //             var recurringItems = [];
-    //             var onceOffItems = [];
-    //             var item = null;
-    //             var newItem = null;
-    //             var amount = '';
+                var recurringItems = [];
+                var onceOffItems = [];
+                var item = null;
+                var newItem = null;
+                var amount = '';
 
-    //             for (var i = 0; i < response.payslipItems.length; i++) {
-    //                 item = response.payslipItems[i];
+                for (var i = 0; i < response.payslipItems.length; i++) {
+                    item = response.payslipItems[i];
 
-    //                 if (item.autoCalculate === true) {
-    //                     amount = 'auto';
-    //                 }
-    //                 else {
-    //                     amount = item.amount;
-    //                     if (amount === null) {
-    //                         amount = '';
-    //                     }
-    //                     else {
-    //                         amount = lx.util.formatCurrency(amount, null);
-    //                     }
+                    if (item.autoCalculate === true) {
+                        amount = 'auto';
+                    }
+                    else {
+                        amount = item.amount;
+                        if (amount === null) {
+                            amount = '';
+                        }
+                        else {
+                            amount = lx.util.formatCurrency(amount, null);
+                        }
 
-    //                     if (amount === '' || amount === null) {
-    //                         amount = '-';
-    //                     }
-    //                     else {
-    //                         if (item.itemType.unit.code == 'PHOU') amount = amount + ' per hour';
-    //                         else if (item.itemType.unit.code == 'PDAY') amount = amount + ' per day';
-    //                         else if (item.itemType.unit.code == 'PERC') amount = amount + '%';
-    //                         else if (item.itemType.unit.code == 'PKIL') amount = amount + ' per km';
-    //                     }
-    //                 }
+                        if (amount === '' || amount === null) {
+                            amount = '-';
+                        }
+                        else {
+                            if (item.itemType.unit.code == 'PHOU') amount = amount + ' per hour';
+                            else if (item.itemType.unit.code == 'PDAY') amount = amount + ' per day';
+                            else if (item.itemType.unit.code == 'PERC') amount = amount + '%';
+                            else if (item.itemType.unit.code == 'PKIL') amount = amount + ' per km';
+                        }
+                    }
 
-    //                 if (item.id === null) {
-    //                     newItem = {
-    //                         id: item.id,
-    //                         description: item.description,
-    //                         accrualDate: null,
-    //                         amount: amount,
-    //                         menu: '<i class="fa fa-ellipsis-v"></i>',
-    //                         spacer: '',
-    //                         providentFundId: item.providentFund.id
-    //                     };
-    //                 }
-    //                 else {
-    //                     newItem = {
-    //                         id: item.id,
-    //                         description: item.description,
-    //                         accrualDate: null,
-    //                         amount: amount,
-    //                         menu: '<i class="fa fa-ellipsis-v"></i>',
-    //                         spacer: '',
-    //                         providentFundId: null
-    //                     };
-    //                 }
+                    if (item.id === null) {
+                        newItem = {
+                            id: item.id,
+                            description: item.description,
+                            accrualDate: null,
+                            amount: amount,
+                            menu: '<i class="fa fa-ellipsis-v"></i>',
+                            spacer: '',
+                            providentFundId: item.providentFund.id
+                        };
+                    }
+                    else {
+                        newItem = {
+                            id: item.id,
+                            description: item.description,
+                            accrualDate: null,
+                            amount: amount,
+                            menu: '<i class="fa fa-ellipsis-v"></i>',
+                            spacer: '',
+                            providentFundId: null
+                        };
+                    }
 
-    //                 if (item.itemType.category.code === 'INCO') newItem.category = 'Earnings';
-    //                 else if (item.itemType.category.code === 'DEDU') newItem.category = 'Deductions';
-    //                 else if (item.itemType.category.code === 'CONT') newItem.category = 'Company Contributions';
-    //                 else if (item.itemType.category.code === 'FBEN') newItem.category = 'Fringe Benefits';
-    //                 else if (item.itemType.category.code === 'ALLO') newItem.category = 'Allowances';
+                    if (item.itemType.category.code === 'INCO') newItem.category = 'Earnings';
+                    else if (item.itemType.category.code === 'DEDU') newItem.category = 'Deductions';
+                    else if (item.itemType.category.code === 'CONT') newItem.category = 'Company Contributions';
+                    else if (item.itemType.category.code === 'FBEN') newItem.category = 'Fringe Benefits';
+                    else if (item.itemType.category.code === 'ALLO') newItem.category = 'Allowances';
 
-    //                 // Split the once off an recurring items
-    //                 if (item.accrualDate === null) {
-    //                     recurringItems.push(newItem);
-    //                 }
-    //                 else {
-    //                     newItem.accrualDate = item.accrualDate;
-    //                     onceOffItems.push(newItem);
-    //                 }
+                    // Split the once off an recurring items
+                    if (item.accrualDate === null) {
+                        recurringItems.push(newItem);
+                    }
+                    else {
+                        newItem.accrualDate = item.accrualDate;
+                        onceOffItems.push(newItem);
+                    }
 
-    //             }
+                }
 
-    //             // Add recurring items to the grid
-    //             recurringItemsGrid.clear();
-    //             recurringItemsGrid.addGroup('Earnings');
-    //             recurringItemsGrid.addGroup('Deductions');
-    //             recurringItemsGrid.addGroup('Company Contributions');
-    //             recurringItemsGrid.addGroup('Fringe Benefits');
-    //             recurringItemsGrid.addGroup('Allowances');
-    //             recurringItemsGrid.addRows(recurringItems);
+                // Add recurring items to the grid
+                recurringItemsGrid.clear();
+                recurringItemsGrid.addGroup('Earnings');
+                recurringItemsGrid.addGroup('Deductions');
+                recurringItemsGrid.addGroup('Company Contributions');
+                recurringItemsGrid.addGroup('Fringe Benefits');
+                recurringItemsGrid.addGroup('Allowances');
+                recurringItemsGrid.addRows(recurringItems);
 
-    //             // Add once off items to the grid
-    //             onceOffItemsGrid.clear();
-    //             onceOffItemsGrid.addRows(onceOffItems);
-    //         }
-    //     });
-    // }
+                // Add once off items to the grid
+                onceOffItemsGrid.clear();
+                onceOffItemsGrid.addRows(onceOffItems);
+            }
+        });
+    }
 
 
     //
@@ -188,7 +189,7 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
 
         // Initialize state
         confirmDestroy = false;
-        employeeId = compConfig.employeeId;
+        departmentId = compConfig.departmentId;
 
         // Create root element
         el = lx.createElement('DIV', {
@@ -246,7 +247,6 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                 zIndex: 1
             }
         });
-
 
         //
         // RECURRING ITEMS SECTION
@@ -362,7 +362,7 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
             }
         });
 
-        // Create employeesGridMenuOptions array
+        // Create departmentGridMenuOptions array
         var onceOffItemsGridMenuOptions = [
             { name: '<i class="fa fa-fw fa-pencil-alt" style="margin: 0px 15px 0px 0px;"></i>Edit', value: 'edit' },
             { name: '<i class="fa fa-fw fa-times" style="margin: 0px 15px 0px 0px;"></i>Remove', value: 'remove' }
@@ -440,7 +440,6 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
         loadItems();
     };
 
-
     //
     // EVENT HANDLERS
     //
@@ -459,7 +458,7 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
         var addRecurringPayslipConfigItemPanel = new app.panel.AddRecurringPayslipConfigItem({
             renderTo: addRecurringPayslipConfigItemModal.getContainer(),
             show: true,
-            employeeId: employeeId,
+            departmentId: departmentId,
 
             onCancel: function () {
                 app.route.popState();
@@ -468,8 +467,6 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                 app.route.popState();
                 loadItems();
 
-                // Update retirement funds panel
-                config.mainPanel.getPanels().retirementFundsPanel.reloadPage();
             }
         });
 
@@ -522,8 +519,6 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                     app.route.popState();
                     loadItems();
 
-                    // Update retirement funds panel
-                    config.mainPanel.getPanels().retirementFundsPanel.reloadPage();
                 }
             });
 
@@ -560,7 +555,7 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                 url: 'exec.php?c=Payslip&fn=checkRemove',
                 data: {
                     payslipItemId: srcComponent.getRow(rowIndex).id,
-                    employeeId: config.employeeId
+                    departmentId: config.departmentId
                 },
                 onSuccess: function (responseText) {
                     var response = JSON.parse(responseText);
@@ -607,8 +602,6 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                                         // Remove the item from the grid
                                         srcComponent.removeRow(rowIndex);
 
-                                        // Update retirement funds panel
-                                        config.mainPanel.getPanels().retirementFundsPanel.reloadPage();
                                     }
                                 });
                             }
@@ -686,7 +679,7 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
         var addOnceOffPayslipConfigItemPanel = new app.panel.AddOnceOffPayslipConfigItem({
             renderTo: addOnceOffPayslipConfigItemModal.getContainer(),
             show: true,
-            employeeId: employeeId,
+            departmentId: departmentId,
 
             onCancel: function () {
                 app.route.popState();
