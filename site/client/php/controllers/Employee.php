@@ -66,7 +66,6 @@ class Employee extends Controller
             'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
             'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
 
-
             // Optional parameters
             'enableLeave' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
             'monday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
@@ -98,34 +97,18 @@ class Employee extends Controller
         $db->query('LOCK TABLE work_schedules IN EXCLUSIVE MODE;');
 
         // Load the workshedule details
-        if ($data['departmentId'] === null) {
-            $sqlQuery =
-                'SELECT ' .
-                'id ' .
-                'FROM ' .
-                'work_schedules ' .
-                'WHERE ' .
-                'employee_id = $1;';
-            $sqlResult = $db->paramQuery($sqlQuery, [$data['employeeId']]);
-            if (!$sqlResult->isValid()) {
-                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                return false;
-            }
-        } else {
-            $sqlQuery =
-                'SELECT ' .
-                'id ' .
-                'FROM ' .
-                'work_schedules ' .
-                'WHERE ' .
-                'department_id = $1;';
-            $sqlResult = $db->paramQuery($sqlQuery, [$data['departmentId']]);
-            if (!$sqlResult->isValid()) {
-                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
-                return false;
-            }
+        $sqlQuery =
+            'SELECT ' .
+            'id ' .
+            'FROM ' .
+            'work_schedules ' .
+            'WHERE ' .
+            'employee_id = $1;';
+        $sqlResult = $db->paramQuery($sqlQuery, [$data['employeeId']]);
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
         }
-
 
         if ($sqlResult->getRowCount() === 0) {
             $enableLeave = false;
@@ -170,28 +153,28 @@ class Employee extends Controller
             if (array_key_exists('sunday', $data)) {
                 $sunday = $data['sunday'];
             }
-            if (array_key_exists('enableLeave', $data)) {
+            if (array_key_exists('wdEnableLeave', $data)) {
                 $wdEnableLeave = $data['wdEnableLeave'];
             }
-            if (array_key_exists('monday', $data)) {
+            if (array_key_exists('mondayWd', $data)) {
                 $mondayWd = $data['mondayWd'];
             }
-            if (array_key_exists('tuesday', $data)) {
+            if (array_key_exists('tuesdayWd', $data)) {
                 $tuesdayWd = $data['tuesdayWd'];
             }
-            if (array_key_exists('wednesday', $data)) {
+            if (array_key_exists('wednesdayWd', $data)) {
                 $wednesdayWd = $data['wednesdayWd'];
             }
-            if (array_key_exists('thursday', $data)) {
+            if (array_key_exists('thursdayWd', $data)) {
                 $thursdayWd = $data['thursdayWd'];
             }
-            if (array_key_exists('friday', $data)) {
+            if (array_key_exists('fridayWd', $data)) {
                 $fridayWd = $data['fridayWd'];
             }
-            if (array_key_exists('saturday', $data)) {
+            if (array_key_exists('saturdayWd', $data)) {
                 $saturdayWd = $data['saturdayWd'];
             }
-            if (array_key_exists('sunday', $data)) {
+            if (array_key_exists('sundayWd', $data)) {
                 $sundayWd = $data['sundayWd'];
             }
 
@@ -345,13 +328,8 @@ class Employee extends Controller
 
             // Set where clause
             $updateCount++;
-            if ($data['departmentId'] === null) {
-                $updateQuery = $updateQuery . ' WHERE employee_id = $' . $updateCount . ';';
-                $updateValues[] = $data['employeeId'];
-            } else {
-                $updateQuery = $updateQuery . ' WHERE department_id = $' . $updateCount . ';';
-                $updateValues[] = $data['departmentId'];
-            }
+            $updateQuery = $updateQuery . ' WHERE employee_id = $' . $updateCount . ';';
+            $updateValues[] = $data['employeeId'];
 
             $updateResult = $db->paramQuery($updateQuery, $updateValues);
             if (!$updateResult->isValid()) {

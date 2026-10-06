@@ -574,7 +574,7 @@ app.panel.ViewDefaultDetails = function (config) {
 
     function enableLeaveCbOnChangeEventHandler() {
         lx.sendJSON({
-            url: 'exec.php?c=Employee&fn=updateEmployeeWorkSchedule',
+            url: 'exec.php?c=Department&fn=updateEmployeeWorkSchedule',
             data: {
                 employeeId: null,
                 departmentId: departmentId,
@@ -586,7 +586,7 @@ app.panel.ViewDefaultDetails = function (config) {
 
                 if (response.ok !== true) {
                     new lx.component.Messagebox({
-                        title: 'Loading Employee Failed',
+                        title: 'Loading Department Failed',
                         message: response.error
                     });
                 }

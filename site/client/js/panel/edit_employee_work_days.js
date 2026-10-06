@@ -365,6 +365,10 @@ app.panel.EditEmployeeWorkDays = function (config) {
             wdEnableLeave = true;
         };
 
+        var api = 'exec.php?c=Employee&fn=updateEmployeeWorkSchedule';
+        if (departmentId !== null) {
+            api = 'exec.php?c=Department&fn=updateEmployeeWorkSchedule';
+        }
 
         saveBtn.showLoader();
         saveBtn.disable();
@@ -380,7 +384,7 @@ app.panel.EditEmployeeWorkDays = function (config) {
         // wdEnableLeave: ${wdEnableLeave}
         // `);
         lx.sendJSON({
-            url: 'exec.php?c=Employee&fn=updateEmployeeWorkSchedule',
+            url: api,
             data: {
                 employeeId: parseInt(employeeId),
                 departmentId: parseInt(departmentId),
