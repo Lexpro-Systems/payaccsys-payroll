@@ -68,6 +68,7 @@ app.panel.ViewEmployeeLeave = function (config) {
             url: 'exec.php?c=Employee&fn=getLeaveTypeList',
             data: {
                 employeeId: config.employeeId,
+                departmentId: config.departmentId,
                 startDate: (startDate.getValue().trim() !== '' ? startDate.getValue().trim() : null),
                 endDate: (endDate.getValue().trim() !== '' ? endDate.getValue().trim() : null)
             },
@@ -294,6 +295,7 @@ app.panel.ViewEmployeeLeave = function (config) {
             url: 'exec.php?c=Employee&fn=getLeaveTypeList',
             data: {
                 employeeId: config.employeeId,
+                departmentId: config.departmentId,
                 startDate: (startDate.getValue().trim() !== '' ? startDate.getValue().trim() : null),
                 endDate: (endDate.getValue().trim() !== '' ? endDate.getValue().trim() : null)
             },

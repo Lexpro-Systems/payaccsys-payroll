@@ -433,6 +433,578 @@ class Department extends Controller
         return true;
     }
 
+    public function getLeaveTypeList($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        $validationResult = Json::validate($data, [
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        $sqlQuery =
+            'SELECT ' .
+            'id, name ' .
+            'FROM ' .
+            'leave_types ' .
+            'WHERE ' .
+            'is_deleted IS NOT TRUE ' .
+            'ORDER BY ' .
+            'name;';
+        $sqlResult = $db->paramQuery($sqlQuery, []);
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        $leaveTypes = [];
+
+        while ($row = $sqlResult->fetchAssociative()) {
+            $leaveConfigQuery =
+                'SELECT id FROM leave_config_items WHERE department_id = $1 AND leave_type_id = $2;';
+            $leaveConfigResult = $db->paramQuery($leaveConfigQuery, [
+                $data['departmentId'],
+                $row['id']
+            ]);
+            if (!$leaveConfigResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            $leaveTypes[] = [
+                'id' => $row['id'],
+                'isSubscribed' => $leaveConfigResult->getRowCount() > 0,
+                'name' => $row['name']
+            ];
+        }
+
+        echo (json_encode([
+            'ok' => true,
+            'leaveTypes' => $leaveTypes
+        ]));
+
+        return true;
+    }
+
+    public function subscribeLeave($data, $user, $db)
+    {
+        # Set content type header & Set default parameter values
+        header('Content-Type: application/json');
+        $defaults = [];
+        Json::copy($defaults, $data);
+        $validationResult = Json::validate($data, [
+            // Required parameters
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'leaveTypeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'unsubscribe' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        // Collect the employees in this department for the subscription logic.
+        $employeeIds = [];
+        $employeeQuery = 'SELECT id FROM employees WHERE department_id = $1;';
+        $employeeResult = $db->paramQuery($employeeQuery, [$data['departmentId']]);
+        if (!$employeeResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+        while ($employeeRow = $employeeResult->fetchAssociative()) {
+            $employeeIds[] = $employeeRow['id'];
+        }
+
+        if (!$data['unsubscribe']) {
+
+            $transactionResult = $db->query('BEGIN;');
+            if (!$transactionResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            $sqlQuery =
+                'INSERT INTO ' .
+                'leave_config_items ( ' .
+                'department_id, ' .
+                'leave_type_id ' .
+                ') ' .
+                'VALUES ( ' .
+                ' $1,  $2 ' .
+                ') ' .
+                'RETURNING id;';
+            $sqlResult = $db->paramQuery($sqlQuery, [
+                $data['departmentId'],                     // department_id
+                $data['leaveTypeId']                     // leave_type_id
+            ]);
+
+            if (!$sqlResult->isValid()) {
+                $db->query('ROLLBACK;');
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            foreach ($employeeIds as $employeeId) {
+                $existingQuery =
+                    'SELECT id FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2 LIMIT 1;';
+                $existingResult = $db->paramQuery($existingQuery, [$employeeId, $data['leaveTypeId']]);
+                if (!$existingResult->isValid()) {
+                    $db->query('ROLLBACK;');
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+                if ($existingResult->getRowCount() > 0) {
+                    continue;
+                }
+
+                $employeeInsertQuery =
+                    'INSERT INTO leave_config_items (employee_id, leave_type_id) VALUES ($1, $2);';
+                $employeeInsertResult = $db->paramQuery($employeeInsertQuery, [$employeeId, $data['leaveTypeId']]);
+                if (!$employeeInsertResult->isValid()) {
+                    $db->query('ROLLBACK;');
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+            }
+
+            $commitResult = $db->query('COMMIT;');
+            if (!$commitResult->isValid()) {
+                $db->query('ROLLBACK;');
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        } else {
+            $transactionResult = $db->query('BEGIN;');
+            if (!$transactionResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            $sqlQuery =
+                'DELETE FROM leave_config_items WHERE department_id = $1 AND leave_type_id = $2';
+            $sqlResult = $db->paramQuery($sqlQuery, [
+                $data['departmentId'],                     // department_id
+                $data['leaveTypeId']                     // leave_type_id
+            ]);
+
+            if (!$sqlResult->isValid()) {
+                $db->query('ROLLBACK;');
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            foreach ($employeeIds as $employeeId) {
+                $existingQuery =
+                    'SELECT id FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2 LIMIT 1;';
+                $existingResult = $db->paramQuery($existingQuery, [$employeeId, $data['leaveTypeId']]);
+                if (!$existingResult->isValid()) {
+                    $db->query('ROLLBACK;');
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+                if ($existingResult->getRowCount() === 0) {
+                    continue;
+                }
+
+                $employeeDeleteQuery =
+                    'DELETE FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2;';
+                $employeeDeleteResult = $db->paramQuery($employeeDeleteQuery, [$employeeId, $data['leaveTypeId']]);
+                if (!$employeeDeleteResult->isValid()) {
+                    $db->query('ROLLBACK;');
+                    echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                    return false;
+                }
+            }
+
+            $commitResult = $db->query('COMMIT;');
+            if (!$commitResult->isValid()) {
+                $db->query('ROLLBACK;');
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        }
+
+        // Send result
+        echo (json_encode([
+            'ok' => true
+        ]));
+
+        return true;
+    }
+
+    public function updateEmployeeWorkSchedule($data, $user, $db)
+    {
+        # Set content type header & Set default parameter values
+        header('Content-Type: application/json');
+        $defaults = [];
+        Json::copy($defaults, $data);
+        $validationResult = Json::validate($data, [
+            # Required parameters
+            'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => true],
+
+            # Optional parameters
+            'enableLeave' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'monday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
+            'tuesday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
+            'wednesday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
+            'thursday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
+            'friday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
+            'saturday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
+            'sunday' => ['type' => Json::TYPE_NUMERIC, 'required' => false, 'nullable' => true],
+            'mondayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'tuesdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'wednesdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'thursdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'fridayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'saturdayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'sundayWd' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'wdEnableLeave' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false]
+
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        # Collect the employees whose schedules should follow this department.
+        $employeeIds = [];
+        $employeeResult = $db->paramQuery('SELECT id FROM employees WHERE department_id = $1;', [$data['departmentId']]);
+        if (!$employeeResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+        while ($employeeRow = $employeeResult->fetchAssociative()) {
+            $employeeIds[] = $employeeRow['id'];
+        }
+
+        # Start SQL transaction, Lock the relevant tables and Load the workshedule details
+        $db->startTransaction();
+        $db->query('LOCK TABLE work_schedules IN EXCLUSIVE MODE;');
+        $sqlQuery =
+            'SELECT ' .
+            'id ' .
+            'FROM ' .
+            'work_schedules ' .
+            'WHERE ' .
+            'department_id = $1;';
+        $sqlResult = $db->paramQuery($sqlQuery, [$data['departmentId']]);
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        if ($sqlResult->getRowCount() === 0) {
+            $enableLeave = false;
+            $monday = null;
+            $tuesday = null;
+            $wednesday = null;
+            $thursday = null;
+            $friday = null;
+            $saturday = null;
+            $sunday = null;
+            $wdEnableLeave = false;
+            $mondayWd = false;
+            $tuesdayWd = false;
+            $wednesdayWd = false;
+            $thursdayWd = false;
+            $fridayWd = false;
+            $saturdayWd = false;
+            $sundayWd = false;
+
+
+            if (array_key_exists('enableLeave', $data)) {
+                $enableLeave = $data['enableLeave'];
+            }
+            if (array_key_exists('monday', $data)) {
+                $monday = $data['monday'];
+            }
+            if (array_key_exists('tuesday', $data)) {
+                $tuesday = $data['tuesday'];
+            }
+            if (array_key_exists('wednesday', $data)) {
+                $wednesday = $data['wednesday'];
+            }
+            if (array_key_exists('thursday', $data)) {
+                $thursday = $data['thursday'];
+            }
+            if (array_key_exists('friday', $data)) {
+                $friday = $data['friday'];
+            }
+            if (array_key_exists('saturday', $data)) {
+                $saturday = $data['saturday'];
+            }
+            if (array_key_exists('sunday', $data)) {
+                $sunday = $data['sunday'];
+            }
+            if (array_key_exists('wdEnableLeave', $data)) {
+                $wdEnableLeave = $data['wdEnableLeave'];
+            }
+            if (array_key_exists('mondayWd', $data)) {
+                $mondayWd = $data['mondayWd'];
+            }
+            if (array_key_exists('tuesdayWd', $data)) {
+                $tuesdayWd = $data['tuesdayWd'];
+            }
+            if (array_key_exists('wednesdayWd', $data)) {
+                $wednesdayWd = $data['wednesdayWd'];
+            }
+            if (array_key_exists('thursdayWd', $data)) {
+                $thursdayWd = $data['thursdayWd'];
+            }
+            if (array_key_exists('fridayWd', $data)) {
+                $fridayWd = $data['fridayWd'];
+            }
+            if (array_key_exists('saturdayWd', $data)) {
+                $saturdayWd = $data['saturdayWd'];
+            }
+            if (array_key_exists('sundayWd', $data)) {
+                $sundayWd = $data['sundayWd'];
+            }
+
+            # Build the query to insert the item.
+            $sqlQuery =
+                'INSERT INTO work_schedules( ' .
+                'employee_id, department_id, enable_leave, monday_hours, tuesday_hours, wednesday_hours,  ' .
+                'thursday_hours, friday_hours, saturday_hours, sunday_hours, ' .
+                'monday_wd, tuesday_wd, wednesday_wd, thursday_wd, friday_wd, saturday_wd, sunday_wd, wd_enable_leave) ' .
+                'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18); ';
+            $sqlResult = $db->paramQuery($sqlQuery, [
+                $data['employeeId'],                        // employee_id
+                $data['departmentId'],                    // department_id
+                $enableLeave,                               // enable_leave
+                $monday,                                    // monday hours
+                $tuesday,                                   // tuesday hours
+                $wednesday,                                 // wednesday hours
+                $thursday,                                  // thursday hours
+                $friday,                    // friday hours
+                $saturday,                  // saturday hours
+                $sunday,
+                $mondayWd,
+                $tuesdayWd,
+                $wednesdayWd,
+                $thursdayWd,
+                $fridayWd,
+                $saturdayWd,
+                $sundayWd,
+                $wdEnableLeave,                     // sunday hours
+            ]);
+
+            if (!$sqlResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        } else {
+            // Build the query to update the client
+            $updateCount = 0;
+            $updateValues = [];
+            $updateQuery = 'UPDATE work_schedules SET ';
+
+            if (array_key_exists('enableLeave', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'enable_leave = $' . $updateCount;
+                $updateValues[] = $data['enableLeave'];
+            }
+
+            if (array_key_exists('monday', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'monday_hours = $' . $updateCount;
+                $updateValues[] = $data['monday'];
+            }
+
+            if (array_key_exists('tuesday', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'tuesday_hours = $' . $updateCount;
+                $updateValues[] = $data['tuesday'];
+            }
+
+            if (array_key_exists('wednesday', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'wednesday_hours = $' . $updateCount;
+                $updateValues[] = $data['wednesday'];
+            }
+
+            if (array_key_exists('thursday', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'thursday_hours = $' . $updateCount;
+                $updateValues[] = $data['thursday'];
+            }
+
+            if (array_key_exists('friday', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'friday_hours = $' . $updateCount;
+                $updateValues[] = $data['friday'];
+            }
+
+            if (array_key_exists('saturday', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'saturday_hours = $' . $updateCount;
+                $updateValues[] = $data['saturday'];
+            }
+
+            if (array_key_exists('sunday', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'sunday_hours = $' . $updateCount;
+                $updateValues[] = $data['sunday'];
+            }
+            if (array_key_exists('mondayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'monday_wd = $' . $updateCount;
+                $updateValues[] = $data['mondayWd'];
+            }
+
+            if (array_key_exists('tuesdayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'tuesday_wd = $' . $updateCount;
+                $updateValues[] = $data['tuesdayWd'];
+            }
+
+            if (array_key_exists('wednesdayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'wednesday_wd = $' . $updateCount;
+                $updateValues[] = $data['wednesdayWd'];
+            }
+
+            if (array_key_exists('thursdayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'thursday_wd = $' . $updateCount;
+                $updateValues[] = $data['thursdayWd'];
+            }
+
+            if (array_key_exists('fridayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'friday_wd = $' . $updateCount;
+                $updateValues[] = $data['fridayWd'];
+            }
+
+            if (array_key_exists('saturdayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'saturday_wd = $' . $updateCount;
+                $updateValues[] = $data['saturdayWd'];
+            }
+
+            if (array_key_exists('sundayWd', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'sunday_wd = $' . $updateCount;
+                $updateValues[] = $data['sundayWd'];
+            }
+            if (array_key_exists('wdEnableLeave', $data)) {
+                $updateCount++;
+                if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
+                $updateQuery = $updateQuery . 'wd_enable_leave = $' . $updateCount;
+                $updateValues[] = $data['wdEnableLeave'];
+            }
+
+            // Set where clause
+            $updateCount++;
+            $updateQuery = $updateQuery . ' WHERE department_id = $' . $updateCount . ';';
+            $updateValues[] = $data['departmentId'];
+
+
+            $updateResult = $db->paramQuery($updateQuery, $updateValues);
+            if (!$updateResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        }
+
+        // Apply the same supplied schedule fields to each employee in the department.
+        $scheduleFields = [
+            'enableLeave' => ['enable_leave', false],
+            'monday' => ['monday_hours', null],
+            'tuesday' => ['tuesday_hours', null],
+            'wednesday' => ['wednesday_hours', null],
+            'thursday' => ['thursday_hours', null],
+            'friday' => ['friday_hours', null],
+            'saturday' => ['saturday_hours', null],
+            'sunday' => ['sunday_hours', null],
+            'mondayWd' => ['monday_wd', false],
+            'tuesdayWd' => ['tuesday_wd', false],
+            'wednesdayWd' => ['wednesday_wd', false],
+            'thursdayWd' => ['thursday_wd', false],
+            'fridayWd' => ['friday_wd', false],
+            'saturdayWd' => ['saturday_wd', false],
+            'sundayWd' => ['sunday_wd', false],
+            'wdEnableLeave' => ['wd_enable_leave', false]
+        ];
+
+        foreach ($employeeIds as $employeeId) {
+
+            # Checks of the employee has a work schedule record.
+            $employeeScheduleResult = $db->paramQuery('SELECT id FROM work_schedules WHERE employee_id = $1;', [$employeeId]);
+            if (!$employeeScheduleResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            # Now we either insert for it a record or update their existing record.
+            if ($employeeScheduleResult->getRowCount() === 0) {
+                $insertColumns = ['employee_id', 'department_id'];
+                $insertValues = [$employeeId, null];
+                foreach ($scheduleFields as $inputField => $field) {
+                    $insertColumns[] = $field[0];
+                    $insertValues[] = array_key_exists($inputField, $data) ? $data[$inputField] : $field[1];
+                }
+
+                $placeholders = [];
+                for ($index = 1; $index <= count($insertValues); $index++) {
+                    $placeholders[] = '$' . $index;
+                }
+                $insertQuery = 'INSERT INTO work_schedules (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', $placeholders) . ');';
+                $employeeSaveResult = $db->paramQuery($insertQuery, $insertValues);
+            } else {
+                $updates = [];
+                $updateValues = [];
+                foreach ($scheduleFields as $inputField => $field) {
+                    if (array_key_exists($inputField, $data)) {
+                        $updateValues[] = $data[$inputField];
+                        $updates[] = $field[0] . ' = $' . count($updateValues);
+                    }
+                }
+                if (count($updates) === 0) {
+                    continue;
+                }
+
+                $updateValues[] = $employeeId;
+                $updateQuery = 'UPDATE work_schedules SET ' . implode(', ', $updates) . ' WHERE employee_id = $' . count($updateValues) . ';';
+                $employeeSaveResult = $db->paramQuery($updateQuery, $updateValues);
+            }
+
+            if (!$employeeSaveResult->isValid()) {
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        }
+
+        // Commit SQL transaction
+        $db->commitTransaction();
+
+        // Send result
+        echo (json_encode([
+            'ok' => true
+        ]));
+
+        return true;
+    }
+
     // Function get a list of default payslip items for a given department.
     //
     // Required Parameters
