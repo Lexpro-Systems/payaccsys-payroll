@@ -506,11 +506,14 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                 margin: '40px'
             });
 
-            // Create the editCompanyDetails panel
+            // Create the editDepartmentsDefault panel
             var editRecurringPayslipConfigItemPanel = new app.panel.EditRecurringPayslipConfigItem({
                 renderTo: editRecurringPayslipConfigItemModal.getContainer(),
                 show: true,
                 payslipItemId: event.srcComponent.getRow(event.rowIndex).id,
+                departmentId: departmentId,
+                saveUrl: 'exec.php?c=Department&fn=editDepartmentDefaultPayslipItem',
+                lockItemType: true,
 
                 onCancel: function () {
                     app.route.popState();
@@ -552,7 +555,7 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
             }
 
             lx.sendJSON({
-                url: 'exec.php?c=Payslip&fn=checkRemove',
+                url: 'exec.php?c=Department&fn=checkRemoveDefaultPayslipItem',
                 data: {
                     payslipItemId: srcComponent.getRow(rowIndex).id,
                     departmentId: config.departmentId
@@ -583,7 +586,7 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                         onClose: function (event) {
                             if (event.button === 'remove') {
                                 lx.sendJSON({
-                                    url: 'exec.php?c=Payslip&fn=remove',
+                                    url: 'exec.php?c=Department&fn=removeDefaultPayslipItem',
                                     data: {
                                         payslipItemId: srcComponent.getRow(rowIndex).id
                                     },
@@ -637,6 +640,9 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                 renderTo: editRecurringPayslipConfigItemModal.getContainer(),
                 show: true,
                 payslipItemId: event.srcComponent.getRow(event.rowIndex).id,
+                departmentId: departmentId,
+                saveUrl: 'exec.php?c=Department&fn=editDepartmentDefaultPayslipItem',
+                lockItemType: true,
 
                 onCancel: function () {
                     app.route.popState();

@@ -1483,6 +1483,7 @@ class Department extends Controller
     //
     // Required Parameters
     //  payslipItemId           The ID of the payslip item to edit.
+    //  departmentId            The ID of the department whose item will be edited.
     //  typeCode                The code of the item type to edit.
     //  description             A description for the item
     //  accrualDate             The date the item will accrue.  If the type is once off then this value cannot be null.  If it is a recurring type
@@ -1504,6 +1505,7 @@ class Department extends Controller
         // Validate data.
         $validationResult = Json::validate($data, [
             'payslipItemId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
             'typeCode' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false],
             'description' => ['type' => Json::TYPE_NON_EMPTY_STRING, 'required' => true, 'nullable' => false],
             'accrualDate' => ['type' => Json::TYPE_DATE, 'required' => true, 'nullable' => true],
@@ -1521,11 +1523,47 @@ class Department extends Controller
         $db->startTransaction();
 
         // Lock the relevant table(s)
+        $db->query('LOCK TABLE employees IN EXCLUSIVE MODE;');
         $db->query('LOCK TABLE payslip_config_items IN EXCLUSIVE MODE;');
         $db->query('LOCK TABLE payslip_item_types IN EXCLUSIVE MODE;');
 
+        //Load original department row to check that the payslip item was added by the requested department
+        $sqlQuery =
+            'SELECT ' .
+            'id, ' .
+            'department_id, ' .
+            'employee_id, ' .
+            'payslip_item_type_code, ' .
+            'accrual_date ' .
+            'FROM payslip_config_items ' .
+            'WHERE id = $1 ' .
+            'AND department_id = $2 ' .
+            'AND employee_id IS NULL;';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $data['departmentId']]);
+
+        if (!$sqlResult->isValid()) {
+            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        if ($sqlResult->getRowCount() !== 1) {
+            echo(json_encode(['ok' => false, 'error' => 'Department payslip item not found.']));
+            return false;
+        }
+
+        //Store original department item, before applying the edit
+        $departmentItem = $sqlResult->fetchAssociative();
+        $originalTypeCode = $departmentItem['payslip_item_type_code'];
+
+        // The item type of an existing department default cannot be changed.
+        if ($data['typeCode'] !== $originalTypeCode) {
+            echo(json_encode(['ok' => false, 'error' => 'The item type cannot be changed on a department default. Remove the existing item and add a new one instead.']));
+            return false;
+        }
+
         // Load the type from the database
-        $sqlQuery = 'SELECT code, is_once_off, default_amount, allow_unit_source, is_enabled FROM payslip_item_types WHERE code = $1;';
+        $sqlQuery = 'SELECT code, is_once_off, auto_calculate, default_amount, allow_unit_source, is_enabled FROM payslip_item_types WHERE code = $1;';
         $sqlResult = $db->paramQuery($sqlQuery, [$data['typeCode']]);
         if (!$sqlResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
@@ -1547,6 +1585,24 @@ class Department extends Controller
             return false;
         }
 
+        // Check whether this item type supports automatic calculation.
+        if ($data['autoCalculate'] === true && $sqlRow['auto_calculate'] !== true) {
+            echo(json_encode(['ok' => false, 'error' => 'This item cannot be set to auto calculate.']));
+            return false;
+        }
+
+        // Check whether this item type supports a unit source.
+        if ($data['unitSourceCode'] !== null && strlen($data['unitSourceCode']) > 0 && $sqlRow['allow_unit_source'] !== true) {
+            echo(json_encode(['ok' => false, 'error' => 'This item does not allow a unit source.']));
+            return false;
+        }
+
+        // Check that recurring item does not have an accrual date
+        if ($sqlRow['is_once_off'] !== true && $data['accrualDate'] !== null) {
+            echo(json_encode(['ok' => false, 'error' => 'Recurring items cannot have an accrual date.']));
+            return false;
+        }
+
         // If the item is once off then check that an accrual date was provided.
         if ($sqlRow['is_once_off'] === true) {
             if ($data['accrualDate'] === null) {
@@ -1555,62 +1611,106 @@ class Department extends Controller
             }
         }
 
-        // Build the query to update the client
-        $updateCount = 0;
-        $updateValues = [];
-        $sqlQuery = 'UPDATE payslip_config_items SET ';
+        // Query to update the department row
+        $sqlQuery =
+            'UPDATE payslip_config_items SET ' .
+            'payslip_item_type_code = $1, ' .
+            'description = $2, ' .
+            'accrual_date = $3, ' .
+            'auto_calculate = $4, ' .
+            'unit_source_code = $5, ' .
+            'include_in_nett_pay = $6, ' .
+            'amount = $7 ' .
+            'WHERE id = $8 ' .
+            'AND department_id = $9 ' .
+            'AND employee_id IS NULL;';
 
-        if (isset($data['typeCode'])) {
-            $updateCount++;
-            if ($updateCount > 1) $sqlQuery = $sqlQuery . ', ';
-            $sqlQuery = $sqlQuery . 'payslip_item_type_code = $' . $updateCount;
-            $updateValues[] = $data['typeCode'];
-        }
-        if (isset($data['description'])) {
-            $updateCount++;
-            if ($updateCount > 1) $sqlQuery = $sqlQuery . ', ';
-            $sqlQuery = $sqlQuery . 'description = $' . $updateCount;
-            $updateValues[] = $data['description'];
-        }
-        if (isset($data['accrualDate'])) {
-            $updateCount++;
-            if ($updateCount > 1) $sqlQuery = $sqlQuery . ', ';
-            $sqlQuery = $sqlQuery . 'accrual_date = $' . $updateCount;
-            $updateValues[] = $data['accrualDate'];
-        }
-        if (isset($data['autoCalculate'])) {
-            $updateCount++;
-            if ($updateCount > 1) $sqlQuery = $sqlQuery . ', ';
-            $sqlQuery = $sqlQuery . 'auto_calculate = $' . $updateCount;
-            $updateValues[] = $data['autoCalculate'];
-        }
-        if (array_key_exists('unitSourceCode', $data)) {
-            $updateCount++;
-            if ($updateCount > 1) $sqlQuery = $sqlQuery . ', ';
-            $sqlQuery = $sqlQuery . 'unit_source_code = $' . $updateCount;
-            $updateValues[] = $data['unitSourceCode'];
-        }
-        if (array_key_exists('includeInNettPay', $data)) {
-            $updateCount++;
-            if ($updateCount > 1) $sqlQuery = $sqlQuery . ', ';
-            $sqlQuery = $sqlQuery . 'include_in_nett_pay = $' . $updateCount;
-            $updateValues[] = $data['includeInNettPay'];
-        }
-        if (isset($data['amount'])) {
-            $updateCount++;
-            if ($updateCount > 1) $sqlQuery = $sqlQuery . ', ';
-            $sqlQuery = $sqlQuery . 'amount = $' . $updateCount;
-            $updateValues[] = $data['amount'];
-        }
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $data['typeCode'],
+            $data['description'],
+            $data['accrualDate'],
+            $data['autoCalculate'],
+            $data['unitSourceCode'],
+            $data['includeInNettPay'],
+            $data['amount'],
+            $data['payslipItemId'],
+            $data['departmentId']
+        ]);
 
-        // Set where clause
-        $updateCount++;
-        $sqlQuery = $sqlQuery . ' WHERE id = $' . $updateCount . ';';
-        $updateValues[] = $data['payslipItemId'];
-
-        $sqlResult = $db->paramQuery($sqlQuery, $updateValues);
         if (!$sqlResult->isValid()) {
-            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        // Query to update all employees in selected department
+        $sqlQuery =
+            'UPDATE payslip_config_items AS employee_items SET ' .
+            'description = $1, ' .
+            'accrual_date = $2, ' .
+            'auto_calculate = $3, ' .
+            'unit_source_code = $4, ' .
+            'include_in_nett_pay = $5, ' .
+            'amount = $6 ' .
+            'FROM employees ' .
+            'WHERE employee_items.employee_id = employees.id ' .
+            'AND employees.department_id = $7 ' .
+            'AND employee_items.payslip_item_type_code = $8 ' .
+            'AND employee_items.accrual_date IS NULL;';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $data['description'],
+            $data['accrualDate'],
+            $data['autoCalculate'],
+            $data['unitSourceCode'],
+            $data['includeInNettPay'],
+            $data['amount'],
+            $data['departmentId'],
+            $originalTypeCode
+        ]);
+
+        if (!$sqlResult->isValid()) {
+            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        //Ensure all employees in the department have the item, if not already added for them.
+        $sqlQuery =
+            'INSERT INTO payslip_config_items ( ' .
+            'payslip_item_type_code, ' .
+            'employee_id, ' .
+            'department_id, ' .
+            'description, ' .
+            'accrual_date, ' .
+            'auto_calculate, ' .
+            'unit_source_code, ' .
+            'include_in_nett_pay, ' .
+            'amount ' .
+            ') ' .
+            'SELECT ' .
+            '$1, employees.id, NULL, $3, $4, $5, $6, $7, $8 ' .
+            'FROM employees ' .
+            'WHERE employees.department_id = $2 ' .
+            'AND NOT EXISTS ( ' .
+            'SELECT 1 ' .
+            'FROM payslip_config_items AS existing_items ' .
+            'WHERE existing_items.employee_id = employees.id ' .
+            'AND existing_items.payslip_item_type_code = $1 ' .
+            'AND existing_items.accrual_date IS NULL ' .
+            ');';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $data['typeCode'],
+            $data['departmentId'],
+            $data['description'],
+            $data['accrualDate'],
+            $data['autoCalculate'],
+            $data['unitSourceCode'],
+            $data['includeInNettPay'],
+            $data['amount']
+        ]);
+
+        if (!$sqlResult->isValid()) {
+            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
@@ -1618,6 +1718,141 @@ class Department extends Controller
         $db->commitTransaction();
 
         echo (json_encode(['ok' => true]));
+
+        return true;
+    }
+
+    // Function to check if a department default payslip item exists
+    //
+    // Required Parameters
+    //  payslipItemId              The id of the payslip whose details to get
+    //
+    // Optional Parameters
+    //  None
+    public function checkRemoveDefaultPayslipItem($data, $user, $db)
+    {
+        // Set content type header
+        header('Content-Type: application/json');
+
+        // Set default parameter values
+        $defaults = [];
+        Json::copy($defaults, $data);
+
+        // Validate data.
+        $validationResult = Json::validate($data, [
+            // Required parameters
+            'payslipItemId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        $sqlQuery =
+            'SELECT  ' .
+            'department_id,  ' .
+            'payslip_item_type_code ' .
+            'FROM  ' .
+            'payslip_config_items ' .
+            'WHERE id = $1 AND department_id = $2 AND employee_id IS NULL;';
+            $sqlResult = $db->paramQuery($sqlQuery, $data['payslipItemId'], [$data['departmentId']]);
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        if ($sqlResult->getRowCount() !== 1) {
+            echo(json_encode(['ok' => false, 'error' => 'Department payslip item not found.']));
+            return false;
+        }
+
+        $templateRow = $sqlResult->fetchAssociative();
+        $departmentId = $templateRow['department_id'];
+        $typeCode = $templateRow['payslip_item_type_code'];
+
+        $sqlQuery =
+            'SELECT  ' .
+            'employee_rfi_items.id  ' .
+            'FROM  ' .
+            'employee_rfi_items ' .
+            'INNER JOIN payslip_config_items ' .
+            'ON payslip_config_items.id = employee_rfi_items.payslip_config_item_id ' .
+            'INNER JOIN employees ' .
+            'ON employees.id = payslip_config_items.employee_id ' .
+            'WHERE employees.department_id = $1 AND payslip_config_items.payslip_item_type_code = $2 AND payslip_config_items.accrual_date IS NULL ' .
+            'LIMIT 1;';
+        $sqlResult = $db->paramQuery($sqlQuery, [$departmentId, $typeCode]);
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        $canRemove = true;
+        // Check if the payslip item was found in a retirement-fund calculation
+        if ($sqlResult->getRowCount() !== 0) {
+            $canRemove = false;
+        }
+
+        // Send result
+        echo (json_encode([
+            'ok' => true,
+            'removable' => $canRemove
+        ]));
+
+        return true;
+    }
+
+    // Function to delete default payslip item
+    //
+    // Required Parameters
+    //  payslipItemId              The id of the payslip whose details to get
+    //
+    // Optional Parameters
+    //  None
+    public function removeDefaultPayslipItem($data, $user, $db)
+    {
+        // Set content type header
+        header('Content-Type: application/json');
+
+        // Set default parameter values
+        $defaults = [];
+        Json::copy($defaults, $data);
+
+        // Validate data.
+        $validationResult = Json::validate($data, [
+            // Required parameters
+            'payslipItemId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        $sqlQuery =
+            'DELETE FROM employee_rfi_items ' .
+            'WHERE ' .
+            'employee_rfi_items.payslip_config_item_id = $1;';
+        $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId']]);
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        $sqlQuery =
+            'DELETE FROM payslip_config_items ' .
+            'WHERE ' .
+            'payslip_config_items.id = $1;';
+        $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId']]);
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        // Send result
+        echo (json_encode([
+            'ok' => true
+        ]));
 
         return true;
     }

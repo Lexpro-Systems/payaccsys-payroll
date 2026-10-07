@@ -11,7 +11,12 @@
 //  flex:               CSS flex property for the panel
 //  show:               If true the panel will be shown immediately after it was created.  If false the panel will be created but not shown.
 //                      Default to false.
-//  employeeId          The ID of the employee to edit the earnings item to.
+
+//  payslipItemId       The configuration item being edited.
+//  employeeId          The employee ID for an employee-level edit.
+//  departmentId        The department ID for a department-level edit.
+//  saveUrl             The endpoint used when saving.
+//  lockItemType        If true, the item type cannot be changed.
 //
 // Events:
 //
@@ -29,6 +34,9 @@ app.panel.EditRecurringPayslipConfigItem = function(config) {
     var confirmDestroy = null;
     var itemTypes = null;
     var employeeId = null;
+    var departmentId = null;
+    var saveUrl = null;
+    var lockItemType = false;
     
     var el = null;
     
@@ -80,6 +88,9 @@ app.panel.EditRecurringPayslipConfigItem = function(config) {
                 }
                 
                 itemTypeSelect.setValue(response.payslip.payslipItemTypeCode, response.payslip.payslipItemTypeName);
+                if (lockItemType === true) {
+                    itemTypeSelect.disable();
+                }
                 itemCategoryDisplay.setValue(response.payslip.payslipCategoryName);
                 itemDescriptionTxt.setValue(response.payslip.description);
                 partOfNettPayCheck.setValue(response.payslip.includeInNettPay);
@@ -105,7 +116,7 @@ app.panel.EditRecurringPayslipConfigItem = function(config) {
                     itemAmountTxt.enable();
                 }
                 
-                // Set auto calculate depending on the selected item type.
+                // Set the unit source depending on the saved configuration.
                 if( response.payslip.unitSourceCode === 'ATTE' ) {
                     importHoursCheck.setValue(true);
                 }
@@ -200,7 +211,11 @@ app.panel.EditRecurringPayslipConfigItem = function(config) {
             width: '100%',
             height: '100%',
             flex: '1 1 100%',
-            show: false
+            show: false,
+            employeeId: null,
+            departmentId: null,
+            saveUrl: 'exec.php?c=Employee&fn=editPayslipItem',
+            lockItemType: false
         };
         
         // Parse user config
@@ -218,6 +233,9 @@ app.panel.EditRecurringPayslipConfigItem = function(config) {
         // Initialize state
         confirmDestroy = false;
         employeeId = compConfig.employeeId;
+        departmentId = compConfig.departmentId;
+        saveUrl = compConfig.saveUrl;
+        lockItemType = compConfig.lockItemType;
         
         // Create root element
         el = lx.createElement('DIV', {
@@ -577,22 +595,29 @@ app.panel.EditRecurringPayslipConfigItem = function(config) {
         
         let unitSource = null;
         if( importHoursCheck.getValue() ) unitSource = 'ATTE';
+
+        var requestData = {
+            payslipItemId: config.payslipItemId,
+            typeCode: itemTypeSelect.getValue(),
+            description: itemDescriptionTxt.getValue(),
+            accrualDate: null,
+            autoCalculate: itemAutoCheck.getValue(),
+            unitSourceCode: unitSource,
+            includeInNettPay: partOfNettPayCheck.getValue(),
+            amount: lx.util.parseCurrency(amount)
+        }
+        if (departmentId !== null) {
+            requestData.departmentId = departmentId;
+        }
+        else {
+            requestData.employeeId = employeeId;
+        }
         
         saveBtn.showLoader();
         saveBtn.disable();
         lx.sendJSON({
-            url: 'exec.php?c=Employee&fn=editPayslipItem',
-            data: {
-                payslipItemId: config.payslipItemId,
-                typeCode: itemTypeSelect.getValue(),
-                employeeId: employeeId,
-                description: itemDescriptionTxt.getValue(),
-                accrualDate: null,
-                autoCalculate: itemAutoCheck.getValue(),
-                unitSourceCode: unitSource,
-                includeInNettPay: partOfNettPayCheck.getValue(),
-                amount: lx.util.parseCurrency(amount)
-            },
+            url: saveUrl,
+            data: requestData,
             onSuccess: function( responseText ) {
                 saveBtn.hideLoader();
                 saveBtn.enable();

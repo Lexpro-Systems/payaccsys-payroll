@@ -2451,6 +2451,13 @@ class Employee extends Controller
             }
         }
 
+        //Call to helper function to apply department default payslip items to the employee, if items weren't added during employee creation
+        $db->query('LOCK TABLE payslip_config_items IN EXCLUSIVE MODE;');
+        if (!$this->applyDepartmentDefaultPayslipItems($db, (int)$employeeId, $data['departmentId'])) {
+            echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default payslip items.']));
+            return false;
+        }
+
         // Add leave if any was provided
         if (isset($data['leave'])) {
             // Lock the relevant table(s)
@@ -4118,6 +4125,20 @@ class Employee extends Controller
             $updateResult = $db->paramQuery($updateQuery, $updateValues);
             if (!$updateResult->isValid()) {
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+        }
+
+        //Check if departmentId was supplied and attempt to apply department default payslip items.
+        if (isset($data['departmentId'])) {
+            $departmentId = (int)$data['departmentId'];
+
+            if ($departmentId < 1) {
+                $departmentId = null;
+            }
+
+            if (!$this->applyDepartmentDefaultPayslipItems($db, (int)$data['employeeId'], $departmentId)) {
+                echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default payslip items.']));
                 return false;
             }
         }
@@ -7015,6 +7036,8 @@ class Employee extends Controller
         // Lock the relevant table(s)
         $db->query('LOCK TABLE employees IN EXCLUSIVE MODE;');
         $db->query('LOCK TABLE departments IN EXCLUSIVE MODE;');
+        $db->query('LOCK TABLE payslip_config_items IN EXCLUSIVE MODE;');
+
         $row = 0;
         $employees = [];
         rewind($handler);
@@ -7215,6 +7238,13 @@ class Employee extends Controller
                 }
                 $sqlRow = $sqlResult->fetchAssociative();
                 $employeeId = $sqlRow['id'];
+
+                if (!$this->applyDepartmentDefaultPayslipItems($db, (int)$employeeId, $departmentId)) {
+                    echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default payslip items.']));
+                    return false;
+                }
+
+
                 $bankDetailsId = null;
                 $sqlResult = $db->paramQuery('SELECT id FROM employee_bank_details WHERE employee_id = $1 ;', [$employeeId]);
                 if (!$sqlResult->isValid()) {
@@ -7798,5 +7828,54 @@ class Employee extends Controller
                 ($day >= 1 && $day <= 28);
         }
         return false;
+    }
+
+    //Helper function to ensure department default payslip items are applied to an employee when they are created/imported or moved to a new department.
+    private function applyDepartmentDefaultPayslipItems($db, int $employeeId, ? int $departmentId): bool {
+        if ($departmentId === null) {
+            return true;
+        }
+
+        $sqlQuery =
+            'INSERT INTO payslip_config_items ( ' .
+            'payslip_item_type_code, ' .
+            'employee_id, ' .
+            'department_id, ' .
+            'description, ' .
+            'accrual_date, ' .
+            'auto_calculate, ' .
+            'unit_source_code, ' .
+            'include_in_nett_pay, ' .
+            'amount ' .
+            ') ' .
+            'SELECT ' .
+            'department_items.payslip_item_type_code, ' .
+            '$1, ' .
+            'NULL, ' .
+            'department_items.description, ' .
+            'department_items.accrual_date, ' .
+            'department_items.auto_calculate, ' .
+            'department_items.unit_source_code, ' .
+            'department_items.include_in_nett_pay, ' .
+            'department_items.amount ' .
+            'FROM payslip_config_items AS department_items ' .
+            'WHERE department_items.department_id = $2 ' .
+            'AND department_items.employee_id IS NULL ' .
+            'AND NOT EXISTS ( ' .
+            'SELECT 1 ' .
+            'FROM payslip_config_items AS employee_items ' .
+            'WHERE employee_items.employee_id = $1 ' .
+            'AND employee_items.payslip_item_type_code = ' .
+            'department_items.payslip_item_type_code ' .
+            'AND employee_items.accrual_date IS NOT DISTINCT FROM ' .
+            'department_items.accrual_date ' .
+            ');';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $employeeId,
+            $departmentId
+        ]);
+
+        return $sqlResult->isValid();
     }
 }
