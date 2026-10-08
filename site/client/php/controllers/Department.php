@@ -1370,6 +1370,12 @@ class Department extends Controller
             }
         }
 
+        // If the item is recurring then check that no accrual date was provided.
+        if ($sqlRow['is_once_off'] !== true && $data['accrualDate'] !== null) {
+            echo(json_encode(['ok' => false, 'error' => 'Recurring items cannot have an accrual date.']));
+            return false;
+        }
+
         // Check whether department already has this payslip item type
         $sqlQuery =
             'SELECT id ' .
@@ -1377,12 +1383,13 @@ class Department extends Controller
             'WHERE department_id = $1 ' .
             'AND employee_id IS NULL ' .
             'AND payslip_item_type_code = $2 ' .
-            'AND accrual_date IS NULL ' .
+            'AND accrual_date IS NOT DISTINCT FROM $3 ' .
             'LIMIT 1;';
 
         $sqlResult = $db->paramQuery($sqlQuery, [
             $data['departmentId'],
-            $data['typeCode']
+            $data['typeCode'],
+            $data['accrualDate']
         ]);
 
         if (!$sqlResult->isValid()) {
@@ -1452,7 +1459,7 @@ class Department extends Controller
             'FROM payslip_config_items AS existing_items ' .
             'WHERE existing_items.employee_id = employees.id ' .
             'AND existing_items.payslip_item_type_code = $1 ' .
-            'AND existing_items.accrual_date IS NULL ' .
+            'AND existing_items.accrual_date IS NOT DISTINCT FROM $4 ' .
             ');';
 
         $sqlResult = $db->paramQuery($sqlQuery, [
