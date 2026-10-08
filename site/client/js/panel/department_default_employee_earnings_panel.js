@@ -588,7 +588,8 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                                 lx.sendJSON({
                                     url: 'exec.php?c=Department&fn=removeDefaultPayslipItem',
                                     data: {
-                                        payslipItemId: srcComponent.getRow(rowIndex).id
+                                        payslipItemId: srcComponent.getRow(rowIndex).id,
+                                        departmentId: config.departmentId
                                     },
                                     onSuccess: function (responseText) {
                                         var response = JSON.parse(responseText);
@@ -758,41 +759,66 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
             var rowIndex = event.rowIndex;
             var srcComponent = event.srcComponent;
 
-            new lx.component.Messagebox({
-                title: 'Confirm Item Removal',
-                message: 'Are you sure you want to remove the \'' + srcComponent.getRow(rowIndex).description + '\' item?',
-                buttons: [
-                    { name: 'cancel', label: 'Cancel', style: 'text', isCancel: true },
-                    { name: 'remove', label: 'Remove', isDefault: true }
-                ],
-                onClose: function (event) {
-                    if (event.button === 'remove') {
-                        lx.sendJSON({
-                            url: 'exec.php?c=Payslip&fn=remove',
-                            data: {
-                                payslipItemId: srcComponent.getRow(rowIndex).id
-                            },
-                            onSuccess: function (responseText) {
-                                var response = JSON.parse(responseText);
+                lx.sendJSON({
+                        url: 'exec.php?c=Department&fn=checkRemoveDefaultPayslipItem',
+                        data: {
+                            payslipItemId: srcComponent.getRow(rowIndex).id,
+                            departmentId: config.departmentId
+                        },
+                        onSuccess: function (responseText) {
+                            var response = JSON.parse(responseText);
 
-                                if (response.ok !== true) {
-                                    new lx.component.Messagebox({
-                                        title: 'Unable to remove item',
-                                        message: response.error,
-                                        icon: 'icon_error'
-                                    });
-                                    return;
-                                }
-
-                                // Remove the item from the grid
-                                srcComponent.removeRow(rowIndex);
+                            if (response.ok !== true) {
+                                new lx.component.Messagebox({
+                                    title: 'Unable to remove item',
+                                    message: response.error,
+                                    icon: 'icon_error'
+                                });
+                                return;
                             }
-                        });
+
+                    var message = 'The \'' + srcComponent.getRow(rowIndex).description + '\' item is used to calculate retirement fund contributions. Are you sure you want to remove it?';
+
+                    if (response.removable) {
+                        message = 'Are you sure you want to remove the \'' + srcComponent.getRow(rowIndex).description + '\' item?';
                     }
+
+                    // This is the confirmation call.
+                    new lx.component.Messagebox({title: 'Confirm Item Removal', message: message,
+                        buttons: [
+                            {name: 'cancel', label: 'Cancel', style: 'text', isCancel: true},
+                            {name: 'remove', label: 'Remove', isDefault: true}
+                        ],
+                        onClose: function (event) {
+                            if (event.button === 'remove') {
+                                lx.sendJSON({
+                                    url: 'exec.php?c=Department&fn=removeDefaultPayslipItem',
+                                    data: {
+                                        payslipItemId: srcComponent.getRow(rowIndex).id,
+                                        departmentId: config.departmentId
+                                    },
+                                    onSuccess: function (responseText) {
+                                        var response = JSON.parse(responseText);
+
+                                        if (response.ok !== true) {
+                                            new lx.component.Messagebox({
+                                                title: 'Unable to remove item',
+                                                message: response.error,
+                                                icon: 'icon_error'
+                                            });
+                                            return;
+                                        }
+
+                                        // Remove the item from the grid
+                                        srcComponent.removeRow(rowIndex);
+                                    }
+                                });
+                            }
+                        }
+                    });
                 }
             });
         }
-
     }
 
     // onceOffItemsGrid cellclick event handler

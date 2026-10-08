@@ -1752,11 +1752,12 @@ class Department extends Controller
         $sqlQuery =
             'SELECT  ' .
             'department_id,  ' .
-            'payslip_item_type_code ' .
+            'payslip_item_type_code, ' .
+            'accrual_date ' .
             'FROM  ' .
             'payslip_config_items ' .
             'WHERE id = $1 AND department_id = $2 AND employee_id IS NULL;';
-            $sqlResult = $db->paramQuery($sqlQuery, $data['payslipItemId'], [$data['departmentId']]);
+            $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $data['departmentId']]);
         if (!$sqlResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
@@ -1770,6 +1771,7 @@ class Department extends Controller
         $templateRow = $sqlResult->fetchAssociative();
         $departmentId = $templateRow['department_id'];
         $typeCode = $templateRow['payslip_item_type_code'];
+        $accrualDate = $templateRow['accrual_date'];
 
         $sqlQuery =
             'SELECT  ' .
@@ -1780,9 +1782,9 @@ class Department extends Controller
             'ON payslip_config_items.id = employee_rfi_items.payslip_config_item_id ' .
             'INNER JOIN employees ' .
             'ON employees.id = payslip_config_items.employee_id ' .
-            'WHERE employees.department_id = $1 AND payslip_config_items.payslip_item_type_code = $2 AND payslip_config_items.accrual_date IS NULL ' .
+            'WHERE employees.department_id = $1 AND payslip_config_items.payslip_item_type_code = $2 AND payslip_config_items.accrual_date IS NOT DISTINCT FROM $3 ' .
             'LIMIT 1;';
-        $sqlResult = $db->paramQuery($sqlQuery, [$departmentId, $typeCode]);
+        $sqlResult = $db->paramQuery($sqlQuery, [$departmentId, $typeCode, $accrualDate]);
         if (!$sqlResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
@@ -1822,37 +1824,107 @@ class Department extends Controller
         // Validate data.
         $validationResult = Json::validate($data, [
             // Required parameters
-            'payslipItemId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
+            'payslipItemId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
         ]);
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
             return false;
         }
 
+        // Start SQL transaction
+        $db->startTransaction();
+
+        // Lock the relevant table(s)
+        $db->query('LOCK TABLE employees IN EXCLUSIVE MODE;');
+        $db->query('LOCK TABLE payslip_config_items IN EXCLUSIVE MODE;');
+        $db->query('LOCK TABLE employee_rfi_items IN EXCLUSIVE MODE;');
+
+        //Reload and verify department default again
+        $sqlQuery =
+            'SELECT  ' .
+            'department_id,  ' .
+            'payslip_item_type_code, ' .
+            'accrual_date ' .
+            'FROM  ' .
+            'payslip_config_items ' .
+            'WHERE id = $1 AND department_id = $2 AND employee_id IS NULL;';
+            $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $data['departmentId']]);
+        
+            if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        if ($sqlResult->getRowCount() !== 1) {
+            echo(json_encode(['ok' => false, 'error' => 'Department payslip item not found.']));
+            return false;
+        }
+
+        $templateRow = $sqlResult->fetchAssociative();
+        $departmentId = $templateRow['department_id'];
+        $typeCode = $templateRow['payslip_item_type_code'];
+        $accrualDate = $templateRow['accrual_date'];
+
+        // Remove retirement-fund calculation references associated with matching employee payslip configuration items.
         $sqlQuery =
             'DELETE FROM employee_rfi_items ' .
-            'WHERE ' .
-            'employee_rfi_items.payslip_config_item_id = $1;';
-        $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId']]);
+            'WHERE payslip_config_item_id IN ( ' .
+                'SELECT employee_items.id ' .
+                'FROM payslip_config_items AS employee_items ' .
+                'INNER JOIN employees ' .
+                    'ON employees.id = employee_items.employee_id ' .
+                'WHERE employees.department_id = $1 ' .
+                'AND employee_items.payslip_item_type_code = $2 ' .
+                'AND employee_items.accrual_date IS NOT DISTINCT FROM $3 ' .
+            ');';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [$departmentId, $typeCode, $accrualDate]);
+
         if (!$sqlResult->isValid()) {
-            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
+        //Remove this item from all employees currently belonging to the department.
         $sqlQuery =
             'DELETE FROM payslip_config_items ' .
-            'WHERE ' .
-            'payslip_config_items.id = $1;';
-        $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId']]);
+            'WHERE id IN ( ' .
+                'SELECT employee_items.id ' .
+                'FROM payslip_config_items AS employee_items ' .
+                'INNER JOIN employees ' .
+                    'ON employees.id = employee_items.employee_id ' .
+                'WHERE employees.department_id = $1 ' .
+                'AND employee_items.payslip_item_type_code = $2 ' .
+                'AND employee_items.accrual_date IS NOT DISTINCT FROM $3 ' .
+            ');';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [$departmentId, $typeCode, $accrualDate]);
+
         if (!$sqlResult->isValid()) {
-            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
+        //Finally, remove the department-default payslip configuration item.
+        $sqlQuery =
+            'DELETE FROM payslip_config_items ' .
+            'WHERE id = $1 ' .
+            'AND department_id = $2 ' .
+            'AND employee_id IS NULL;';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $departmentId]);
+
+        if (!$sqlResult->isValid()) {
+            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+        
+        // Commit SQL transaction
+        $db->commitTransaction();
+
         // Send result
-        echo (json_encode([
-            'ok' => true
-        ]));
+        echo (json_encode(['ok' => true]));
 
         return true;
     }
