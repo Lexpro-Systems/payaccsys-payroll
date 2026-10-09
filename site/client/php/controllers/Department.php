@@ -1495,7 +1495,7 @@ class Department extends Controller
         return true;
     }
 
-    // Function to edit a payslip item
+    // Function to edit a department default payslip item
     //
     // Required Parameters
     //  payslipItemId           The ID of the payslip item to edit.
@@ -1721,47 +1721,6 @@ class Department extends Controller
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
-
-        // //Ensure all employees in the department have the item, if not already added for them.
-        // $sqlQuery =
-        //     'INSERT INTO payslip_config_items ( ' .
-        //     'payslip_item_type_code, ' .
-        //     'employee_id, ' .
-        //     'department_id, ' .
-        //     'description, ' .
-        //     'accrual_date, ' .
-        //     'auto_calculate, ' .
-        //     'unit_source_code, ' .
-        //     'include_in_nett_pay, ' .
-        //     'amount ' .
-        //     ') ' .
-        //     'SELECT ' .
-        //     '$1, employees.id, NULL, $3, $4, $5, $6, $7, $8 ' .
-        //     'FROM employees ' .
-        //     'WHERE employees.department_id = $2 ' .
-        //     'AND NOT EXISTS ( ' .
-        //     'SELECT 1 ' .
-        //     'FROM payslip_config_items AS existing_items ' .
-        //     'WHERE existing_items.employee_id = employees.id ' .
-        //     'AND existing_items.payslip_item_type_code = $1 ' .
-        //     'AND existing_items.accrual_date IS NULL ' .
-        //     ');';
-
-        // $sqlResult = $db->paramQuery($sqlQuery, [
-        //     $data['typeCode'],
-        //     $data['departmentId'],
-        //     $data['description'],
-        //     $data['accrualDate'],
-        //     $data['autoCalculate'],
-        //     $data['unitSourceCode'],
-        //     $data['includeInNettPay'],
-        //     $data['amount']
-        // ]);
-
-        // if (!$sqlResult->isValid()) {
-        //     echo(json_encode(['ok' => false, 'error' => 'Database error.']));
-        //     return false;
-        // }
 
         // Commit SQL transaction
         $db->commitTransaction();
