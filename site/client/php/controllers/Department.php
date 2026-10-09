@@ -1562,6 +1562,7 @@ class Department extends Controller
         //Store original department item, before applying the edit
         $departmentItem = $sqlResult->fetchAssociative();
         $originalTypeCode = $departmentItem['payslip_item_type_code'];
+        $originalAccrualDate = $departmentItem['accrual_date'];
 
         // The item type of an existing department default cannot be changed.
         if ($data['typeCode'] !== $originalTypeCode) {
@@ -1618,6 +1619,37 @@ class Department extends Controller
             }
         }
 
+        // Check whether another department default already uses this type and accrual date.
+        $sqlQuery =
+            'SELECT id ' .
+            'FROM payslip_config_items ' .
+            'WHERE department_id = $1 ' .
+            'AND employee_id IS NULL ' .
+            'AND payslip_item_type_code = $2 ' .
+            'AND accrual_date IS NOT DISTINCT FROM $3 ' .
+            'AND id <> $4 ' .
+            'LIMIT 1;';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $data['departmentId'],
+            $data['typeCode'],
+            $data['accrualDate'],
+            $data['payslipItemId']
+        ]);
+
+        if (!$sqlResult->isValid()) {
+            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        if ($sqlResult->getRowCount() > 0) {
+            echo(json_encode([
+                'ok' => false,
+                'error' => 'This payslip item type has already been added to the department for this accrual date.'
+            ]));
+            return false;
+        }
+
         // Query to update the department row
         $sqlQuery =
             'UPDATE payslip_config_items SET ' .
@@ -1662,7 +1694,7 @@ class Department extends Controller
             'WHERE employee_items.employee_id = employees.id ' .
             'AND employees.department_id = $7 ' .
             'AND employee_items.payslip_item_type_code = $8 ' .
-            'AND employee_items.accrual_date IS NULL;';
+            'AND employee_items.accrual_date IS NOT DISTINCT FROM $9;';
 
         $sqlResult = $db->paramQuery($sqlQuery, [
             $data['description'],
@@ -1672,7 +1704,8 @@ class Department extends Controller
             $data['includeInNettPay'],
             $data['amount'],
             $data['departmentId'],
-            $originalTypeCode
+            $originalTypeCode,
+            $originalAccrualDate
         ]);
 
         if (!$sqlResult->isValid()) {
