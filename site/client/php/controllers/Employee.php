@@ -7244,6 +7244,15 @@ class Employee extends Controller
                     return false;
                 }
 
+                if (!$this->applyDepartmentDefaultLeaveSubscriptions($db, (int)$employeeId, $departmentId)) {
+                    echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default leave subscriptions.']));
+                    return false;
+                }
+
+                if (!$this->applyDepartmentDefaultWorkSchedule($db, (int)$employeeId, $departmentId)) {
+                    echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default work schedule/work days.']));
+                    return false;
+                }
 
                 $bankDetailsId = null;
                 $sqlResult = $db->paramQuery('SELECT id FROM employee_bank_details WHERE employee_id = $1 ;', [$employeeId]);
@@ -7478,6 +7487,11 @@ class Employee extends Controller
                 }
                 $sqlRow = $sqlResult->fetchAssociative();
                 $employeeId = $sqlRow['id'];
+
+                if (!$this->applyDepartmentDefaultPayslipItems($db, (int)$employeeId, $departmentId)) {
+                    echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default payslip items.']));
+                    return false;
+                }
 
                 if (!$this->applyDepartmentDefaultLeaveSubscriptions($db, (int)$employeeId, $departmentId)) {
                     echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default leave subscriptions.']));
