@@ -189,10 +189,21 @@ app.panel.AddEmployeeWizard = function (config) {
     var wizardPage5ContainerEl = null;
     let leaveTypeSectionEl = null;
     var leaveTypes = [];
+    var leaveTypesLoaded = false;
+    var useDepartmentDefaultLeaveCb = null;
+    var departmentDefaultLeaveTypeIds = [];
+    var departmentDefaultLeaveDepartmentId = null;
+    var departmentDefaultLeaveLoadingDepartmentId = null;
+    var departmentDefaultLeaveRequestId = 0;
 
     var daysWorked = false;
 
     var wizardPage6ContainerEl = null;
+    var useDepartmentDefaultWorkScheduleCb = null;
+    var departmentDefaultWorkScheduleDepartmentId = null;
+    var departmentDefaultWorkScheduleLoadingDepartmentId = null;
+    var departmentDefaultWorkScheduleRequestId = 0;
+    var changingDepartmentDefaultWorkScheduleCb = false;
     var workScheduleSectionEl = null;
     var workScheduleNoteDisplay = null;
     var workScheduleCb = null;
@@ -1306,6 +1317,7 @@ app.panel.AddEmployeeWizard = function (config) {
     // Function to load leave types
     function loadLeaveTypes() {
         leaveTypes = [];
+        leaveTypesLoaded = false;
         lx.sendJSON({
             url: 'exec.php?c=Leave&fn=getTypeList',
             data: {
@@ -1319,6 +1331,10 @@ app.panel.AddEmployeeWizard = function (config) {
                     new lx.component.Messagebox({
                         message: 'Unable to load leave types.'
                     });
+
+                    if (useDepartmentDefaultLeaveCb.getValue()) {
+                        useDepartmentDefaultLeaveCb.setValue(false);
+                    }
 
                     return;
                 }
@@ -1417,11 +1433,233 @@ app.panel.AddEmployeeWizard = function (config) {
                         accruesHourly: accruesHourly,
                         accruesDaily: accruesDaily,
                         subscribeCheckboxEl: subscribeCheckbox,
+                        messageContainerEl: messageContainer,
                         typeContainerEl: typeContainerEl
                     });
                 }
+                leaveTypesLoaded = true;
+                if (useDepartmentDefaultLeaveCb.getValue()) {
+                    loadDepartmentDefaultLeave();
+                }
             }
         });
+    }
+
+    function setLeaveTypeSubscribed(leaveType, subscribed) {
+        leaveType.subscribeCheckboxEl.setValue(subscribed);
+        leaveType.messageContainerEl.innerHTML = subscribed
+            ? 'The employee is now subscribed to this leave type.'
+            : 'The employee does not have any leave of this type.';
+    }
+
+    function clearDepartmentDefaultLeave() {
+        for (let i = 0; i < leaveTypes.length; i++) {
+            if (departmentDefaultLeaveTypeIds.indexOf(String(leaveTypes[i].leaveTypeId)) !== -1) {
+                setLeaveTypeSubscribed(leaveTypes[i], false);
+            }
+        }
+        departmentDefaultLeaveTypeIds = [];
+        departmentDefaultLeaveDepartmentId = null;
+    }
+
+    function loadDepartmentDefaultLeave() {
+        if (!leaveTypesLoaded || !useDepartmentDefaultLeaveCb.getValue()) {
+            return;
+        }
+
+        let departmentId = departmentSelect.getValue();
+        if (departmentId === null || departmentId === undefined || departmentId === '') {
+            useDepartmentDefaultLeaveCb.setValue(false);
+            clearDepartmentDefaultLeave();
+            new lx.component.Messagebox({ message: 'Please select a department to use its default leave.' });
+            return;
+        }
+
+        departmentId = String(departmentId);
+        departmentDefaultLeaveRequestId++;
+        let requestId = departmentDefaultLeaveRequestId;
+        departmentDefaultLeaveLoadingDepartmentId = departmentId;
+        clearDepartmentDefaultLeave();
+
+        lx.sendJSON({
+            url: 'exec.php?c=Department&fn=getLeaveTypeList',
+            data: { departmentId: parseInt(departmentId, 10) },
+            onSuccess: function (responseText) {
+                if (requestId !== departmentDefaultLeaveRequestId ||
+                    !useDepartmentDefaultLeaveCb.getValue() ||
+                    String(departmentSelect.getValue()) !== departmentId) {
+                    return;
+                }
+
+                departmentDefaultLeaveLoadingDepartmentId = null;
+                let response = JSON.parse(responseText);
+                if (response.ok !== true) {
+                    useDepartmentDefaultLeaveCb.setValue(false);
+                    new lx.component.Messagebox({ message: 'Unable to load department default leave.' });
+                    return;
+                }
+
+                departmentDefaultLeaveTypeIds = response.leaveTypes
+                    .filter(function (leaveType) { return leaveType.isSubscribed === true; })
+                    .map(function (leaveType) { return String(leaveType.id); });
+                departmentDefaultLeaveDepartmentId = departmentId;
+
+                for (let i = 0; i < leaveTypes.length; i++) {
+                    if (departmentDefaultLeaveTypeIds.indexOf(String(leaveTypes[i].leaveTypeId)) !== -1) {
+                        setLeaveTypeSubscribed(leaveTypes[i], true);
+                    }
+                }
+                formChanged = true;
+            }
+        });
+    }
+
+    function useDepartmentDefaultLeaveCbChangeEventHandler() {
+        formChanged = true;
+        if (useDepartmentDefaultLeaveCb.getValue()) {
+            loadDepartmentDefaultLeave();
+        }
+        else {
+            departmentDefaultLeaveRequestId++;
+            departmentDefaultLeaveLoadingDepartmentId = null;
+            clearDepartmentDefaultLeave();
+        }
+    }
+
+    function workScheduleDayControls() {
+        return [
+            { name: 'monday', workDay: mondayDWCb, scheduleDay: mondayCb, hours: mondayHoursTxt, onChange: mondayCbOnChangeEventHandler },
+            { name: 'tuesday', workDay: tuesdayDWCb, scheduleDay: tuesdayCb, hours: tuesdayHoursTxt, onChange: tuesdayCbOnChangeEventHandler },
+            { name: 'wednesday', workDay: wednesdayDWCb, scheduleDay: wednesdayCb, hours: wednesdayHoursTxt, onChange: wednesdayCbOnChangeEventHandler },
+            { name: 'thursday', workDay: thursdayDWCb, scheduleDay: thursdayCb, hours: thursdayHoursTxt, onChange: thursdayCbOnChangeEventHandler },
+            { name: 'friday', workDay: fridayDWCb, scheduleDay: fridayCb, hours: fridayHoursTxt, onChange: fridayCbOnChangeEventHandler },
+            { name: 'saturday', workDay: saturdayDWCb, scheduleDay: saturdayCb, hours: saturdayHoursTxt, onChange: saturdayCbOnChangeEventHandler },
+            { name: 'sunday', workDay: sundayDWCb, scheduleDay: sundayCb, hours: sundayHoursTxt, onChange: sundayCbOnChangeEventHandler }
+        ];
+    }
+
+    function clearWorkScheduleSelections() {
+        workScheduleCb.setValue(false);
+        workScheduleCbChangeEventHandler();
+        workScheduleDayControls().forEach(function (day) {
+            day.workDay.setValue(false);
+            day.scheduleDay.setValue(false);
+            day.onChange();
+            day.hours.setValue('');
+        });
+    }
+
+    function uncheckDepartmentDefaultWorkSchedule() {
+        changingDepartmentDefaultWorkScheduleCb = true;
+        useDepartmentDefaultWorkScheduleCb.setValue(false);
+        changingDepartmentDefaultWorkScheduleCb = false;
+    }
+
+    function loadDepartmentDefaultWorkSchedule() {
+        if (!useDepartmentDefaultWorkScheduleCb.getValue()) {
+            return;
+        }
+
+        let departmentId = departmentSelect.getValue();
+        if (departmentId === null || departmentId === undefined || departmentId === '') {
+            departmentDefaultWorkScheduleRequestId++;
+            departmentDefaultWorkScheduleLoadingDepartmentId = null;
+            if (departmentDefaultWorkScheduleDepartmentId !== null) {
+                clearWorkScheduleSelections();
+                departmentDefaultWorkScheduleDepartmentId = null;
+            }
+            uncheckDepartmentDefaultWorkSchedule();
+            new lx.component.Messagebox({ message: 'Please select a department to use its default work schedule/work days.' });
+            return;
+        }
+
+        departmentId = String(departmentId);
+        departmentDefaultWorkScheduleRequestId++;
+        let requestId = departmentDefaultWorkScheduleRequestId;
+        departmentDefaultWorkScheduleLoadingDepartmentId = departmentId;
+        if (departmentDefaultWorkScheduleDepartmentId !== null) {
+            clearWorkScheduleSelections();
+            departmentDefaultWorkScheduleDepartmentId = null;
+        }
+
+        lx.sendJSON({
+            url: 'exec.php?c=Department&fn=get',
+            data: { departmentId: parseInt(departmentId, 10) },
+            onSuccess: function (responseText) {
+                if (requestId !== departmentDefaultWorkScheduleRequestId ||
+                    !useDepartmentDefaultWorkScheduleCb.getValue() ||
+                    String(departmentSelect.getValue()) !== departmentId) {
+                    return;
+                }
+
+                departmentDefaultWorkScheduleLoadingDepartmentId = null;
+                let response = JSON.parse(responseText);
+                if (response.ok !== true || !response.department || !response.department.workSchedule) {
+                    uncheckDepartmentDefaultWorkSchedule();
+                    new lx.component.Messagebox({ message: 'No department default work schedule/work days could be loaded.' });
+                    return;
+                }
+
+                let schedule = response.department.workSchedule;
+                let days = workScheduleDayControls();
+                let hasWorkDays = days.some(function (day) { return schedule[day.name + 'wd'] === true; });
+                let hasScheduleHours = days.some(function (day) { return schedule[day.name] !== null; });
+                if ((schedule.wdEnableLeave === true && schedule.enableLeave === true) ||
+                    (schedule.wdEnableLeave === true && !hasWorkDays) ||
+                    (schedule.enableLeave === true && !hasScheduleHours) ||
+                    (schedule.wdEnableLeave !== true && schedule.enableLeave !== true)) {
+                    uncheckDepartmentDefaultWorkSchedule();
+                    new lx.component.Messagebox({ message: 'This department does not have a usable work schedule/work days default.' });
+                    return;
+                }
+
+                clearWorkScheduleSelections();
+                if (schedule.wdEnableLeave === true) {
+                    days.forEach(function (day) {
+                        day.workDay.setValue(schedule[day.name + 'wd'] === true);
+                    });
+                }
+                else {
+                    workScheduleCb.setValue(true);
+                    workScheduleCbChangeEventHandler();
+                    days.forEach(function (day) {
+                        if (schedule[day.name] !== null) {
+                            day.scheduleDay.setValue(true);
+                            day.onChange();
+                            day.hours.setValue(schedule[day.name]);
+                        }
+                    });
+                }
+                departmentDefaultWorkScheduleDepartmentId = departmentId;
+                formChanged = true;
+            }
+        });
+    }
+
+    function useDepartmentDefaultWorkScheduleCbChangeEventHandler() {
+        if (changingDepartmentDefaultWorkScheduleCb) {
+            return;
+        }
+        formChanged = true;
+        if (useDepartmentDefaultWorkScheduleCb.getValue()) {
+            loadDepartmentDefaultWorkSchedule();
+        }
+        else {
+            departmentDefaultWorkScheduleRequestId++;
+            departmentDefaultWorkScheduleLoadingDepartmentId = null;
+            departmentDefaultWorkScheduleDepartmentId = null;
+            clearWorkScheduleSelections();
+        }
+    }
+
+    function refreshDepartmentDefaultWorkSchedule() {
+        if (useDepartmentDefaultWorkScheduleCb.getValue()) {
+            let selectedDepartmentId = String(departmentSelect.getValue());
+            if (departmentDefaultWorkScheduleDepartmentId !== selectedDepartmentId &&
+                departmentDefaultWorkScheduleLoadingDepartmentId !== selectedDepartmentId) {
+                loadDepartmentDefaultWorkSchedule();
+            }
+        }
     }
 
     // Function to add employee
@@ -1519,37 +1757,30 @@ app.panel.AddEmployeeWizard = function (config) {
         if (workScheduleCb.getValue()) {
             if (mondayCb.getValue()) {
                 mondayValue = mondayHoursTxt.getValue();
-                mondayWd = mondayCb.getValue()
             }
 
             if (tuesdayCb.getValue()) {
                 tuesdayValue = tuesdayHoursTxt.getValue();
-                tuesdayWd = tuesdayCb.getValue()
             }
 
             if (wednesdayCb.getValue()) {
                 wednesdayValue = wednesdayHoursTxt.getValue();
-                wednesdayWd = wednesdayCb.getValue()
             }
 
             if (thursdayCb.getValue()) {
                 thursdayValue = thursdayHoursTxt.getValue();
-                thursdayWd = thursdayCb.getValue()
             }
 
             if (fridayCb.getValue()) {
                 fridayValue = fridayHoursTxt.getValue();
-                fridayWd = fridayCb.getValue()
             }
 
             if (saturdayCb.getValue()) {
                 saturdayValue = saturdayHoursTxt.getValue();
-                saturdayWd = saturdayCb.getValue()
             }
 
             if (sundayCb.getValue()) {
                 sundayValue = sundayHoursTxt.getValue();
-                sundayWd = sundayCb.getValue()
             }
         } else if ((workScheduleCb.getValue() == false) && daysWorked) {
 
@@ -4586,6 +4817,15 @@ app.panel.AddEmployeeWizard = function (config) {
                 '&quot;Setup&quot; option in the main menu and going to the &quot;Leave Setup&quot; section.'
         });
 
+        useDepartmentDefaultLeaveCb = new lx.component.Checkbox({
+            renderTo: wizardPage5ContainerEl,
+            label: 'Use Department default leave',
+            labelAlign: 'right',
+            margin: '0px 0px 15px 0px',
+            isChecked: false,
+            onChange: useDepartmentDefaultLeaveCbChangeEventHandler
+        });
+
         leaveTypeSectionEl = lx.createElement('DIV', {
             parent: wizardPage5ContainerEl,
             style: {
@@ -4701,6 +4941,15 @@ app.panel.AddEmployeeWizard = function (config) {
         //     },
         //     innerHTML: '<div>Work Schedule</div>'
         // });
+
+        useDepartmentDefaultWorkScheduleCb = new lx.component.Checkbox({
+            renderTo: wizardPage6ContainerEl,
+            label: 'Use Department default work schedule/work days',
+            labelAlign: 'right',
+            margin: '0px 0px 15px 0px',
+            isChecked: false,
+            onChange: useDepartmentDefaultWorkScheduleCbChangeEventHandler
+        });
 
         // Create the workScheduleSectionEl element
         workScheduleSectionEl = lx.createElement('DIV', {
@@ -5884,6 +6133,14 @@ app.panel.AddEmployeeWizard = function (config) {
             wizardPage4ContainerEl.style.display = 'none';
             wizardPage5ContainerEl.style.display = 'flex';
 
+            if (useDepartmentDefaultLeaveCb.getValue()) {
+                let selectedDepartmentId = String(departmentSelect.getValue());
+                if (departmentDefaultLeaveDepartmentId !== selectedDepartmentId &&
+                    departmentDefaultLeaveLoadingDepartmentId !== selectedDepartmentId) {
+                    loadDepartmentDefaultLeave();
+                }
+            }
+
             // Enable the previous button
             wizardPreviousBtn.enable();
 
@@ -5898,6 +6155,13 @@ app.panel.AddEmployeeWizard = function (config) {
             wizardNextBtn.enable();
         }
         else if (pageNum === 5) {
+            if (useDepartmentDefaultLeaveCb.getValue() &&
+                (!leaveTypesLoaded || departmentDefaultLeaveLoadingDepartmentId !== null ||
+                    departmentDefaultLeaveDepartmentId !== String(departmentSelect.getValue()))) {
+                wizardNextBtn.showWarning('Please wait for the department default leave to load.');
+                return;
+            }
+
             // Get the leave items
             let leave = [];
             let hasHourlyLeave = false;
@@ -5946,6 +6210,7 @@ app.panel.AddEmployeeWizard = function (config) {
                             // Display the next page
                             wizardPage5ContainerEl.style.display = 'none';
                             wizardPage6ContainerEl.style.display = 'flex';
+                            refreshDepartmentDefaultWorkSchedule();
 
                             // Enable the previous button
                             wizardPreviousBtn.enable();
@@ -6007,6 +6272,7 @@ app.panel.AddEmployeeWizard = function (config) {
                                 // Display the next page
                                 wizardPage5ContainerEl.style.display = 'none';
                                 wizardPage6ContainerEl.style.display = 'flex';
+                                refreshDepartmentDefaultWorkSchedule();
 
                                 // Enable the previous button
                                 wizardPreviousBtn.enable();
@@ -6041,6 +6307,7 @@ app.panel.AddEmployeeWizard = function (config) {
                     // Display the next page
                     wizardPage5ContainerEl.style.display = 'none';
                     wizardPage6ContainerEl.style.display = 'flex';
+                    refreshDepartmentDefaultWorkSchedule();
 
                     // Enable the previous button
                     wizardPreviousBtn.enable();
@@ -6059,6 +6326,13 @@ app.panel.AddEmployeeWizard = function (config) {
             }
         }
         else if (pageNum === 6) {
+            if (useDepartmentDefaultWorkScheduleCb.getValue() &&
+                (departmentDefaultWorkScheduleLoadingDepartmentId !== null ||
+                    departmentDefaultWorkScheduleDepartmentId !== String(departmentSelect.getValue()))) {
+                wizardNextBtn.showWarning('Please wait for the department default work schedule/work days to load.');
+                return;
+            }
+
             // Determine if the employee has daily income
             let hasDailyIncome = false;
             for (let i = 0; i < payslipItems.length; i++) {
@@ -6068,7 +6342,7 @@ app.panel.AddEmployeeWizard = function (config) {
                 }
             }
             daysWorked = (mondayDWCb.getValue() || tuesdayDWCb.getValue() || wednesdayDWCb.getValue() || thursdayDWCb.getValue() ||
-                fridayDWCb.getValue() || saturdayCb.getValue() || sundayCb.getValue());
+                fridayDWCb.getValue() || saturdayDWCb.getValue() || sundayDWCb.getValue());
 
             // console.log("Work schedule: " + workScheduleCb.getValue());
             if ((workScheduleCb.getValue() == false) && (daysWorked == false) && (hasDailyIncome == false)) {
@@ -6906,6 +7180,18 @@ app.panel.AddEmployeeWizard = function (config) {
     // workScheduleCb on change event handler
     function workScheduleCbChangeEventHandler() {
         if (workScheduleCb.getValue() === false) {
+            const dayCheckboxPairs = [
+                { source: mondayCb, target: mondayDWCb },
+                { source: tuesdayCb, target: tuesdayDWCb },
+                { source: wednesdayCb, target: wednesdayDWCb },
+                { source: thursdayCb, target: thursdayDWCb },
+                { source: fridayCb, target: fridayDWCb },
+                { source: saturdayCb, target: saturdayDWCb },
+                { source: sundayCb, target: sundayDWCb }
+            ];
+            dayCheckboxPairs.forEach(pair => {
+                pair.target.setValue(pair.source.getValue());
+            });
             lx.applyStyle(workScheduleContainerEl, { display: 'none' });
             lx.applyStyle(daysWorkedSectionEl, { display: 'block' });
         }

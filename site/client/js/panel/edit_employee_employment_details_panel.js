@@ -360,7 +360,7 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
 
                         bweeCustomContainerEl.style.display = 'none';
                     }
-                } else if(response.employee.paymentPeriodCode === 'TWMO'){
+                } else if (response.employee.paymentPeriodCode === 'TWMO') {
                     paymentPeriodEndDaySelect.hide();
                     paymentDaySelect.hide();
 
@@ -1301,8 +1301,8 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
         var employmentEnd = employmentEndDate.getValue();
         if (employmentEnd == '') employmentEnd = null;
 
-        console.log(bweeCustomPaymentPeriodStartDatePicker.getValue());
-        console.log(bweeCustomPaymentDayDatePicker.getValue());
+        // console.log(bweeCustomPaymentPeriodStartDatePicker.getValue());
+        // console.log(bweeCustomPaymentDayDatePicker.getValue());
 
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=update',

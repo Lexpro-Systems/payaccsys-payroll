@@ -7478,6 +7478,17 @@ class Employee extends Controller
                 }
                 $sqlRow = $sqlResult->fetchAssociative();
                 $employeeId = $sqlRow['id'];
+
+                if (!$this->applyDepartmentDefaultLeaveSubscriptions($db, (int)$employeeId, $departmentId)) {
+                    echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default leave subscriptions.']));
+                    return false;
+                }
+
+                if (!$this->applyDepartmentDefaultWorkSchedule($db, (int)$employeeId, $departmentId)) {
+                    echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default work schedule/work days.']));
+                    return false;
+                }
+
                 // Build the query to insert the item.
                 $sqlQuery =
                     'INSERT INTO ' .
@@ -7828,6 +7839,70 @@ class Employee extends Controller
                 ($day >= 1 && $day <= 28);
         }
         return false;
+    }
+
+    // Apply the department's leave subscriptions to a newly imported employee.
+    private function applyDepartmentDefaultLeaveSubscriptions($db, int $employeeId, ?int $departmentId): bool
+    {
+        if ($departmentId === null) {
+            return true;
+        }
+
+        $sqlQuery =
+            'INSERT INTO leave_config_items (employee_id, leave_type_id) ' .
+            'SELECT DISTINCT $1, department_leave.leave_type_id ' .
+            'FROM leave_config_items AS department_leave ' .
+            'WHERE department_leave.department_id = $2 ' .
+            'AND department_leave.employee_id IS NULL ' .
+            'AND NOT EXISTS ( ' .
+            'SELECT 1 FROM leave_config_items AS employee_leave ' .
+            'WHERE employee_leave.employee_id = $1 ' .
+            'AND employee_leave.leave_type_id = department_leave.leave_type_id ' .
+            ');';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $employeeId,
+            $departmentId
+        ]);
+
+        return $sqlResult->isValid();
+    }
+
+    // Apply the department's work schedule or work days to a newly imported employee.
+    private function applyDepartmentDefaultWorkSchedule($db, int $employeeId, ?int $departmentId): bool
+    {
+        if ($departmentId === null) {
+            return true;
+        }
+
+        $sqlQuery =
+            'INSERT INTO work_schedules ( ' .
+            'employee_id, department_id, enable_leave, ' .
+            'monday_hours, tuesday_hours, wednesday_hours, thursday_hours, friday_hours, saturday_hours, sunday_hours, ' .
+            'monday_wd, tuesday_wd, wednesday_wd, thursday_wd, friday_wd, saturday_wd, sunday_wd, wd_enable_leave ' .
+            ') ' .
+            'SELECT ' .
+            '$1, NULL, department_schedule.enable_leave, ' .
+            'department_schedule.monday_hours, department_schedule.tuesday_hours, department_schedule.wednesday_hours, ' .
+            'department_schedule.thursday_hours, department_schedule.friday_hours, department_schedule.saturday_hours, ' .
+            'department_schedule.sunday_hours, department_schedule.monday_wd, department_schedule.tuesday_wd, ' .
+            'department_schedule.wednesday_wd, department_schedule.thursday_wd, department_schedule.friday_wd, ' .
+            'department_schedule.saturday_wd, department_schedule.sunday_wd, department_schedule.wd_enable_leave ' .
+            'FROM work_schedules AS department_schedule ' .
+            'WHERE department_schedule.department_id = $2 ' .
+            'AND department_schedule.employee_id IS NULL ' .
+            'AND NOT EXISTS ( ' .
+            'SELECT 1 FROM work_schedules AS employee_schedule ' .
+            'WHERE employee_schedule.employee_id = $1 ' .
+            ') ' .
+            'LIMIT 1;';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $employeeId,
+            $departmentId
+        ]);
+
+        return $sqlResult->isValid();
     }
 
     //Helper function to ensure department default payslip items are applied to an employee when they are created/imported or moved to a new department.

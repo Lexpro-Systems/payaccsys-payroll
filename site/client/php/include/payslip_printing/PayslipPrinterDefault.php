@@ -834,7 +834,7 @@ class PayslipPrinter extends PayslipPrinterBase
 
         if (!empty($this->encryptionPassword)) {
             // Debugging
-            error_log('SetProtection executing inside printPayslip...');
+            // error_log('SetProtection executing inside printPayslip...');
             $this->pdf->SetProtection(
                 ['print'],
                 $this->encryptionPassword,
@@ -844,7 +844,7 @@ class PayslipPrinter extends PayslipPrinterBase
         }
 
 
-        error_log('printPayslip finished building PDF');
+        //error_log('printPayslip finished building PDF');
 
 
         return true;

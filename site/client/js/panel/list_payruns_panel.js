@@ -230,15 +230,15 @@ app.panel.ListPayruns = function (config) {
             innerHTML: 'Payruns'
         });
 
-        importPayrunBtn = new lx.component.Button({
-            renderTo: titleContainerEl,
-            label: 'Import Payrun',
-            height: '32px',
-            width: '120px',
-            margin: '0px 0px 0px auto',
+        // importPayrunBtn = new lx.component.Button({
+        //     renderTo: titleContainerEl,
+        //     label: 'Import Payrun',
+        //     height: '32px',
+        //     width: '120px',
+        //     margin: '0px 0px 0px auto',
 
-            onClick: importPayrunBtnClickEventHandler
-        });
+        //     onClick: importPayrunBtnClickEventHandler
+        // });
 
         // Create the addBtn component
         addBtn = new lx.component.Button({
@@ -246,7 +246,8 @@ app.panel.ListPayruns = function (config) {
             label: 'Add Payrun',
             height: '32px',
             width: '120px',
-            margin: '0px 20px 0px 20px',
+            //margin: '0px 20px 0px 20px',
+            margin: '0px 20px 0px auto',
 
             onClick: addBtnClickEventHandler
         });

@@ -15,29 +15,29 @@
 //
 //  onDestroy           This event is fired just before the panel is destroyed.
 //
-app.panel.CoidaReport = function(config) {
-    
+app.panel.CoidaReport = function (config) {
+
     //
     // PRIVATE VARIABLES
     //
-    
+
     var me = this;
     var confirmDestroy = null;
-    
+
     var el = null;
-    
+
     var titleContainerEl = null;
     var titleBackEl = null;
     var titleTextEl = null;
-    
+
     var exportExcelBtn = null;
     var exportCsvBtn = null;
     var exportPdfBtn = null;
-    
+
     var loaderContainerEl = null;
     var contentContainerEl = null;
     var loader = null;
-    
+
     var filterSectionEl = null;
     var departmentSelect = null;
     var employeeStatusSelect = null;
@@ -46,17 +46,17 @@ app.panel.CoidaReport = function(config) {
     var filterTaxPeriodSelect = null;
     var filterDisableEarningsCapRadio = null;
     var earningsCapTooltip = null
-    
+
     var employeesGrid = null;
-    
-    
+
+
     //
     // OBJECT EXTENSIONS
     //
-    
+
     lx.EventEmitter.call(this);
-    
-    
+
+
     //
     // PRIVATE FUNCTIONS
     //
@@ -71,35 +71,35 @@ app.panel.CoidaReport = function(config) {
                 offset: filterTaxPeriodSelect.getItemCount(),
                 sortOrder: 'DESC'
             },
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Loading Tax Periods Failed',
                         message: response.error
                     });
                     return;
                 }
-                
+
                 var taxYears = [];
-                for( var i = 0; i < response.taxYears.length; i++ ) {
+                for (var i = 0; i < response.taxYears.length; i++) {
                     taxYears.push({
                         value: response.taxYears[i].year,
                         text: (response.taxYears[i].year - 1) + ' / ' + response.taxYears[i].year
                     });
                 }
-                filterTaxPeriodSelect.addItems( taxYears );
+                filterTaxPeriodSelect.addItems(taxYears);
             }
         });
     }
-    
-    
-    function loadEmployees( clearGrid ) {
+
+
+    function loadEmployees(clearGrid) {
         let offset = 0;
-        if( !clearGrid ) offset = employeesGrid.getRowCount();
-        
-        
+        if (!clearGrid) offset = employeesGrid.getRowCount();
+
+
         lx.sendJSON({
             url: 'exec.php?c=Report&fn=getEmployeeDetailsList',
             data: {
@@ -111,18 +111,18 @@ app.panel.CoidaReport = function(config) {
                 employmentStartDate: employmentStartDate.getValue(),
                 employmentEndDate: employmentEndDate.getValue()
             },
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Loading Employees Failed',
                         message: response.error
                     });
                 }
-                
+
                 var employees = [];
-                for( var i = 0; i < response.employees.length; i++ ) {
+                for (var i = 0; i < response.employees.length; i++) {
                     let employmentDate = response.employees[i].employmentStartDate + ' to ' + response.employees[i].employmentEndDate;
                     if (response.employees[i].employmentEndDate === null) {
                         employmentDate = response.employees[i].employmentStartDate + ' to present';
@@ -140,54 +140,54 @@ app.panel.CoidaReport = function(config) {
                         spacer: ''
                     });
                 }
-                
+
                 // Should the grid be cleared?
-                if( clearGrid ) employeesGrid.clear();
-                
-                employeesGrid.addRows( employees );
+                if (clearGrid) employeesGrid.clear();
+
+                employeesGrid.addRows(employees);
             }
         });
     }
-    
+
     function loadDepartments() {
         lx.sendJSON({
             url: 'exec.php?c=Department&fn=getList',
             data: {
                 searchString: departmentSelect.getSearchString(),
                 limit: 10,
-                offset: departmentSelect.getItemCount() -1,
+                offset: departmentSelect.getItemCount() - 1,
                 sortOrder: 'ASC'
             },
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Loading Departments Failed',
                         message: response.error
                     });
                 }
-                
+
                 var departments = [];
-                for( var i = 0; i < response.departments.length; i++ ) {
-                    
+                for (var i = 0; i < response.departments.length; i++) {
+
                     departments.push({
                         value: response.departments[i].id,
                         text: response.departments[i].name
                     });
-                    
+
                 }
-                departmentSelect.addItems( departments );
+                departmentSelect.addItems(departments);
             }
         });
     }
-    
-    
+
+
     //
     // PUBLIC FUNCTIONS
     //
-    
-    me.init = function( config ) {
+
+    me.init = function (config) {
         // Initialize component config
         var compConfig = {
             renderTo: null,
@@ -196,20 +196,20 @@ app.panel.CoidaReport = function(config) {
             flex: '1 1 100%',
             show: false
         };
-        
+
         // Parse user config
-        if( typeof config !== 'undefined' && config !== null ) {
-            for( var property in config ) {
-                if( config.hasOwnProperty(property) ) compConfig[property] = config[property];
+        if (typeof config !== 'undefined' && config !== null) {
+            for (var property in config) {
+                if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
-        
+
         // Attach external event handlers
-        if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
-        
+        if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
+
         // Initialize state
         confirmDestroy = false;
-        
+
         // Create root element
         el = lx.createElement('DIV', {
             parent: compConfig.renderTo,
@@ -225,12 +225,12 @@ app.panel.CoidaReport = function(config) {
                 backgroundColor: '#F4F5F6'
             }
         });
-        
-        
+
+
         //
         // TITLE SECTION
         //
-        
+
         titleContainerEl = lx.createElement('DIV', {
             parent: el,
             style: {
@@ -247,7 +247,7 @@ app.panel.CoidaReport = function(config) {
                 borderWidth: '0px 0px 1px 0px'
             }
         });
-        
+
         // Create the titleBackEl element
         titleBackEl = lx.createElement('DIV', {
             parent: titleContainerEl,
@@ -260,10 +260,10 @@ app.panel.CoidaReport = function(config) {
                 cursor: 'pointer'
             }
         });
-        titleBackEl.appendChild( lx.icon.create('left_arrow', '#444D5A', 18, 1.2) );
+        titleBackEl.appendChild(lx.icon.create('left_arrow', '#444D5A', 18, 1.2));
         titleBackEl.addEventListener('click', titleBackElClickEventHandler);
-        titleContainerEl.appendChild( titleBackEl );
-        
+        titleContainerEl.appendChild(titleBackEl);
+
         // Create the title text element
         titleTextEl = lx.createElement('DIV', {
             parent: titleContainerEl,
@@ -274,42 +274,42 @@ app.panel.CoidaReport = function(config) {
             },
             innerHTML: 'COIDA Detailed Payroll Report'
         });
-        
+
         // Create the exportExcelBtn component
         exportExcelBtn = new lx.component.Button({
             renderTo: titleContainerEl,
             label: 'Excel Export',
             width: '130px',
             margin: '0px 0px 0px auto',
-            
+
             onClick: exportExcelBtnOnClickEventHandler
         });
-        
+
         // Create the exportCsvBtn component
         exportCsvBtn = new lx.component.Button({
             renderTo: titleContainerEl,
             label: 'CSV Export',
             width: '130px',
             margin: '0px 0px 0px 20px',
-            
+
             onClick: exportCsvBtnOnClickEventHandler
         });
-        
+
         // Create the exportPdfBtn component
         exportPdfBtn = new lx.component.Button({
             renderTo: titleContainerEl,
             label: 'PDF Export',
             width: '130px',
             margin: '0px 20px 0px 20px',
-            
+
             onClick: exportPdfBtnOnClickEventHandler
         });
-        
-        
+
+
         //
         // CONTENT SECTION
         //
-        
+
         // Create loaderContainerEl
         loaderContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -320,12 +320,12 @@ app.panel.CoidaReport = function(config) {
                 overflow: 'hidden'
             }
         });
-        
+
         // Create our loader
         loader = new lx.component.Loader({
             renderTo: loaderContainerEl
         });
-        
+
         // Create the content container
         contentContainerEl = lx.createElement('DIV', {
             parent: loaderContainerEl,
@@ -339,12 +339,12 @@ app.panel.CoidaReport = function(config) {
                 overflow: 'auto'
             }
         });
-        
-        
+
+
         //
         // FILTER SECTION
         //
-        
+
         // Create the exampleSectionEl element
         filterSectionEl = lx.createElement('DIV', {
             parent: contentContainerEl,
@@ -356,7 +356,7 @@ app.panel.CoidaReport = function(config) {
                 flexDirection: 'row'
             }
         });
-        
+
         departmentSelect = new lx.component.Selectbox({
             renderTo: filterSectionEl,
             labelAlignment: 'left',
@@ -364,35 +364,35 @@ app.panel.CoidaReport = function(config) {
             height: '32px',
             margin: '0px 20px 0px 0px',
             label: 'Departments',
-            
+
             search: true,
-            
-            onSearch: function() {
+
+            onSearch: function () {
                 departmentSelect.clear();
                 var departments = [];
                 departments.push({
                     value: null,
                     text: 'All Departments'
                 });
-                departmentSelect.addItems( departments );
+                departmentSelect.addItems(departments);
                 loadDepartments();
             },
-            
-            onListScrollEnd: function() {
+
+            onListScrollEnd: function () {
                 loadDepartments();
             },
-            
+
             onChange: filterOnChangeEventHandler
         });
-        
+
         var departments = [];
         departments.push({
             value: null,
             text: 'All Departments'
         });
-        departmentSelect.addItems( departments );
+        departmentSelect.addItems(departments);
         departmentSelect.setValue(null, 'All Departments');
-        
+
         // Create employeeStatusSelect component
         employeeStatusSelect = new lx.component.Selectbox({
             renderTo: filterSectionEl,
@@ -400,17 +400,17 @@ app.panel.CoidaReport = function(config) {
             height: '32px',
             margin: '0px 20px 0px 0px',
             label: 'Employment Status',
-            
+
             items: [
-                {text: 'All Employees', value: 'all'},
-                {text: 'Employed Only', value: 'employed'},
-                {text: 'Dismissed Only', value: 'dismissed'}
+                { text: 'All Employees', value: 'all' },
+                { text: 'Employed Only', value: 'employed' },
+                { text: 'Dismissed Only', value: 'dismissed' }
             ],
-            
+
             onChange: filterOnChangeEventHandler
         });
         employeeStatusSelect.setValue('employed', 'Employed Only');
-        
+
         // Create employeeStatusSelect component
         // employmentStartDate = new lx.component.DatePicker({
         //     renderTo: filterSectionEl,
@@ -418,10 +418,10 @@ app.panel.CoidaReport = function(config) {
         //     margin: '0px 20px 0px 0px',
         //     height: '32px',
         //     label: 'Employment Start Date',
-            
+
         //     onChange: filterOnChangeEventHandler
         // });
-        
+
         // Create employeeStatusSelect component
         // employmentEndDate = new lx.component.DatePicker({
         //     renderTo: filterSectionEl,
@@ -429,7 +429,7 @@ app.panel.CoidaReport = function(config) {
         //     margin: '0px 20px 0px 0px',
         //     height: '32px',
         //     label: 'Employment End Date',
-            
+
         //     onChange: filterOnChangeEventHandler
         // });
 
@@ -440,7 +440,7 @@ app.panel.CoidaReport = function(config) {
             height: '32px',
             label: 'Tax Period',
             margin: '0px 20px 0px 0px',
-            
+
             onChange: filterOnChangeEventHandler
         });
 
@@ -452,14 +452,14 @@ app.panel.CoidaReport = function(config) {
             height: '32px',
             margin: '0px 20px 0px 0px',
             items: [
-                {text: 'Yes', value: true},
-                {text: 'No', value: false}
+                { text: 'Yes', value: true },
+                { text: 'No', value: false }
             ],
-            
+
             onChange: filterOnChangeEventHandler
         });
         filterDisableEarningsCapRadio.setValue(false);
-        
+
         // Create the tooltipLocusEl element
         let tooltipLocusEl = lx.createElement('DIV', {
             parent: filterSectionEl,
@@ -470,7 +470,7 @@ app.panel.CoidaReport = function(config) {
                 height: '90%'
             }
         });
-        
+
         // Create an info icon
         let fileNumberInfoEl = new lx.createElement('DIV', {
             parent: filterSectionEl,
@@ -489,9 +489,9 @@ app.panel.CoidaReport = function(config) {
             },
             innerHTML: '<i class="fa fa-question" style="margin: auto auto;"></i>'
         });
-        fileNumberInfoEl.addEventListener('mouseenter', function() { earningsCapTooltip.show(); });
-        fileNumberInfoEl.addEventListener('mouseleave', function() { earningsCapTooltip.hide(); });
-        
+        fileNumberInfoEl.addEventListener('mouseenter', function () { earningsCapTooltip.show(); });
+        fileNumberInfoEl.addEventListener('mouseleave', function () { earningsCapTooltip.hide(); });
+
         // Create earningsCapTooltip element
         earningsCapTooltip = new lx.component.Tooltip({
             renderTo: tooltipLocusEl,
@@ -501,124 +501,124 @@ app.panel.CoidaReport = function(config) {
             maxWidth: '420px',
             margin: '5px 10px',
             backgroundColor: '#3B81EB', // '#4885F4',
-            message: 
-                '<span style="font-size: 12px;">' +  
-                    'Please note that the amount of earnings (staff costs/salaries & wages) should be capped to the prescribed ' + 
-                    'maximum amount per person for the selected tax period for the purposes of the Return  of Earnings (ROE) report.' +
-                    '<br><br>' +
-                    'The threshold is implemented by divding the prescribed maximum amount by the number of months of the ' +
-                    'report (12) and capping the monthly earnings of each employee to this amount.' +
+            message:
+                '<span style="font-size: 12px;">' +
+                'Please note that the amount of earnings (staff costs/salaries & wages) should be capped to the prescribed ' +
+                'maximum amount per person for the selected tax period for the purposes of the Return  of Earnings (ROE) report.' +
+                '<br><br>' +
+                'The threshold is implemented by divding the prescribed maximum amount by the number of months of the ' +
+                'report (12) and capping the monthly earnings of each employee to this amount.' +
                 '</span>'
         });
-        
+
         //
         // RESULT GRID
         //
-        
+
         employeesGrid = new lx.component.Grid({
             renderTo: contentContainerEl,
             width: '100%',
             flex: '1 1 100%',
             columns: [
-                {dataIndex: 'name', name: 'Name'},
-                {dataIndex: 'idno', name: 'ID Number', width: '130px'},
-                {dataIndex: 'email', name: 'Email Address', width:'300px'},
-                {dataIndex: 'cellphone', name:'Cellphone Number', width:'150px'},
-                {dataIndex: 'wage_types', name: 'Wage Types'},
-                {dataIndex: 'gross_income', name: 'Gross Income', width: '130px', alignment: 'right'}
+                { dataIndex: 'name', name: 'Name' },
+                { dataIndex: 'idno', name: 'ID Number', width: '130px' },
+                { dataIndex: 'email', name: 'Email Address', width: '300px' },
+                { dataIndex: 'cellphone', name: 'Cellphone Number', width: '150px' },
+                { dataIndex: 'wage_types', name: 'Wage Types' },
+                { dataIndex: 'gross_income', name: 'Gross Income', width: '130px', alignment: 'right' }
             ],
-            
+
             onScrollEnd: employeesGridScrollEndEventHandler,
             onCellClick: employeesGridCellClickEventHandler
         });
-        
+
         // loadEmployees( true );
         loadDepartments();
         loadTaxPeriods();
-        
+
         // If show is set to true show the panel.
-        if( compConfig.show === true ) me.show();
+        if (compConfig.show === true) me.show();
     };
-    
+
     // Function to set the renderTo target of the panel.
     //
     // renderTo         The new DOM element to render this component to.
-    me.setRenderTarget = function(renderTo) {
+    me.setRenderTarget = function (renderTo) {
         // Remove it from its current target
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         // Add it to the new renderTo element
-        renderTo.appendChild( el );
+        renderTo.appendChild(el);
     };
-    
+
     // Function to show the panel
-    me.show = function() {
-        lx.applyStyle(el, {display: 'flex'});
+    me.show = function () {
+        lx.applyStyle(el, { display: 'flex' });
     };
-    
+
     // Function to hide the panel
-    me.hide = function() {
-        lx.applyStyle(el, {display: 'none'});
+    me.hide = function () {
+        lx.applyStyle(el, { display: 'none' });
     };
-    
+
     // Function to set focus to the panel.
-    me.focus = function() {
+    me.focus = function () {
     };
-    
+
     // Function to destroy the panel and all its contents.
     //
     // NOTE: Must return true if the panel was destroyed successfully and false if the panel was not destroyed.
-    me.destroy = function() {
+    me.destroy = function () {
         // If there is a onDestroy event run that before destroying the panel
         me.fireEvent('destroy', null);
-        
+
         // Remove the panel from its parent
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         return true;
     };
-    
-    
+
+
     //
     // EVENT HANDLERS
     //
-    
-    function filterOnChangeEventHandler (){
+
+    function filterOnChangeEventHandler() {
         // Was no tax period selected?
-        if( (filterTaxPeriodSelect.getValue() == null) ) {
+        if ((filterTaxPeriodSelect.getValue() == null)) {
             earningsCapTooltip.setText(
-                '<span style="font-size: 12px;">' +  
-                    'Please note that the amount of earnings (staff costs/salaries & wages) should be capped to the prescribed ' + 
-                    'maximum amount per person for the selected tax period for the purposes of the Return  of Earnings (ROE) report.' +
-                    '<br><br>' +
-                    'The threshold is implemented by divding the prescribed maximum amount by the number of months of the ' +
-                    'report (12) and capping the monthly earnings of each employee to this amount.' +
+                '<span style="font-size: 12px;">' +
+                'Please note that the amount of earnings (staff costs/salaries & wages) should be capped to the prescribed ' +
+                'maximum amount per person for the selected tax period for the purposes of the Return  of Earnings (ROE) report.' +
+                '<br><br>' +
+                'The threshold is implemented by divding the prescribed maximum amount by the number of months of the ' +
+                'report (12) and capping the monthly earnings of each employee to this amount.' +
                 '</span>'
             );
             return;
         }
-        
+
         // Update the tooltip message with the earnings cap
         lx.sendJSON({
             url: 'exec.php?c=Payrun&fn=getCompensationFundEarningCap',
             data: {
                 taxYear: parseInt(filterTaxPeriodSelect.getValue())
             },
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 var response = JSON.parse(responseText);
-                
-                if( response.ok === true ) {
+
+                if (response.ok === true) {
                     earningsCapTooltip.setText(
-                        '<span style="font-size: 12px;">' +  
-                            'Please note that the amount of earnings (staff costs/salaries & wages) should be capped to the prescribed ' + 
-                            'maximum amount per person for the selected tax period for the purposes of the Return  of Earnings (ROE) report.' +
-                            '<br><br>' +
-                            'The threshold is implemented by divding the prescribed maximum amount by the number of months of the ' +
-                            'report (12) and capping the monthly earnings of each employee to this amount.' +
-                            '<br><br>' +
-                            'The prescribed earnings threshold for the selected period is <b>R ' + 
-                            lx.util.formatCurrency( response.earningsCap) + '</b> per annum or <b>R ' + 
-                            lx.util.formatCurrency( response.earningsCap/ 12 ) + '</b> per month.' + 
+                        '<span style="font-size: 12px;">' +
+                        'Please note that the amount of earnings (staff costs/salaries & wages) should be capped to the prescribed ' +
+                        'maximum amount per person for the selected tax period for the purposes of the Return  of Earnings (ROE) report.' +
+                        '<br><br>' +
+                        'The threshold is implemented by divding the prescribed maximum amount by the number of months of the ' +
+                        'report (12) and capping the monthly earnings of each employee to this amount.' +
+                        '<br><br>' +
+                        'The prescribed earnings threshold for the selected period is <b>R ' +
+                        lx.util.formatCurrency(response.earningsCap) + '</b> per annum or <b>R ' +
+                        lx.util.formatCurrency(response.earningsCap / 12) + '</b> per month.' +
                         '</span>'
                     );
                 }
@@ -634,55 +634,55 @@ app.panel.CoidaReport = function(config) {
                 employeeStatus: employeeStatusSelect.getValue(),
                 disableEarningsCap: filterDisableEarningsCapRadio.getValue()
             },
-            onSuccess: function( responseText ) {
+            onSuccess: function (responseText) {
                 var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
+
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Loading Detailed Payroll Report Failed',
                         message: response.error
                     });
                     return;
                 }
-                console.log(response.results);
+                //console.log(response.results);
                 var results = [];
-                for( let i = 0; i < response.results.length; i++ ) {
+                for (let i = 0; i < response.results.length; i++) {
                     // Add the results for the grid
                     results.push({
                         name: response.results[i].name,
                         idno: response.results[i].idno,
-                        email:response.results[i].email,
-                        cellphone:response.results[i].cellphone,
-                        wage_types:response.results[i].wage_types,
+                        email: response.results[i].email,
+                        cellphone: response.results[i].cellphone,
+                        wage_types: response.results[i].wage_types,
                         gross_income: lx.util.formatCurrency(response.results[i].gross_income)
                     });
                 }
-                
+
                 // // Add the totals for the grid
                 // results.push({
                 //     month: 'Total',
                 //     grossIncomeAmount: lx.util.formatCurrency(response.totals.grossIncomeTotal).slice(0, -3),
                 //     employeeCount: ''
                 // });
-                
+
                 // CLear and add the results to the grid
                 employeesGrid.clear();
-                employeesGrid.addRows( results );
+                employeesGrid.addRows(results);
             }
         });
     }
-    
-   // exportExcelBtn click event handler
-    function exportExcelBtnOnClickEventHandler () {
+
+    // exportExcelBtn click event handler
+    function exportExcelBtnOnClickEventHandler() {
         // Was NO tax period selected?
-        if( filterTaxPeriodSelect.getValue() === null ) {
+        if (filterTaxPeriodSelect.getValue() === null) {
             new lx.component.Messagebox({
                 title: 'No tax period selected',
                 message: 'Please select a tax period for the Return of Earnings (ROE) report.'
             });
             return;
         }
-        
+
         // Run the report
         lx.sendForm({
             url: 'exec.php?c=Report&fn=runDetailedPayrollReport',
@@ -696,18 +696,18 @@ app.panel.CoidaReport = function(config) {
             }
         });
     }
-    
+
     // exportCsvBtn click event handler
-    function exportCsvBtnOnClickEventHandler () {
+    function exportCsvBtnOnClickEventHandler() {
         // Was NO tax period selected?
-        if( filterTaxPeriodSelect.getValue() === null ) {
+        if (filterTaxPeriodSelect.getValue() === null) {
             new lx.component.Messagebox({
                 title: 'No tax period selected',
                 message: 'Please select a tax period for the Return of Earnings (ROE) report.'
             });
             return;
         }
-        
+
         // Run the report
         lx.sendForm({
             url: 'exec.php?c=Report&fn=runDetailedPayrollReport',
@@ -721,18 +721,18 @@ app.panel.CoidaReport = function(config) {
             }
         });
     }
-    
+
     // exportCsvBtn click event handler
     function exportPdfBtnOnClickEventHandler() {
         // Was NO tax period selected?
-        if( filterTaxPeriodSelect.getValue() === null ) {
+        if (filterTaxPeriodSelect.getValue() === null) {
             new lx.component.Messagebox({
                 title: 'No tax period selected',
                 message: 'Please select a tax period for the Return of Earnings (ROE) report.'
             });
             return;
         }
-        
+
         // Run the report
         lx.sendForm({
             url: 'exec.php?c=Report&fn=runDetailedPayrollPdfReport',
@@ -745,50 +745,50 @@ app.panel.CoidaReport = function(config) {
             }
         });
     }
-    
+
     // titleBackEl click event handler
     function titleBackElClickEventHandler() {
         app.route.popState();
     }
-    
+
     function employeesGridScrollEndEventHandler() {
-        loadEmployees( false );
+        loadEmployees(false);
     }
-    
-    function employeesGridCellClickEventHandler( event ) {
-        
-        if( employeesGrid.getColumnDataIndex( event.columnIndex ) === 'name' ) {
+
+    function employeesGridCellClickEventHandler(event) {
+
+        if (employeesGrid.getColumnDataIndex(event.columnIndex) === 'name') {
             me.hide();
-            
+
             var viewEmployeePanel = new app.panel.ViewEmployee({
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
-                
+
                 employeeId: event.record.id,
                 employeeName: event.record.name,
-                
-                onDestroy: function( event ) {
-                    if( event.refreshEmployees === true ) {
-                        loadEmployees( true );
+
+                onDestroy: function (event) {
+                    if (event.refreshEmployees === true) {
+                        loadEmployees(true);
                     }
                 }
             });
-            
+
             var panelState = {
                 previousPanel: me,
                 panel: viewEmployeePanel
             };
-            
-            app.route.pushState(panelState, function( state ) {
+
+            app.route.pushState(panelState, function (state) {
                 state.panel.destroy();
                 state.previousPanel.show();
             });
         }
     }
-    
+
     //
     // INITIALIZE OBJECT
     //
-    
-    me.init( config );
+
+    me.init(config);
 };

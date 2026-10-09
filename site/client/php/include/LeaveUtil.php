@@ -760,37 +760,37 @@ function TransistionBweeLeaveAmount($db, $employeeId, $accrualInterval, $leaveAm
 
         $days = $fromDate->diff($toDate)->days + 1;
 
-        error_log(
-            'BWEE TRANSITION: ' .
-                $sqlRow['from_date'] .
-                ' -> ' .
-                $sqlRow['to_date'] .
-                ' = ' .
-                $days .
-                ' days'
-        );
+        // error_log(
+        //     'BWEE TRANSITION: ' .
+        //         $sqlRow['from_date'] .
+        //         ' -> ' .
+        //         $sqlRow['to_date'] .
+        //         ' = ' .
+        //         $days .
+        //         ' days'
+        // );
 
         $actualDays += $days;
     }
 
     $expectedDays = $accrualInterval * 14;
 
-    error_log(
-        'BWEE TRANSITION TOTAL: Actual=' .
-            $actualDays .
-            ' Expected=' .
-            $expectedDays .
-            ' Amount=' .
-            $leaveAmount
-    );
+    // error_log(
+    //     'BWEE TRANSITION TOTAL: Actual=' .
+    //         $actualDays .
+    //         ' Expected=' .
+    //         $expectedDays .
+    //         ' Amount=' .
+    //         $leaveAmount
+    // );
 
     if ($actualDays < $expectedDays) {
         $leaveAmount = ($leaveAmount / $expectedDays) * $actualDays;
     }
 
-    error_log(
-        'BWEE TRANSITION RESULT: ' . $leaveAmount
-    );
+    // error_log(
+    //     'BWEE TRANSITION RESULT: ' . $leaveAmount
+    // );
 
     return $leaveAmount;
 }

@@ -404,7 +404,7 @@ abstract class PayslipPrinterBase
     public function enableEncryption(string $password): void
     {
         //Debugging:
-        error_log('enableEncryption() called');
+        //error_log('enableEncryption() called');
 
         if (!empty($password)) {
             $this->encrypt = true;

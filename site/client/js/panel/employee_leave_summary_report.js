@@ -313,7 +313,7 @@ app.panel.EmployeeLeaveSummaryReport = function (config) {
                     EmploymentDate: empDetails.employmentDate
 
                 })
-                console.log(employeeLeaveSummary);
+                //console.log(employeeLeaveSummary);
 
                 summaryLoaded = true;
 
@@ -360,7 +360,7 @@ app.panel.EmployeeLeaveSummaryReport = function (config) {
                         note: response.requests[i].note
                     });
                 }
-                console.log(requests);
+                //console.log(requests);
                 requestsLoaded = true;
 
                 if (summaryLoaded) {
@@ -817,7 +817,7 @@ app.panel.EmployeeLeaveSummaryReport = function (config) {
             }
         }
 
-        console.log('Merged summary:', employeeLeaveSummary);
+        //console.log('Merged summary:', employeeLeaveSummary);
     }
 
     //

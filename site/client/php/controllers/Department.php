@@ -435,8 +435,8 @@ class Department extends Controller
 
     public function getLeaveTypeList($data, $user, $db)
     {
+        # Validates the data passed into the function.
         header('Content-Type: application/json');
-
         $validationResult = Json::validate($data, [
             'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
         ]);
@@ -445,6 +445,7 @@ class Department extends Controller
             return false;
         }
 
+        # Retrieves all the leave types.
         $sqlQuery =
             'SELECT ' .
             'id, name ' .
@@ -462,13 +463,10 @@ class Department extends Controller
 
         $leaveTypes = [];
 
+        # Checks if the leave type is subscribed to the department.
         while ($row = $sqlResult->fetchAssociative()) {
-            $leaveConfigQuery =
-                'SELECT id FROM leave_config_items WHERE department_id = $1 AND leave_type_id = $2;';
-            $leaveConfigResult = $db->paramQuery($leaveConfigQuery, [
-                $data['departmentId'],
-                $row['id']
-            ]);
+            $leaveConfigQuery = 'SELECT id FROM leave_config_items WHERE department_id = $1 AND leave_type_id = $2;';
+            $leaveConfigResult = $db->paramQuery($leaveConfigQuery, [$data['departmentId'], $row['id']]);
             if (!$leaveConfigResult->isValid()) {
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                 return false;
@@ -506,7 +504,7 @@ class Department extends Controller
             return false;
         }
 
-        // Collect the employees in this department for the subscription logic.
+        #Collect the employees in this department for the subscription logic.
         $employeeIds = [];
         $employeeQuery = 'SELECT id FROM employees WHERE department_id = $1;';
         $employeeResult = $db->paramQuery($employeeQuery, [$data['departmentId']]);
@@ -514,12 +512,16 @@ class Department extends Controller
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
+
+        # Collect all the employee ids of the employees in this department.
         while ($employeeRow = $employeeResult->fetchAssociative()) {
             $employeeIds[] = $employeeRow['id'];
         }
 
+        # Subscribe to the leave type.
         if (!$data['unsubscribe']) {
 
+            # Start transaction
             $transactionResult = $db->query('BEGIN;');
             if (!$transactionResult->isValid()) {
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
@@ -548,20 +550,23 @@ class Department extends Controller
             }
 
             foreach ($employeeIds as $employeeId) {
-                $existingQuery =
-                    'SELECT id FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2 LIMIT 1;';
+
+                # Checks if the employee is already subscribed to the leave type.
+                $existingQuery = 'SELECT id FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2 LIMIT 1;';
                 $existingResult = $db->paramQuery($existingQuery, [$employeeId, $data['leaveTypeId']]);
                 if (!$existingResult->isValid()) {
                     $db->query('ROLLBACK;');
                     echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                     return false;
                 }
+
+                # Skip if the employee is already subscribed to the leave type.
                 if ($existingResult->getRowCount() > 0) {
                     continue;
                 }
 
-                $employeeInsertQuery =
-                    'INSERT INTO leave_config_items (employee_id, leave_type_id) VALUES ($1, $2);';
+                # Subscribes the employee to the leave type.
+                $employeeInsertQuery = 'INSERT INTO leave_config_items (employee_id, leave_type_id) VALUES ($1, $2);';
                 $employeeInsertResult = $db->paramQuery($employeeInsertQuery, [$employeeId, $data['leaveTypeId']]);
                 if (!$employeeInsertResult->isValid()) {
                     $db->query('ROLLBACK;');
@@ -570,6 +575,7 @@ class Department extends Controller
                 }
             }
 
+            # Commit transaction
             $commitResult = $db->query('COMMIT;');
             if (!$commitResult->isValid()) {
                 $db->query('ROLLBACK;');
@@ -577,19 +583,17 @@ class Department extends Controller
                 return false;
             }
         } else {
+
+            # Start transaction
             $transactionResult = $db->query('BEGIN;');
             if (!$transactionResult->isValid()) {
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                 return false;
             }
 
-            $sqlQuery =
-                'DELETE FROM leave_config_items WHERE department_id = $1 AND leave_type_id = $2';
-            $sqlResult = $db->paramQuery($sqlQuery, [
-                $data['departmentId'],                     // department_id
-                $data['leaveTypeId']                     // leave_type_id
-            ]);
-
+            # Unsubscribe the department from the leave type.
+            $sqlQuery = 'DELETE FROM leave_config_items WHERE department_id = $1 AND leave_type_id = $2';
+            $sqlResult = $db->paramQuery($sqlQuery, [$data['departmentId'], $data['leaveTypeId']]);
             if (!$sqlResult->isValid()) {
                 $db->query('ROLLBACK;');
                 echo (json_encode(['ok' => false, 'error' => 'Database error.']));
@@ -597,20 +601,23 @@ class Department extends Controller
             }
 
             foreach ($employeeIds as $employeeId) {
-                $existingQuery =
-                    'SELECT id FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2 LIMIT 1;';
+
+                # Checks if the employee is already subscribed to the leave type.
+                $existingQuery = 'SELECT id FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2 LIMIT 1;';
                 $existingResult = $db->paramQuery($existingQuery, [$employeeId, $data['leaveTypeId']]);
                 if (!$existingResult->isValid()) {
                     $db->query('ROLLBACK;');
                     echo (json_encode(['ok' => false, 'error' => 'Database error.']));
                     return false;
                 }
+
+                # Skip if the employee is not subscribed to the leave type.
                 if ($existingResult->getRowCount() === 0) {
                     continue;
                 }
 
-                $employeeDeleteQuery =
-                    'DELETE FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2;';
+                # Unsubscribe the employee from the leave type.
+                $employeeDeleteQuery = 'DELETE FROM leave_config_items WHERE employee_id = $1 AND leave_type_id = $2;';
                 $employeeDeleteResult = $db->paramQuery($employeeDeleteQuery, [$employeeId, $data['leaveTypeId']]);
                 if (!$employeeDeleteResult->isValid()) {
                     $db->query('ROLLBACK;');
@@ -619,6 +626,7 @@ class Department extends Controller
                 }
             }
 
+            # Commit transaction
             $commitResult = $db->query('COMMIT;');
             if (!$commitResult->isValid()) {
                 $db->query('ROLLBACK;');
@@ -1043,7 +1051,7 @@ class Department extends Controller
 
         // Initialize where clause
         $whereClause = 'WHERE payslip_config_items.department_id = $' . count($sqlParams) .
-        ' AND payslip_config_items.employee_id IS NULL';
+            ' AND payslip_config_items.employee_id IS NULL';
 
         // Check if categories were provided.
         if (array_key_exists('categories', $data)) {
@@ -1268,7 +1276,7 @@ class Department extends Controller
         return true;
     }
 
-        // Function to add a department default payslip item
+    // Function to add a department default payslip item
     //
     // Required Parameters
     //  departmentId            The ID of the department this item is for.
@@ -1372,7 +1380,7 @@ class Department extends Controller
 
         // If the item is recurring then check that no accrual date was provided.
         if ($sqlRow['is_once_off'] !== true && $data['accrualDate'] !== null) {
-            echo(json_encode(['ok' => false, 'error' => 'Recurring items cannot have an accrual date.']));
+            echo (json_encode(['ok' => false, 'error' => 'Recurring items cannot have an accrual date.']));
             return false;
         }
 
@@ -1393,14 +1401,15 @@ class Department extends Controller
         ]);
 
         if (!$sqlResult->isValid()) {
-            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
         if ($sqlResult->getRowCount() > 0) {
-            echo(json_encode([
+            echo (json_encode([
                 'ok' => false,
-                'error' => 'This payslip item type has already been added to the department.']));
+                'error' => 'This payslip item type has already been added to the department.'
+            ]));
             return false;
         }
 
@@ -1416,7 +1425,7 @@ class Department extends Controller
             'unit_source_code, ' .
             'include_in_nett_pay, ' .
             'amount ' .
-            ') ' . 
+            ') ' .
             'VALUES ( ' .
             '$1, NULL, $2, $3, $4, $5, $6, $7, $8 ' .
             ');';
@@ -1474,7 +1483,7 @@ class Department extends Controller
         ]);
 
         if (!$sqlResult->isValid()) {
-            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
@@ -1550,12 +1559,12 @@ class Department extends Controller
         $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $data['departmentId']]);
 
         if (!$sqlResult->isValid()) {
-            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
         if ($sqlResult->getRowCount() !== 1) {
-            echo(json_encode(['ok' => false, 'error' => 'Department payslip item not found.']));
+            echo (json_encode(['ok' => false, 'error' => 'Department payslip item not found.']));
             return false;
         }
 
@@ -1565,7 +1574,7 @@ class Department extends Controller
 
         // The item type of an existing department default cannot be changed.
         if ($data['typeCode'] !== $originalTypeCode) {
-            echo(json_encode(['ok' => false, 'error' => 'The item type cannot be changed on a department default. Remove the existing item and add a new one instead.']));
+            echo (json_encode(['ok' => false, 'error' => 'The item type cannot be changed on a department default. Remove the existing item and add a new one instead.']));
             return false;
         }
 
@@ -1594,19 +1603,19 @@ class Department extends Controller
 
         // Check whether this item type supports automatic calculation.
         if ($data['autoCalculate'] === true && $sqlRow['auto_calculate'] !== true) {
-            echo(json_encode(['ok' => false, 'error' => 'This item cannot be set to auto calculate.']));
+            echo (json_encode(['ok' => false, 'error' => 'This item cannot be set to auto calculate.']));
             return false;
         }
 
         // Check whether this item type supports a unit source.
         if ($data['unitSourceCode'] !== null && strlen($data['unitSourceCode']) > 0 && $sqlRow['allow_unit_source'] !== true) {
-            echo(json_encode(['ok' => false, 'error' => 'This item does not allow a unit source.']));
+            echo (json_encode(['ok' => false, 'error' => 'This item does not allow a unit source.']));
             return false;
         }
 
         // Check that recurring item does not have an accrual date
         if ($sqlRow['is_once_off'] !== true && $data['accrualDate'] !== null) {
-            echo(json_encode(['ok' => false, 'error' => 'Recurring items cannot have an accrual date.']));
+            echo (json_encode(['ok' => false, 'error' => 'Recurring items cannot have an accrual date.']));
             return false;
         }
 
@@ -1645,7 +1654,7 @@ class Department extends Controller
         ]);
 
         if (!$sqlResult->isValid()) {
-            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
@@ -1676,7 +1685,7 @@ class Department extends Controller
         ]);
 
         if (!$sqlResult->isValid()) {
-            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
@@ -1764,14 +1773,14 @@ class Department extends Controller
             'FROM  ' .
             'payslip_config_items ' .
             'WHERE id = $1 AND department_id = $2 AND employee_id IS NULL;';
-            $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $data['departmentId']]);
+        $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $data['departmentId']]);
         if (!$sqlResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
         if ($sqlResult->getRowCount() !== 1) {
-            echo(json_encode(['ok' => false, 'error' => 'Department payslip item not found.']));
+            echo (json_encode(['ok' => false, 'error' => 'Department payslip item not found.']));
             return false;
         }
 
@@ -1856,15 +1865,15 @@ class Department extends Controller
             'FROM  ' .
             'payslip_config_items ' .
             'WHERE id = $1 AND department_id = $2 AND employee_id IS NULL;';
-            $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $data['departmentId']]);
-        
-            if (!$sqlResult->isValid()) {
+        $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $data['departmentId']]);
+
+        if (!$sqlResult->isValid()) {
             echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
         if ($sqlResult->getRowCount() !== 1) {
-            echo(json_encode(['ok' => false, 'error' => 'Department payslip item not found.']));
+            echo (json_encode(['ok' => false, 'error' => 'Department payslip item not found.']));
             return false;
         }
 
@@ -1877,19 +1886,19 @@ class Department extends Controller
         $sqlQuery =
             'DELETE FROM employee_rfi_items ' .
             'WHERE payslip_config_item_id IN ( ' .
-                'SELECT employee_items.id ' .
-                'FROM payslip_config_items AS employee_items ' .
-                'INNER JOIN employees ' .
-                    'ON employees.id = employee_items.employee_id ' .
-                'WHERE employees.department_id = $1 ' .
-                'AND employee_items.payslip_item_type_code = $2 ' .
-                'AND employee_items.accrual_date IS NOT DISTINCT FROM $3 ' .
+            'SELECT employee_items.id ' .
+            'FROM payslip_config_items AS employee_items ' .
+            'INNER JOIN employees ' .
+            'ON employees.id = employee_items.employee_id ' .
+            'WHERE employees.department_id = $1 ' .
+            'AND employee_items.payslip_item_type_code = $2 ' .
+            'AND employee_items.accrual_date IS NOT DISTINCT FROM $3 ' .
             ');';
 
         $sqlResult = $db->paramQuery($sqlQuery, [$departmentId, $typeCode, $accrualDate]);
 
         if (!$sqlResult->isValid()) {
-            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
@@ -1897,19 +1906,19 @@ class Department extends Controller
         $sqlQuery =
             'DELETE FROM payslip_config_items ' .
             'WHERE id IN ( ' .
-                'SELECT employee_items.id ' .
-                'FROM payslip_config_items AS employee_items ' .
-                'INNER JOIN employees ' .
-                    'ON employees.id = employee_items.employee_id ' .
-                'WHERE employees.department_id = $1 ' .
-                'AND employee_items.payslip_item_type_code = $2 ' .
-                'AND employee_items.accrual_date IS NOT DISTINCT FROM $3 ' .
+            'SELECT employee_items.id ' .
+            'FROM payslip_config_items AS employee_items ' .
+            'INNER JOIN employees ' .
+            'ON employees.id = employee_items.employee_id ' .
+            'WHERE employees.department_id = $1 ' .
+            'AND employee_items.payslip_item_type_code = $2 ' .
+            'AND employee_items.accrual_date IS NOT DISTINCT FROM $3 ' .
             ');';
 
         $sqlResult = $db->paramQuery($sqlQuery, [$departmentId, $typeCode, $accrualDate]);
 
         if (!$sqlResult->isValid()) {
-            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
 
@@ -1923,10 +1932,10 @@ class Department extends Controller
         $sqlResult = $db->paramQuery($sqlQuery, [$data['payslipItemId'], $departmentId]);
 
         if (!$sqlResult->isValid()) {
-            echo(json_encode(['ok' => false, 'error' => 'Database error.']));
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
             return false;
         }
-        
+
         // Commit SQL transaction
         $db->commitTransaction();
 
@@ -1935,5 +1944,4 @@ class Department extends Controller
 
         return true;
     }
-
 }
