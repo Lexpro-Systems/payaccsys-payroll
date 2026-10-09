@@ -729,6 +729,9 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                 renderTo: EditOnceOffPayslipConfigItemModal.getContainer(),
                 show: true,
                 payslipItemId: event.srcComponent.getRow(event.rowIndex).id,
+                departmentId: departmentId,
+                saveUrl: 'exec.php?c=Department&fn=editDepartmentDefaultPayslipItem',
+                lockItemType: true,
 
                 onCancel: function () {
                     app.route.popState();
@@ -836,6 +839,9 @@ app.panel.ViewDepartmentDefaultEarnings = function (config) {
                 renderTo: EditOnceOffPayslipConfigItemModal.getContainer(),
                 show: true,
                 payslipItemId: event.srcComponent.getRow(event.rowIndex).id,
+                departmentId: departmentId,
+                saveUrl: 'exec.php?c=Department&fn=editDepartmentDefaultPayslipItem',
+                lockItemType: true,
 
                 onCancel: function () {
                     app.route.popState();

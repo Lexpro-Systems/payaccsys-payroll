@@ -604,7 +604,7 @@ app.panel.EditRecurringPayslipConfigItem = function(config) {
             autoCalculate: itemAutoCheck.getValue(),
             unitSourceCode: unitSource,
             includeInNettPay: partOfNettPayCheck.getValue(),
-            amount: lx.util.parseCurrency(amount)
+            amount: amount === null ? null : lx.util.parseCurrency(amount)
         }
         if (departmentId !== null) {
             requestData.departmentId = departmentId;
