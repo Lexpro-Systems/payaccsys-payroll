@@ -507,7 +507,7 @@ class Payslip extends Controller
                 if ($itemRow['payslip_item_type_code'] == '1001') {
                     $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
                 }
-                
+
                 // Add days worked and daily rate to description when unit_code is PDAY and item_type_code is 1002
                 if ($itemRow['payslip_item_type_code'] == '1002') {
                     $description = $description . ' (' . $daysWorked . ' days @ ' . $itemRow['rate'] . ' per day)';
@@ -531,13 +531,12 @@ class Payslip extends Controller
                 );
             }
 
-             // Encryption
+            // Encryption
             $identityNumber = trim((string)$payslipRow['id_number']) ?: trim((string)$payslipRow['passport_number']);
 
             if ((bool)$payslipRow['is_encrypted'] === true && !empty($identityNumber)) {
-                    $printer->enableEncryption($identityNumber);
-                }
-            else{
+                $printer->enableEncryption($identityNumber);
+            } else {
                 $printer->disableEncryption();
             }
 
@@ -809,6 +808,335 @@ class Payslip extends Controller
             'ok' => true,
             'payslip' => $payslip
         ]));
+
+        return true;
+    }
+
+    // Function to download all active payslips for a processed payrun as one PDF
+    //
+    // Required Parameters
+    //  payrunId               The id of the payrun containing the payslips
+    //
+    public function downloadPayrunPayslips($data, $user, $db)
+    {
+        # Use JSON for validation and generation errors. This is replaced with the PDF content type on success.
+        header('Content-Type: application/json');
+        $defaults = [];
+        Json::copy($defaults, $data);
+
+        $validationResult = Json::validate($data, [
+            'payrunId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        # Confirm that the selected payrun exists and has been processed.
+        $payrunResult = $db->paramQuery('SELECT id, processed_on FROM payruns WHERE id = $1;', [$data['payrunId']]);
+        if (!$payrunResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+        if ($payrunResult->getRowCount() !== 1) {
+            echo (json_encode(['ok' => false, 'error' => 'Payrun not found.']));
+            return false;
+        }
+        $payrunRow = $payrunResult->fetchAssociative();
+        if ($payrunRow['processed_on'] === null) {
+            echo (json_encode(['ok' => false, 'error' => 'The specified payrun has not been processed.']));
+            return false;
+        }
+
+        # Load the active payslips and the employee details used by the existing payslip template.
+        $payslipQuery =
+            'SELECT DISTINCT ' .
+            'payslips.id, ' .
+            'payslips.from_date, ' .
+            'payslips.to_date, ' .
+            'payslips.employee_id, ' .
+            'employees.full_names, ' .
+            'employees.last_name, ' .
+            'employees.alias, ' .
+            'employees.id_number, ' .
+            'employees.passport_number, ' .
+            'employees.income_tax_number, ' .
+            'employees.cell_number, ' .
+            'employees.email_address, ' .
+            'employees.employment_position, ' .
+            'employees.employment_start_date, ' .
+            'employees.postal_address_line_1, ' .
+            'employees.postal_address_line_2, ' .
+            'employees.postal_address_line_3, ' .
+            'employees.postal_address_code, ' .
+            'employees.code, ' .
+            'departments.name AS department_name, ' .
+            'employee_bank_details.account_number, ' .
+            'employee_bank_details.branch_code, ' .
+            'bank_account_types.name AS bank_account_type_name ' .
+            'FROM ' .
+            'payslips ' .
+            'LEFT JOIN employees ON employees.id = payslips.employee_id ' .
+            'LEFT JOIN departments ON departments.id = employees.department_id ' .
+            'LEFT JOIN employee_bank_details ON employee_bank_details.employee_id = employees.id ' .
+            'LEFT JOIN bank_account_types ON employee_bank_details.bank_account_type_code = bank_account_types.code ' .
+            'WHERE ' .
+            'payslips.payrun_id = $1 AND ' .
+            'payslips.status_code = \'ACTI\' ' .
+            'ORDER BY payslips.employee_id ASC, payslips.id ASC;';
+        $payslipResult = $db->paramQuery($payslipQuery, [$data['payrunId']]);
+        if (!$payslipResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+        if ($payslipResult->getRowCount() < 1) {
+            echo (json_encode(['ok' => false, 'error' => 'No active payslips were found for the specified payrun.']));
+            return false;
+        }
+
+        # Include the payslip printer class and create an instance of it
+        System::includeFile('payslip_printing/PayslipPrinterDefault.php');
+        $printer = new PayslipPrinter([]);
+        $templateConfig = $printer->getConfigParameters();
+
+        # Load the saved template configuration.
+        $configDirResult = $db->paramQuery('SELECT value FROM config WHERE name = \'client_data_dir\';', []);
+        if (!$configDirResult->isValid() || $configDirResult->getRowCount() !== 1) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+        $configDirRow = $configDirResult->fetchAssociative();
+        $imageDir = CONF_CLIENT_DIR . $configDirRow['value'] . '/payslip_images/';
+        $templateResult = $db->paramQuery(
+            'SELECT payslip_template_config.name, payslip_template_config.value ' .
+                'FROM payslip_templates ' .
+                'LEFT JOIN payslip_template_config ON payslip_template_id = payslip_templates.id ' .
+                'WHERE payslip_templates.name = \'default\';',
+            []
+        );
+        if (!$templateResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        $config = [];
+        while ($configRow = $templateResult->fetchAssociative()) {
+            # Skip empty template configurations
+            if ($configRow['name'] === null || $configRow['name'] === '') continue;
+
+            $skip = false;
+            for ($i = 0; $i < count($templateConfig); $i++) {
+                if ($configRow['name'] === $templateConfig[$i]['name'] && $templateConfig[$i]['type'] === 'image') {
+                    if (file_exists($imageDir . $configRow['value'] . '.png')) {
+                        $config[$configRow['name']] = $imageDir . $configRow['value'] . '.png';
+                    }
+                    $skip = true;
+                    break;
+                }
+            }
+            if (!$skip) $config[$configRow['name']] = $configRow['value'];
+        }
+
+        # Keep the combined PDF pages at A4 while uniformly reducing only the
+        # payslip content. Individual and emailed payslips continue to use the
+        # unchanged configuration and therefore render at 100%.
+        $combinedPdfConfig = $config;
+        $combinedPdfConfig['contentScalePercent'] = 80;
+        $combinedPdfConfig['payslipHeadingFontSize'] = 11;
+
+        # Load the company details used on every payslip.
+        $companyResult = $db->paramQuery(
+            'SELECT ' .
+                'company_details.name, ' .
+                'company_details.postal_address_line_1, ' .
+                'company_details.postal_address_line_2, ' .
+                'company_details.postal_address_line_3, ' .
+                'company_details.postal_address_code, ' .
+                'company_details.tel_number, ' .
+                'company_details.fax_number, ' .
+                'company_details.email_address ' .
+                'FROM company_details ' .
+                'ORDER BY id DESC LIMIT 1;',
+            []
+        );
+        if (!$companyResult->isValid() || $companyResult->getRowCount() !== 1) {
+            echo (json_encode(['ok' => false, 'error' => 'Company details not found.']));
+            return false;
+        }
+        $companyRow = $companyResult->fetchAssociative();
+
+        # Create an isolated temporary directory for the combined PDF.
+        $destDir = CONF_TEMP_DIR . bin2hex(random_bytes(16)) . '/';
+        if (!mkdir($destDir, 0777, true) && !is_dir($destDir)) {
+            echo (json_encode(['ok' => false, 'error' => 'Unable to create the temporary download directory.']));
+            return false;
+        }
+
+        $cleanup = function () use ($destDir) {
+            if (!is_dir($destDir)) return;
+
+            $files = scandir($destDir);
+            foreach ($files as $file) {
+                if ($file === '.' || $file === '..') continue;
+                $path = $destDir . $file;
+                if (is_file($path)) unlink($path);
+            }
+            rmdir($destDir);
+        };
+        register_shutdown_function($cleanup);
+
+        set_time_limit(600);
+        $processedPayslipIds = [];
+        $hasPrintedPayslip = false;
+
+        while ($payslipRow = $payslipResult->fetchAssociative()) {
+            # Guard against duplicate rows if an employee has more than one joined bank-detail row.
+            if (isset($processedPayslipIds[$payslipRow['id']])) continue;
+            $processedPayslipIds[$payslipRow['id']] = true;
+
+            $printer->clear();
+            $printer->setConfig($combinedPdfConfig);
+
+            // The combined administrative PDF is intentionally not encrypted.
+            // Existing individual downloads and emailed payslips keep their current encryption behavior.
+            $printer->disableEncryption();
+
+            $printer->setCompanyName($companyRow['name']);
+            $printer->setCompanyAddress(
+                $companyRow['postal_address_line_1'],
+                $companyRow['postal_address_line_2'],
+                $companyRow['postal_address_line_3'],
+                $companyRow['postal_address_code']
+            );
+            $printer->setCompanyTel($companyRow['tel_number']);
+            $printer->setCompanyFaxNumber($companyRow['fax_number']);
+            $printer->setCompanyEmail($companyRow['email_address']);
+            $printer->setCompanyLogo('');
+
+            $printer->setEmployeeFullName($payslipRow['full_names'] . ' ' . $payslipRow['last_name']);
+            $printer->setEmployeeAlias($payslipRow['alias']);
+            $printer->setEmployeeCode($payslipRow['code']);
+            $printer->setEmployeeDepartment($payslipRow['department_name'] ?? '');
+            $printer->setEmployeePosition($payslipRow['employment_position']);
+            $printer->setEmployeeEmploymentStart($payslipRow['employment_start_date']);
+            $printer->setEmployeeEmail($payslipRow['email_address']);
+            $printer->setEmployeeAddress(
+                $payslipRow['postal_address_line_1'],
+                $payslipRow['postal_address_line_2'],
+                $payslipRow['postal_address_line_3'],
+                $payslipRow['postal_address_code']
+            );
+            $printer->setEmployeeCell($payslipRow['cell_number']);
+            $printer->setEmployeeIdNumber($payslipRow['id_number']);
+            $printer->setEmployeePassportNumber($payslipRow['passport_number']);
+            $printer->setEmployeeIncomeTaxNumber($payslipRow['income_tax_number']);
+            $printer->setEmployeeBankName($payslipRow['bank_account_type_name'] ?? '');
+            $printer->setEmployeeAccountNumber($payslipRow['account_number'] ?? '');
+            $printer->setEmployeeBankCode($payslipRow['branch_code'] ?? '');
+            $printer->setEmployeePeriod($payslipRow['from_date'] . ' - ' . $payslipRow['to_date']);
+            $printer->setPayslipToDate($payslipRow['to_date']);
+
+            $itemResult = $db->paramQuery(
+                'SELECT DISTINCT ' .
+                    'payslip_items.payslip_item_type_code, ' .
+                    'payslip_item_types.payslip_item_unit_code, ' .
+                    'payslip_categories.name AS payslip_category_name, ' .
+                    'payslip_items.description, ' .
+                    'payslip_items.units, ' .
+                    'payslip_items.rate, ' .
+                    'payslip_items.total, ' .
+                    'payslip_items.include_in_nett_pay ' .
+                    'FROM payslip_items ' .
+                    'LEFT JOIN payslip_item_types ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
+                    'LEFT JOIN payslip_categories ON payslip_categories.code = payslip_item_types.payslip_category_code ' .
+                    'WHERE payslip_items.payslip_id = $1 ' .
+                    'ORDER BY payslip_categories.name DESC;',
+                [$payslipRow['id']]
+            );
+            if (!$itemResult->isValid()) {
+                $cleanup();
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            $hoursWorked = null;
+            $daysWorked = null;
+            while ($itemRow = $itemResult->fetchAssociative()) {
+                if ($itemRow['payslip_item_unit_code'] === 'PHOU') {
+                    $hoursWorked = $itemRow['units'];
+                } else if ($itemRow['payslip_item_unit_code'] === 'PDAY') {
+                    $daysWorked = $itemRow['units'];
+                }
+
+                $amount = $itemRow['total'];
+                if ($itemRow['units'] !== null && $itemRow['rate'] !== null) {
+                    $amount = doubleval($itemRow['units']) * doubleval($itemRow['rate']);
+                }
+
+                $description = $itemRow['description'];
+                if ($itemRow['payslip_item_type_code'] == '1005' || $itemRow['payslip_item_type_code'] == '5008' || $itemRow['payslip_item_type_code'] == '5009') {
+                    $description .= ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                }
+                if ($itemRow['payslip_item_type_code'] == '1001') {
+                    $description .= ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                }
+                if ($itemRow['payslip_item_type_code'] == '1002') {
+                    $description .= ' (' . $daysWorked . ' days @ ' . $itemRow['rate'] . ' per day)';
+                }
+
+                $printer->addPayslipItem(
+                    $itemRow['payslip_category_name'],
+                    $description,
+                    $amount,
+                    $itemRow['include_in_nett_pay']
+                );
+            }
+
+            $leaveData = \LeaveUtil\calculateLeaveBalances(
+                $payslipRow['employee_id'],
+                $payslipRow['from_date'],
+                $payslipRow['to_date'],
+                $user,
+                $db
+            );
+            foreach ($leaveData as $key => $value) {
+                $printer->addLeaveItem(
+                    $key,
+                    $leaveData[$key]['adjustment'],
+                    $leaveData[$key]['accrued'],
+                    $leaveData[$key]['taken'],
+                    $leaveData[$key]['balance'],
+                    $leaveData[$key]['unit']
+                );
+            }
+
+            $printer->printPayslip($hasPrintedPayslip);
+            $hasPrintedPayslip = true;
+        }
+
+        if (!$hasPrintedPayslip) {
+            $cleanup();
+            echo (json_encode(['ok' => false, 'error' => 'No active payslips were found for the specified payrun.']));
+            return false;
+        }
+
+        $downloadName = 'payrun_' . $data['payrunId'] . '_payslips.pdf';
+        $pdfPath = $destDir . $downloadName;
+        if (!$printer->saveToFile($pdfPath) || !file_exists($pdfPath)) {
+            $cleanup();
+            echo (json_encode(['ok' => false, 'error' => 'Unable to generate the combined payslip PDF.']));
+            return false;
+        }
+
+        while (ob_get_level() > 0) ob_end_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+        header('Content-Length: ' . filesize($pdfPath));
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        readfile($pdfPath);
+
+        $cleanup();
+        unset($printer);
 
         return true;
     }

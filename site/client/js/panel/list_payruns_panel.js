@@ -406,6 +406,7 @@ app.panel.ListPayruns = function (config) {
             { name: '<i class="fas fa-fw fa-pencil-alt" style="margin: 0px 15px 0px 0px;"></i>Edit', value: 'edit' },
             { name: '<i class="fas fa-fw fa-pencil-alt" style="margin: 0px 15px 0px 0px;"></i>Edit Description', value: 'edit_description' },
             { name: '<i class="fas fa-fw fa-file-download" style="margin: 0px 15px 0px 0px;"></i>Download Report', value: 'report' },
+            { name: '<i class="fas fa-fw fa-file-download" style="margin: 0px 15px 0px 0px;"></i>Download All Payslips', value: 'download_all_payslips' },
             { name: '<i class="fas fa-fw fa-envelope" style="margin: 0px 15px 0px 0px;"></i>Email Payslips', value: 'email_payslips' },
             // {name: '<i class="fas fa-fw fa-external-link-alt" style="margin: 0px 15px 0px 0px;"></i>Post to Lexpro Accounting', value: 'lexpro_post'},
             { name: '<i class="fas fa-fw fa-file-export" style="margin: 0px 15px 0px 0px;"></i>Bank Payments Export', value: 'bank_payments_export' },
@@ -960,6 +961,24 @@ app.panel.ListPayruns = function (config) {
             // Show the modal window and focus on the panel
             runReportModal.show();
             runReportPanel.focus();
+        }
+        else if (clickEvent.value === 'download_all_payslips') {
+            // Has the payrun not been processed?
+            if (payrunsGrid.getRow(clickEvent.rowIndex).isProcessed !== 'Yes') {
+                new lx.component.Messagebox({
+                    title: 'Download All Payslips',
+                    message: 'The payslips cannot be downloaded because the specified payrun has not been processed.'
+                });
+                return;
+            }
+
+            lx.sendForm({
+                url: 'exec.php?c=Payslip&fn=downloadPayrunPayslips',
+                target: '_blank',
+                data: {
+                    payrunId: parseInt(payrunsGrid.getRow(clickEvent.rowIndex).id)
+                }
+            });
         }
         else if (clickEvent.value === 'undo_processing') {
             // Has the payrun not been processed?
