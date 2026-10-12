@@ -40,6 +40,7 @@
         protected $employeeIdNumber;
         protected $employeePassportNumber;
         protected $employeeBankName;
+        protected $employeeBankType;
         protected $employeeAccountNumber;
         protected $employeeBankCode;
         protected $employeeCode;
@@ -85,6 +86,7 @@
             $this->employeeIdNumber = '';
             $this->employeePassportNumber = '';
             $this->employeeBankName = '';
+            $this->employeeBankType = '';
             $this->employeeAccountNumber = '';
             $this->employeeCode = '';
             $this->employeePeriod = '';
@@ -238,6 +240,12 @@
         // employeeBankName              The bank number of the employee
         public function setEmployeeBankName(string $employeeBankName) {
             $this->employeeBankName = $employeeBankName;
+        }
+
+        // Function to set the employee bank account type
+        public function setEmployeeBankType(string $employeeBankType)
+        {
+            $this->employeeBankType = $employeeBankType;
         }
         
         // Function to set the employee id number
@@ -406,6 +414,7 @@
             $this->employeeIdNumber = '';
             $this->employeePassportNumber = '';
             $this->employeeBankName = '';
+            $this->employeeBankType = '';
             $this->employeeAccountNumber = '';
             $this->employeeBankCode = '';
             $this->employeeCode = '';

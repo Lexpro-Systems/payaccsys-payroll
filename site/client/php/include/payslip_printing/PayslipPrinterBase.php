@@ -50,6 +50,7 @@ abstract class PayslipPrinterBase
     protected $employeeIdNumber;
     protected $employeePassportNumber;
     protected $employeeBankName;
+    protected $employeeBankType;
     protected $employeeAccountNumber;
     protected $employeeBankCode;
     protected $employeeCode;
@@ -97,6 +98,7 @@ abstract class PayslipPrinterBase
         $this->employeeIdNumber = '';
         $this->employeePassportNumber = '';
         $this->employeeBankName = '';
+        $this->employeeBankType = '';
         $this->employeeAccountNumber = '';
         $this->employeeCode = '';
         $this->employeePeriod = '';
@@ -269,6 +271,12 @@ abstract class PayslipPrinterBase
     public function setEmployeeBankName(string $employeeBankName)
     {
         $this->employeeBankName = $employeeBankName;
+    }
+
+    // Function to set the employee bank account type
+    public function setEmployeeBankType(string $employeeBankType)
+    {
+        $this->employeeBankType = $employeeBankType;
     }
 
     // Function to set the employee id number
@@ -480,6 +488,7 @@ abstract class PayslipPrinterBase
         $this->employeeIdNumber = '';
         $this->employeePassportNumber = '';
         $this->employeeBankName = '';
+        $this->employeeBankType = '';
         $this->employeeAccountNumber = '';
         $this->employeeBankCode = '';
         $this->employeeCode = '';

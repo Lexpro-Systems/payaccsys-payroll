@@ -295,6 +295,7 @@ class PayslipPrinter extends PayslipPrinterBase
                     'ID NUMBER: ' . $this->employeeIdNumber . "\n" .
                     'INCOME TAX NO: ' . ($this->employeeIncomeTaxNumber !== '' ? $this->employeeIncomeTaxNumber : '-') . "\n" .
                     'BANK NAME: ' . ($this->employeeBankName !== '' ? $this->employeeBankName : '-') . "\n" .
+                    'ACCOUNT TYPE: ' . ($this->employeeBankType !== '' ? $this->employeeBankType : '-') . "\n" .
                     'ACCOUNT NO: ' . ($this->employeeAccountNumber !== '' ? $this->employeeAccountNumber : '-') . "\n" .
                     'BANK CODE: ' . ($this->employeeBankCode !== '' ? $this->employeeBankCode : '-') . "\n",
                 'LBTR',
@@ -313,6 +314,7 @@ class PayslipPrinter extends PayslipPrinterBase
                     'PASSPORT NO: ' . $this->employeePassportNumber . "\n" .
                     'INCOME TAX NO: ' . ($this->employeeIncomeTaxNumber !== '' ? $this->employeeIncomeTaxNumber : '-') . "\n" .
                     'BANK NAME: ' . ($this->employeeBankName !== '' ? $this->employeeBankName : '-') . "\n" .
+                    'ACCOUNT TYPE: ' . ($this->employeeBankType !== '' ? $this->employeeBankType : '-') . "\n" .
                     'ACCOUNT NO: ' . ($this->employeeAccountNumber !== '' ? $this->employeeAccountNumber : '-') . "\n" .
                     'BANK CODE: ' . ($this->employeeBankCode !== '' ? $this->employeeBankCode : '-') . "\n",
                 'LBTR',
