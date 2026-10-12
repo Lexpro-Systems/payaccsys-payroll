@@ -39,45 +39,101 @@ class PayslipPrinter extends PayslipPrinterBase
     }
 
     // Function to print a payslip in PDF format.
-    public function printPayslip(): bool
+    //
+    // append               If true, add the payslip as a new page in the current PDF.
+    public function printPayslip(bool $append = false): bool
     {
-        // Delete any existing PDF data
-        if ($this->pdf !== null) unset($this->pdf);
+        // Preserve the existing one-payslip behavior unless append mode was requested.
+        if (!$append || $this->pdf === null) {
+            // Delete any existing PDF data
+            if ($this->pdf !== null) unset($this->pdf);
 
-        // Create a new PDF object
-        $this->pdf = $this->pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
+            // Create a new PDF object
+            $this->pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
 
-        // set document information
-        $this->pdf->SetCreator(PDF_CREATOR);
-        $this->pdf->SetAuthor('Lexpro Payroll');
-        $this->pdf->SetTitle($this->companyName);
-        $this->pdf->SetSubject('');
-        $this->pdf->SetKeywords('');
+            // set document information
+            $this->pdf->SetCreator(PDF_CREATOR);
+            $this->pdf->SetAuthor('Lexpro Payroll');
+            $this->pdf->SetTitle($this->companyName);
+            $this->pdf->SetSubject('');
+            $this->pdf->SetKeywords('');
 
-        // remove default header/footer
-        $this->pdf->setPrintHeader(false);
-        $this->pdf->setPrintFooter(false);
+            // remove default header/footer
+            $this->pdf->setPrintHeader(false);
+            $this->pdf->setPrintFooter(false);
 
-        // set default monospaced font
-        $this->pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
+            // set default monospaced font
+            $this->pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
 
-        // set margins
-        $this->pdf->SetMargins(0, 0, 0, 0);
+            // set margins
+            $this->pdf->SetMargins(0, 0, 0, 0);
 
-        // set some language-dependent strings (optional)
-        if (@file_exists(dirname(__FILE__) . '/lang/eng.php')) {
-            require_once(dirname(__FILE__) . '/lang/eng.php');
-            $this->pdf->setLanguageArray($l);
+            // set some language-dependent strings (optional)
+            if (@file_exists(dirname(__FILE__) . '/lang/eng.php')) {
+                require_once(dirname(__FILE__) . '/lang/eng.php');
+                $this->pdf->setLanguageArray($l);
+            }
+
+            // set font
+            $this->pdf->SetFont('helvetica', 'BI', 20);
+
+            // set auto page breaks
+            $this->pdf->SetAutoPageBreak(FALSE, 0);
         }
 
-        // set font
-        $this->pdf->SetFont('helvetica', 'BI', 20);
+        $config = $this->config;
+        $contentScalePercent = 100.0;
+        if (isset($config['contentScalePercent'])) {
+            $contentScalePercent = max(50.0, min(100.0, (float)$config['contentScalePercent']));
+        }
 
-        // set auto page breaks
-        $this->pdf->SetAutoPageBreak(FALSE, 0);
+        $payslipHeadingFontSize = 13.0;
+        if (isset($config['payslipHeadingFontSize'])) {
+            $payslipHeadingFontSize = max(8.0, min(20.0, (float)$config['payslipHeadingFontSize']));
+        }
 
-        // add a page
-        $this->pdf->AddPage();
+        $contentIsScaled = $contentScalePercent < 100.0;
+        $contentTransformActive = false;
+        $finishContentTransform = function () use ($contentIsScaled, &$contentTransformActive): void {
+            if ($contentIsScaled && $contentTransformActive) {
+                $this->pdf->StopTransform();
+                $contentTransformActive = false;
+            }
+        };
+        $addContentPage = function () use (
+            $contentIsScaled,
+            $contentScalePercent,
+            &$contentTransformActive,
+            $finishContentTransform
+        ): void {
+            $finishContentTransform();
+            $this->pdf->AddPage();
+
+            if ($contentIsScaled) {
+                // Keep the layout horizontally centred while scaling from the top
+                // of the unchanged A4 page so the smaller payslip starts near the
+                // established top position instead of moving toward page centre.
+                $this->pdf->StartTransform();
+                $this->pdf->ScaleXY(
+                    $contentScalePercent,
+                    $this->pdf->getPageWidth() / 2,
+                    0
+                );
+                $contentTransformActive = true;
+            }
+        };
+
+        // Add the first page and reapply the optional content transform whenever
+        // a long payslip needs another internal page.
+        $addContentPage();
+
+        // Let scaled bulk payslips use a little more of the logical A4 page while
+        // retaining a safe boundary for the final table row. Unscaled individual
+        // and emailed payslips keep the established 10 mm page-break margin.
+        $contentPageBottom = (float)$this->pdf->getPageHeight() - 10.0;
+        if ($contentIsScaled) {
+            $contentPageBottom = (float)$this->pdf->getPageHeight() - 5.0;
+        }
 
         $horizontal_alignments = array('L', 'C', 'R');
         $vertical_alignments = array('T', 'M', 'B');
@@ -89,7 +145,6 @@ class PayslipPrinter extends PayslipPrinterBase
         $imageHeight = 0;
         $imageWidth = 0;
 
-        $config = $this->config;
         if (isset($config['logoX'])) {
             $logoX = (float)$config['logoX'];
         }
@@ -168,7 +223,7 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->Rect(10, 65, 190, 10, 'DF', array(), array($r, $g, $b));
         $this->pdf->SetXY(90, 65);
         $this->pdf->SetTextColor($textR, $textG, $textB);
-        $this->pdf->SetFontSize(13);
+        $this->pdf->SetFontSize($payslipHeadingFontSize);
         $this->pdf->Cell(30, 10, 'PAYSLIP - ' . strtoupper(date('F Y', strtotime($this->toDate))), 0, 1, 'C', 0, 1);
         // $this->pdf->Cell(0, 5, strtoupper(date('F Y', strtotime($this->toDate))), 0, 1, 'C', 0, 1);
         // $r, $g, $b
@@ -473,8 +528,8 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->SetFontSize(9);
         for ($i = 0; $i < count($allowances); $i++) {
 
-            if ($allowancesStart >= (int)$this->pdf->getPageHeight() - 10) {
-                $this->pdf->AddPage();
+            if ($allowancesStart >= $contentPageBottom) {
+                $addContentPage();
                 $allowancesStart = 10;
                 $this->pdf->SetFontSize(10);
                 $this->pdf->Rect(10, $allowancesStart, 190, 7, 'DF', array(), array($r, $g, $b));
@@ -508,8 +563,8 @@ class PayslipPrinter extends PayslipPrinterBase
             $formattedAllowancesTotal = 0;
         }
 
-        if ($allowancesStart >= (int)$this->pdf->getPageHeight() - 10) {
-            $this->pdf->AddPage();
+        if ($allowancesStart >= $contentPageBottom) {
+            $addContentPage();
             $allowancesStart = 10;
         }
 
@@ -525,8 +580,8 @@ class PayslipPrinter extends PayslipPrinterBase
 
         // ==================================================
         $nettSalaryStart  = $allowancesStart + 9;
-        if ($nettSalaryStart >= (int)$this->pdf->getPageHeight() - 10) {
-            $this->pdf->AddPage();
+        if ($nettSalaryStart >= $contentPageBottom) {
+            $addContentPage();
             $nettSalaryStart = 10;
         }
 
@@ -542,8 +597,8 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->SetFontSize(9);
         for ($i = 0; $i < count($netSalary); $i++) {
 
-            if ($nettSalaryStart >= (int)$this->pdf->getPageHeight() - 10) {
-                $this->pdf->AddPage();
+            if ($nettSalaryStart >= $contentPageBottom) {
+                $addContentPage();
                 $nettSalaryStart = 10;
                 $this->pdf->SetFontSize(10);
                 $this->pdf->Rect(10, $nettSalaryStart, 190, 7, 'DF', array(), array($r, $g, $b));
@@ -590,8 +645,8 @@ class PayslipPrinter extends PayslipPrinterBase
             $formattedNetSalaryTotal = number_format($netSalaryTotal, 2, '.', ' ');
         }
 
-        if ($nettSalaryStart >= (int)$this->pdf->getPageHeight() - 10) {
-            $this->pdf->AddPage();
+        if ($nettSalaryStart >= $contentPageBottom) {
+            $addContentPage();
             $nettSalaryStart = 10;
         }
 
@@ -606,8 +661,8 @@ class PayslipPrinter extends PayslipPrinterBase
 
         // Company Contributions
         $companyContributionsStart  = $nettSalaryStart + 9;
-        if ($companyContributionsStart >= (int)$this->pdf->getPageHeight() - 10) {
-            $this->pdf->AddPage();
+        if ($companyContributionsStart >= $contentPageBottom) {
+            $addContentPage();
             $companyContributionsStart = 10;
         }
         $this->pdf->SetFontSize(10);
@@ -621,8 +676,8 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->SetFontSize(9);
         for ($i = 0; $i < count($companyContributions); $i++) {
 
-            if ($companyContributionsStart >= (int)$this->pdf->getPageHeight() - 10) {
-                $this->pdf->AddPage();
+            if ($companyContributionsStart >= $contentPageBottom) {
+                $addContentPage();
                 $companyContributionsStart = 10;
                 $this->pdf->SetFontSize(10);
                 $this->pdf->Rect(10, $companyContributionsStart, 190, 7, 'DF', array(), array($r, $g, $b));
@@ -656,8 +711,8 @@ class PayslipPrinter extends PayslipPrinterBase
             $formattedCompanyContributionsTotal = 0;
         }
 
-        if ($companyContributionsStart >= (int)$this->pdf->getPageHeight() - 10) {
-            $this->pdf->AddPage();
+        if ($companyContributionsStart >= $contentPageBottom) {
+            $addContentPage();
             $companyContributionsStart = 10;
         }
 
@@ -672,8 +727,8 @@ class PayslipPrinter extends PayslipPrinterBase
 
         // Fringe benefits
         $fringeBenefitsStart = $companyContributionsStart + 9;
-        if ($fringeBenefitsStart >= (int)$this->pdf->getPageHeight() - 10) {
-            $this->pdf->AddPage();
+        if ($fringeBenefitsStart >= $contentPageBottom) {
+            $addContentPage();
             $fringeBenefitsStart = 10;
         }
         $this->pdf->SetFontSize(10);
@@ -687,8 +742,8 @@ class PayslipPrinter extends PayslipPrinterBase
         $this->pdf->SetFontSize(9);
         for ($i = 0; $i < count($fringeBenefits); $i++) {
 
-            if ($fringeBenefitsStart >= (int)$this->pdf->getPageHeight() - 10) {
-                $this->pdf->AddPage();
+            if ($fringeBenefitsStart >= $contentPageBottom) {
+                $addContentPage();
                 $fringeBenefitsStart = 10;
                 $this->pdf->SetFontSize(10);
                 $this->pdf->Rect(10, $fringeBenefitsStart, 190, 7, 'DF', array(), array($r, $g, $b));
@@ -722,8 +777,8 @@ class PayslipPrinter extends PayslipPrinterBase
             $formattedFringeBenefitsTotal = 0;
         }
 
-        if ($fringeBenefitsStart >= (int)$this->pdf->getPageHeight() - 10) {
-            $this->pdf->AddPage();
+        if ($fringeBenefitsStart >= $contentPageBottom) {
+            $addContentPage();
             $fringeBenefitsStart = 10;
         }
 
@@ -740,9 +795,9 @@ class PayslipPrinter extends PayslipPrinterBase
         if (count($this->leaveItems) > 0) {
             $leave = $fringeBenefitsStart + 9;
 
-            if (($leave + 7) >= (int)$this->pdf->getPageHeight() - 10) {
+            if (($leave + 7) >= $contentPageBottom) {
 
-                $this->pdf->AddPage();
+                $addContentPage();
                 $leave = 10;
             }
             $this->pdf->SetFontSize(10);
@@ -772,9 +827,9 @@ class PayslipPrinter extends PayslipPrinterBase
 
             for ($i = 0; $i < count($this->leaveItems); $i++) {
 
-                if (($leave + 7) >= (int)$this->pdf->getPageHeight() - 10) {
+                if (($leave + 7) >= $contentPageBottom) {
 
-                    $this->pdf->AddPage();
+                    $addContentPage();
                     $leave = 10;
                     $this->pdf->SetFontSize(10);
                     $this->pdf->Rect(10, $leave, 190, 7, 'DF', array(), array($r, $g, $b));
@@ -831,6 +886,8 @@ class PayslipPrinter extends PayslipPrinterBase
                 $leave = $leave + 5;
             }
         }
+
+        $finishContentTransform();
 
         if (!empty($this->encryptionPassword)) {
             // Debugging
