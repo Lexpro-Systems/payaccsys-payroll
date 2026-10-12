@@ -27,4 +27,6 @@ insert into payment_period_types (code, name) values ('TWMO', 'Twice Monthly') O
 
 insert into financial_institutions (code, name) values ('ZMUK', 'Zero Mukuru') ON CONFLICT DO NOTHING;;
 
+insert into financial_institutions (code, name) values ('PWAL', 'Payaccsys Wallet') ON CONFLICT DO NOTHING;;
+
 INSERT INTO database_updates (major_version, minor_version) VALUES (1, 46);
