@@ -162,6 +162,24 @@ $payeTable = [
     ]
 ];
 
+// Function to determine whether a PAYE tax table is available for a given date
+//
+// date     The date for which a PAYE tax table is required
+//
+// return   True if a PAYE tax table is available, otherwise false
+function isPayeTaxYearAvailable(DateTime $date): bool
+{
+    global $payeTable;
+
+    foreach ($payeTable as $yearTable) {
+        if ($date >= $yearTable['start'] && $date <= $yearTable['end']) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Create travel allowance tables
 //
 //  $travelAllowanceTable = [

@@ -390,7 +390,7 @@ app.panel.ProcessPayrun = function (config) {
                 { dataIndex: 'select', width: '50px', type: 'rowSelect' },
                 { dataIndex: 'period', name: 'Payslip Period', width: '180px' },
                 { dataIndex: 'employeeName', name: 'Employee', width: '220px' },
-                { dataIndex: 'description', name: 'Description' }
+                { dataIndex: 'description', name: 'Description', wrapText: true }
             ],
 
             onCellClick: execptionsGridCellClickEventHandler,

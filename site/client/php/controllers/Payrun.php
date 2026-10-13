@@ -4491,6 +4491,30 @@ class Payrun extends Controller
                 'items' => []
             ];
 
+            // Is there a PAYE tax table available for the payslip date?
+            $taxTableAvailable = \PayslipUtil\isPayeTaxYearAvailable(
+                new DateTime($payslipRow['to_date'])
+            );
+
+            if (!$taxTableAvailable) {
+                // Add an exception
+                $exceptions[] = [
+                    'description' =>
+                        'No PAYE tax table available for the ' .
+                        $payslipRow['sars_year'] .
+                        ' tax year. Therefore PAYE could not be calculated.',
+                    'payslip' => [
+                        'id' => $payslipRow['id'],
+                        'fromDate' => $payslipRow['from_date'],
+                        'toDate' => $payslipRow['to_date']
+                    ],
+                    'employee' => [
+                        'id' => $payslipRow['employee_id'],
+                        'name' => $payslipRow['employee_name']
+                    ]
+                ];
+            }
+
             // Is it an active payslip?
             if ($payslipRow['status_code'] === 'ACTI') {
                 // Was the specified employee dismissed before the payrun?
