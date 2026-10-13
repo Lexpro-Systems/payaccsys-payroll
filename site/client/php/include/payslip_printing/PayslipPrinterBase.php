@@ -265,9 +265,9 @@ abstract class PayslipPrinterBase
         $this->employeeEmploymentStart = $employeeEmploymentStart;
     }
 
-    // Function to set the employee bank number
+    // Function to set the employee bank name
     //
-    // employeeBankName              The bank number of the employee
+    // employeeBankName              The bank name of the employee
     public function setEmployeeBankName(string $employeeBankName)
     {
         $this->employeeBankName = $employeeBankName;

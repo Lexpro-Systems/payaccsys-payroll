@@ -873,13 +873,15 @@ class Payslip extends Controller
             'departments.name AS department_name, ' .
             'employee_bank_details.account_number, ' .
             'employee_bank_details.branch_code, ' .
-            'bank_account_types.name AS bank_account_type_name ' .
+            'bank_account_types.name AS bank_account_type, ' .
+            'financial_institutions.name AS financial_institution_name ' .
             'FROM ' .
             'payslips ' .
             'LEFT JOIN employees ON employees.id = payslips.employee_id ' .
             'LEFT JOIN departments ON departments.id = employees.department_id ' .
             'LEFT JOIN employee_bank_details ON employee_bank_details.employee_id = employees.id ' .
             'LEFT JOIN bank_account_types ON employee_bank_details.bank_account_type_code = bank_account_types.code ' .
+            'LEFT JOIN financial_institutions ON employee_bank_details.financial_institution_code = financial_institutions.code ' .
             'WHERE ' .
             'payslips.payrun_id = $1 AND ' .
             'payslips.status_code = \'ACTI\' ' .
@@ -1030,7 +1032,8 @@ class Payslip extends Controller
             $printer->setEmployeeIdNumber($payslipRow['id_number']);
             $printer->setEmployeePassportNumber($payslipRow['passport_number']);
             $printer->setEmployeeIncomeTaxNumber($payslipRow['income_tax_number']);
-            $printer->setEmployeeBankName($payslipRow['bank_account_type_name'] ?? '');
+            $printer->setEmployeeBankName($payslipRow['financial_institution_name'] ?? '');
+            $printer->setEmployeeBankType($payslipRow['bank_account_type'] ?? '');
             $printer->setEmployeeAccountNumber($payslipRow['account_number'] ?? '');
             $printer->setEmployeeBankCode($payslipRow['branch_code'] ?? '');
             $printer->setEmployeePeriod($payslipRow['from_date'] . ' - ' . $payslipRow['to_date']);
