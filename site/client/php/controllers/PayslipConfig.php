@@ -568,7 +568,8 @@
             $printer->setEmployeeCell('Cell Number');
             $printer->setEmployeeIdNumber('Id Number');
             
-            $printer->setEmployeeBankName('Bank Account Type Name');
+            $printer->setEmployeeBankName('Bank Name');
+            $printer->setEmployeeBankType('Account Type');
             
             $printer->setEmployeeAccountNumber('Account Number');
             

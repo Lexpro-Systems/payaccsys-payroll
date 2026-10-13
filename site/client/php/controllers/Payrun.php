@@ -3280,7 +3280,8 @@ class Payrun extends Controller
                 'employees.send_payslip_by_email, ' .
                 'employee_bank_details.account_number, ' .
                 'employee_bank_details.branch_code, ' .
-                'bank_account_types.name AS bank_account_type_name ' .
+                'bank_account_types.name AS bank_account_type, ' .
+                'financial_institutions.name AS financial_institution_name ' .
                 'FROM ' .
                 'payslips ' .
                 'LEFT JOIN ' .
@@ -3291,6 +3292,8 @@ class Payrun extends Controller
                 'employee_bank_details ON employee_bank_details.employee_id = employees.id ' .
                 'LEFT JOIN ' .
                 'bank_account_types ON employee_bank_details.bank_account_type_code = bank_account_types.code ' .
+                'LEFT JOIN ' .
+                'financial_institutions ON employee_bank_details.financial_institution_code = financial_institutions.code ' .
                 'WHERE ' .
                 'payslips.payrun_id = $1 AND ' .
                 'payslips.status_code = \'ACTI\' ' .
@@ -3349,9 +3352,13 @@ class Payrun extends Controller
                 $printer->setEmployeePassportNumber($payslipRow['passport_number']);
                 $printer->setEmployeeIncomeTaxNumber($payslipRow['income_tax_number']);
 
-                $bankAccountTypeName = $payslipRow['bank_account_type_name'];
-                if ($bankAccountTypeName === null) $bankAccountTypeName = '';
-                $printer->setEmployeeBankName($bankAccountTypeName);
+                $bankAccountType = $payslipRow['bank_account_type'];
+                if ($bankAccountType === null) $bankAccountType = '';
+                $printer->setEmployeeBankType($bankAccountType);
+
+                $financialInstitutionName = $payslipRow['financial_institution_name'];
+                if ($financialInstitutionName === null) $financialInstitutionName = '';
+                $printer->setEmployeeBankName($financialInstitutionName);
 
                 $accountNumber = $payslipRow['account_number'];
                 if ($accountNumber === null) $accountNumber = '';
