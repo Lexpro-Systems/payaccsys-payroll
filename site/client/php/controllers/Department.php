@@ -448,7 +448,7 @@ class Department extends Controller
         # Retrieves all the leave types.
         $sqlQuery =
             'SELECT ' .
-            'id, name ' .
+            'id, name, leave_unit_code ' .
             'FROM ' .
             'leave_types ' .
             'WHERE ' .
@@ -475,7 +475,58 @@ class Department extends Controller
             $leaveTypes[] = [
                 'id' => $row['id'],
                 'isSubscribed' => $leaveConfigResult->getRowCount() > 0,
-                'name' => $row['name']
+                'name' => $row['name'],
+                'leaveUnitCode' => $row['leave_unit_code'],
+                'rules' => []
+            ];
+        }
+
+        # Retrieves the configured rules used to describe each leave type.
+        $leaveRuleQuery =
+            'SELECT ' .
+            'id, ' .
+            'leave_type_id, ' .
+            'start_month, ' .
+            'accrual_interval, ' .
+            'leave_accrual_type_code, ' .
+            'amount, ' .
+            'reset_accrued, ' .
+            'reset_taken, ' .
+            'reset_interval, ' .
+            'carry_over_interval ' .
+            'FROM ' .
+            'leave_type_rules ' .
+            'ORDER BY ' .
+            'leave_type_id ASC, start_month ASC;';
+        $leaveRuleResult = $db->paramQuery($leaveRuleQuery, []);
+        if (!$leaveRuleResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+            return false;
+        }
+
+        while ($ruleRow = $leaveRuleResult->fetchAssociative()) {
+            $leaveTypeIndex = null;
+            for ($i = 0; $i < count($leaveTypes); $i++) {
+                if ($leaveTypes[$i]['id'] === $ruleRow['leave_type_id']) {
+                    $leaveTypeIndex = $i;
+                    break;
+                }
+            }
+
+            if ($leaveTypeIndex === null) continue;
+
+            $leaveTypes[$leaveTypeIndex]['rules'][] = [
+                'id' => $ruleRow['id'],
+                'startMonth' => $ruleRow['start_month'],
+                'accrualInterval' => $ruleRow['accrual_interval'],
+                'accrualType' => [
+                    'code' => $ruleRow['leave_accrual_type_code']
+                ],
+                'amount' => $ruleRow['amount'],
+                'resetAccrued' => $ruleRow['reset_accrued'],
+                'resetTaken' => $ruleRow['reset_taken'],
+                'resetInterval' => $ruleRow['reset_interval'],
+                'carryOverInterval' => $ruleRow['carry_over_interval']
             ];
         }
 

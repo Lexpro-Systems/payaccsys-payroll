@@ -400,6 +400,14 @@ class Report extends Controller
             "PAYMENT PERIOD",
             "PAYMENT DAY",
             "PAYMENT PERIOD END DAY",
+            "CUSTOM BWEE PAYMENT PERIOD START",
+            "CUSTOM BWEE PAYMENT DAY",
+            "FIRST PAYMENT PERIOD START",
+            "FIRST PAYMENT PERIOD END",
+            "FIRST PAYMENT DAY",
+            "SECOND PAYMENT PERIOD START",
+            "SECOND PAYMENT PERIOD END",
+            "SECOND PAYMENT DAY",
             "FINANCIAL INSTITUTION",
             "BANK ACCOUNT TYPE",
             "ACCOUNT NUMBER",
@@ -465,6 +473,14 @@ class Report extends Controller
 
             $paymentDay = null;
             $paymentPeriodEndDay = null;
+            $bweeCustomPped = null;
+            $bweeCustomPaymentDay = null;
+            $twiceMonthlyFirstStartDay = null;
+            $twiceMonthlyFirstEndDay = null;
+            $twiceMonthlyFirstPaymentDay = null;
+            $twiceMonthlySecondStartDay = null;
+            $twiceMonthlySecondEndDay = null;
+            $twiceMonthlySecondPaymentDay = null;
             $weekDays = array("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday");
             $biWeekDays = array("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday");
             // array(
@@ -489,9 +505,38 @@ class Report extends Controller
                     $paymentPeriodEndDay = $weekDays[$employee['paymentPeriodEndDay']];
                 }
             } else if ($employee['paymentPeriodCode'] == "BWEE") {
-                if (($employee['paymentDay'] >= 0 && $employee['paymentDay'] <= 13) && ($employee['paymentPeriodEndDay'] >= 0 && $employee['paymentPeriodEndDay'] <= 13)) {
+                if ($employee['bweeCustomPped'] !== null && $employee['bweeCustomPped'] !== '') {
+                    $bweeCustomPped = $employee['bweeCustomPped'];
+                    $bweeCustomPaymentDay = $employee['bweeCustomPaymentDay'];
+                } else if (
+                    $employee['paymentDay'] !== null &&
+                    $employee['paymentDay'] >= 0 &&
+                    $employee['paymentDay'] <= 6 &&
+                    $employee['paymentPeriodEndDay'] !== null &&
+                    $employee['paymentPeriodEndDay'] >= 0 &&
+                    $employee['paymentPeriodEndDay'] <= 6
+                ) {
                     $paymentDay = $biWeekDays[$employee['paymentDay']];
                     $paymentPeriodEndDay = $biWeekDays[$employee['paymentPeriodEndDay']];
+                }
+            } else if ($employee['paymentPeriodCode'] == "TWMO") {
+                if ($employee['twiceMonthlyFirstStartDay'] !== null) {
+                    $twiceMonthlyFirstStartDay = $employee['twiceMonthlyFirstStartDay'] == 0 ? 'Last Day' : $employee['twiceMonthlyFirstStartDay'];
+                }
+                if ($employee['twiceMonthlyFirstEndDay'] !== null) {
+                    $twiceMonthlyFirstEndDay = $employee['twiceMonthlyFirstEndDay'] == 0 ? 'Last Day' : $employee['twiceMonthlyFirstEndDay'];
+                }
+                if ($employee['twiceMonthlyFirstPaymentDay'] !== null) {
+                    $twiceMonthlyFirstPaymentDay = $employee['twiceMonthlyFirstPaymentDay'] == 0 ? 'Last Day' : $employee['twiceMonthlyFirstPaymentDay'];
+                }
+                if ($employee['twiceMonthlySecondStartDay'] !== null) {
+                    $twiceMonthlySecondStartDay = $employee['twiceMonthlySecondStartDay'] == 0 ? 'Last Day' : $employee['twiceMonthlySecondStartDay'];
+                }
+                if ($employee['twiceMonthlySecondEndDay'] !== null) {
+                    $twiceMonthlySecondEndDay = $employee['twiceMonthlySecondEndDay'] == 0 ? 'Last Day' : $employee['twiceMonthlySecondEndDay'];
+                }
+                if ($employee['twiceMonthlySecondPaymentDay'] !== null) {
+                    $twiceMonthlySecondPaymentDay = $employee['twiceMonthlySecondPaymentDay'] == 0 ? 'Last Day' : $employee['twiceMonthlySecondPaymentDay'];
                 }
             } else {
                 if ($employee['paymentDay'] == 0) {
@@ -565,6 +610,14 @@ class Report extends Controller
                 $employee['paymentPeriodTypeName'],
                 $paymentDay,
                 $paymentPeriodEndDay,
+                $bweeCustomPped,
+                $bweeCustomPaymentDay,
+                $twiceMonthlyFirstStartDay,
+                $twiceMonthlyFirstEndDay,
+                $twiceMonthlyFirstPaymentDay,
+                $twiceMonthlySecondStartDay,
+                $twiceMonthlySecondEndDay,
+                $twiceMonthlySecondPaymentDay,
                 $employee['employeeFinancialInstitutionName'],
                 $employeeBankAccountTypeName,
                 $employee['employeeAccountNumber'],
@@ -586,11 +639,10 @@ class Report extends Controller
                 $employee['incomeTaxDirective3Amount'],
                 $enablePayeCorrection,
                 // $employee['grossSalary'],
-                null,
             ];
             $writer->addRow(WriterEntityFactory::createRowFromArray($content, null));
         }
-        file_put_contents("./data_content_employees.txt", $employee);
+        // file_put_contents("./data_content_employees.txt", $employee);
         $writer->close();
         return true;
     }

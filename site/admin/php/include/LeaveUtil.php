@@ -431,13 +431,31 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                         );
                     }
                     //error_log("Accrual date: {$accrualDateObj->format('Y-m-d')}. CycleStart: {$cycleStart->format('Y-m-d')} , CycleEnd: {$cycleEnd->format('Y-m-d')}");
-                    $accrualDevider = prorataWorkingDays($cycleStart, $cycleEnd);
-                    //$accrualDevider = $sqlLeaveTypeRuleRow['accrual_interval'];
-                    # Checks if the accrual should occur?
-                    if ($leaveDate == $accrualDateObj->format('Y-m-d')) {
+                    // $accrualDevider = prorataWorkingDays($cycleStart, $cycleEnd);
+                    // //$accrualDevider = $sqlLeaveTypeRuleRow['accrual_interval'];
+                    // # Checks if the accrual should occur?
+                    // if ($leaveDate == $accrualDateObj->format('Y-m-d')) {
 
-                        $leaveEarned = prorataCycleCheck($sqlLeaveTypeRuleRow['amount'], $accrualDevider, $cycleStart, $cycleEnd, $customDate, $employmentEndDateObj, $employmentStartDateObj, $type = 'Begin');
-                        $earnLeave = true;
+                    //     $leaveEarned = prorataCycleCheck($sqlLeaveTypeRuleRow['amount'], $accrualDevider, $cycleStart, $cycleEnd, $customDate, $employmentEndDateObj, $employmentStartDateObj, $type = 'Begin');
+                    //     $earnLeave = true;
+                    // }
+                    $accrualInterval = (int)$sqlLeaveTypeRuleRow['accrual_interval'];
+
+                    if ($accrualInterval >= 3) {
+                        $accrualDevider = prorataWorkingDays($cycleStart, $cycleEnd);
+                        # Checks if the accrual should occur?
+                        if ($leaveDate == $accrualDateObj->format('Y-m-d')) {
+
+                            $leaveEarned = prorataCycleCheck($sqlLeaveTypeRuleRow['amount'], $accrualDevider, $cycleStart, $cycleEnd, $customDate, $employmentEndDateObj, $employmentStartDateObj, $type = 'Begin');
+                            $earnLeave = true;
+                        }
+                    } else {
+
+                        if ($leaveDate == $accrualDateObj->format('Y-m-d')) {
+
+                            $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
+                            $earnLeave = true;
+                        }
                     }
 
                     /********************************************
@@ -473,13 +491,29 @@ function processEmployeeLeave($leaveDetails, $user, $db)
                             (int)$employmentEndDateObj->format('d')
                         );
                     }
-                    $accrualDevider = $sqlLeaveTypeRuleRow['accrual_interval'];
-                    // error_log("Accrual date: {$accrualDateObj->format('Y-m-d')}. CycleStart: {$cycleStart->format('Y-m-d')} , CycleEnd: {$cycleEnd->format('Y-m-d')}");
-                    # Checks if the accrual should occur?
-                    if ($leaveDate == $accrualDateObj->format('Y-m-d')) {
+                    // $accrualDevider = $sqlLeaveTypeRuleRow['accrual_interval'];
+                    // // error_log("Accrual date: {$accrualDateObj->format('Y-m-d')}. CycleStart: {$cycleStart->format('Y-m-d')} , CycleEnd: {$cycleEnd->format('Y-m-d')}");
+                    // # Checks if the accrual should occur?
+                    // if ($leaveDate == $accrualDateObj->format('Y-m-d')) {
 
-                        $leaveEarned = prorataCycleCheck($sqlLeaveTypeRuleRow['amount'], $accrualDevider, $cycleStart, $cycleEnd, $customDate, $employmentEndDateObj, $employmentStartDateObj, $type = 'End');
-                        $earnLeave = true;
+                    //     $leaveEarned = prorataCycleCheck($sqlLeaveTypeRuleRow['amount'], $accrualDevider, $cycleStart, $cycleEnd, $customDate, $employmentEndDateObj, $employmentStartDateObj, $type = 'End');
+                    //     $earnLeave = true;
+                    // }
+
+                    $accrualInterval = (int)$sqlLeaveTypeRuleRow['accrual_interval'];
+                    if ($accrualInterval >= 3) {
+                        $accrualDevider = prorataWorkingDays($cycleStart, $cycleEnd);
+                        # Checks if the accrual should occur?
+                        if ($leaveDate == $accrualDateObj->format('Y-m-d')) {
+                            $leaveEarned = prorataCycleCheck($sqlLeaveTypeRuleRow['amount'], $accrualDevider, $cycleStart, $cycleEnd, $customDate, $employmentEndDateObj, $employmentStartDateObj, $type = 'End');
+                            $earnLeave = true;
+                        }
+                    } else {
+
+                        if ($leaveDate == $accrualDateObj->format('Y-m-d')) {
+                            $leaveEarned = $sqlLeaveTypeRuleRow['amount'];
+                            $earnLeave = true;
+                        }
                     }
 
                     /********************************************

@@ -12,6 +12,91 @@ app.panel.ViewDefaultDepartmentLeave = function (config) {
 
     lx.EventEmitter.call(this);
 
+    function createLeaveRuleDescriptions(leaveType, typeContainerEl) {
+        for (let i = 0; i < leaveType.rules.length; i++) {
+            let rule = leaveType.rules[i];
+            let ruleText = '';
+
+            if (rule.accrualType.code === 'HWOR') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave for every ' + rule.accrualInterval +
+                    ' hours worked.';
+            }
+            else if (rule.accrualType.code === 'DWOR') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave for every ' + rule.accrualInterval +
+                    ' days worked.';
+            }
+            else if (rule.accrualType.code === 'PAYS') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave for every ' + rule.accrualInterval +
+                    ' payslips received.';
+            }
+            else if (rule.accrualType.code === 'PPES') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave at the beginning of every ' +
+                    rule.accrualInterval + ' month cycle.';
+            }
+            else if (rule.accrualType.code === 'PPEE') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave at the end of every ' +
+                    rule.accrualInterval + ' month cycle.';
+            }
+            else if (rule.accrualType.code === 'DCST') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() +
+                    ' of leave at the beginning of every ' + rule.accrualInterval + ' day cycle.';
+            }
+            else if (rule.accrualType.code === 'DCEN') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave at the end of every ' +
+                    rule.accrualInterval + ' day cycle.';
+            }
+            else if (rule.accrualType.code === 'MCST') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave at the beginning of every ' +
+                    rule.accrualInterval + ' month cycle.';
+            }
+            else if (rule.accrualType.code === 'MCEN') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave at the end of every ' +
+                    rule.accrualInterval + ' month cycle.';
+            }
+            else if (rule.accrualType.code === 'YCST') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave at the beginning of every ' +
+                    rule.accrualInterval + ' year cycle.';
+            }
+            else if (rule.accrualType.code === 'YCEN') {
+                ruleText = ruleText + 'From month ' + rule.startMonth + ' earn ' + lx.util.formatLeaveUnits(rule.amount, null) +
+                    ' ' + leaveType.leaveUnitCode.toLowerCase() + ' of leave at the end of every ' +
+                    rule.accrualInterval + ' year cycle.';
+            }
+
+            lx.createElement('DIV', {
+                parent: typeContainerEl,
+                style: {
+                    boxSizing: 'border-box',
+                    width: '100%',
+                    padding: '10px 15px'
+                },
+                innerHTML: ruleText
+            });
+        }
+
+        if (leaveType.rules.length === 0) {
+            lx.createElement('DIV', {
+                parent: typeContainerEl,
+                style: {
+                    boxSizing: 'border-box',
+                    width: '100%',
+                    padding: '10px 15px'
+                },
+                innerHTML: 'This type does not have any rules.'
+            });
+        }
+    }
+
     function createLeaveTypeHeader(leaveType, typeContainerEl, leaveTypeIndex) {
         let typeHeadingEl = lx.createElement('DIV', {
             parent: typeContainerEl,
@@ -20,7 +105,10 @@ app.panel.ViewDefaultDepartmentLeave = function (config) {
                 height: '45px',
                 display: 'flex',
                 flexDirection: 'row',
-                alignItems: 'center'
+                alignItems: 'center',
+                borderStyle: 'solid',
+                borderWidth: '0px 0px 1px 0px',
+                borderColor: '#DFDFDF'
             }
         });
 
@@ -58,6 +146,8 @@ app.panel.ViewDefaultDepartmentLeave = function (config) {
             subscribeCheckboxEl: subscribeCheckbox,
             typeContainerEl: typeContainerEl
         };
+
+        createLeaveRuleDescriptions(leaveType, typeContainerEl);
     }
 
     function reloadLeaveType(leaveTypeId) {

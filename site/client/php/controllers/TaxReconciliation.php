@@ -603,6 +603,7 @@ class TaxReconciliation extends Controller
             $totalSdl = 0.00;
             $totalRemuneration = 0.00;
             $payPeriodsWorked = 0;
+            $bweeStoredPeriods = [];
             $taxCertificateItems = [];
             $payslip = null;
             while ($payslipRow = $payslipResult->fetchAssociative()) {
@@ -630,6 +631,12 @@ class TaxReconciliation extends Controller
 
                 // Add to the number of pay periods worked
                 $payPeriodsWorked = $payPeriodsWorked + 1;
+
+                // Keep the historical BWEE period numbers so transition payslips can extend the
+                // expected period count without changing the continuous 14-day calculation.
+                if ($payslipRow['payment_period_code'] === 'BWEE') {
+                    $bweeStoredPeriods[] = $payslipRow['period'];
+                }
 
                 // Get all the items for the specified payslip
                 $itemQuery =
@@ -1010,6 +1017,11 @@ class TaxReconciliation extends Controller
                 $payslipTotals = \PayslipUtil\calculatePayslipTotals($payslip);
                 $totalTaxableIncome = $totalTaxableIncome + $payslipTotals['taxableIncome'];
                 $totalNonTaxableIncome = $totalNonTaxableIncome + $payslipTotals['nonTaxableIncome'];
+            }
+
+            if ($sqlEmployeeRow['payment_period_code'] === 'BWEE') {
+                $bweePeriodResult = $this->resolveBweeReconciliationPayPeriods($payPeriods, $bweeStoredPeriods);
+                $payPeriods = $bweePeriodResult['payPeriods'];
             }
 
             // Re-imbursive travel allowances can only fall under either code 3702 (and 3722) or 3703. If both
@@ -5328,6 +5340,7 @@ class TaxReconciliation extends Controller
 
             // Get all the payslips for the employee for the given tax reconciliation period
             $payPeriodsWorked = 0;
+            $bweeStoredPeriods = [];
             $totalIncomeItems = 0;
             $totalDeductionItems = 0;
             $payslipQuery =
@@ -5399,6 +5412,10 @@ class TaxReconciliation extends Controller
             while ($payslipRow = $payslipResult->fetchAssociative()) {
                 // Count the number of periods for the employee
                 $payPeriodsWorked = $payPeriodsWorked + 1;
+
+                if ($payslipRow['payment_period_code'] === 'BWEE') {
+                    $bweeStoredPeriods[] = $payslipRow['period'];
+                }
 
                 // Get all the items for the specified payslip
                 $itemQuery =
@@ -5615,6 +5632,22 @@ class TaxReconciliation extends Controller
                 }
             }
 
+            if ($sqlEmployeeRow['payment_period_code'] === 'BWEE') {
+                $bweePeriodResult = $this->resolveBweeReconciliationPayPeriods($payPeriods, $bweeStoredPeriods);
+                $payPeriods = $bweePeriodResult['payPeriods'];
+
+                if (!$bweePeriodResult['isValid']) {
+                    $exceptions[] = [
+                        'isCritical' => false,
+                        'source' => $sqlEmployeeRow['alias'],
+                        'value' => null,
+                        'newValue' => null,
+                        'description' => 'Invalid BWEE payslip periods',
+                        'fullDescription' => $bweePeriodResult['error']
+                    ];
+                }
+            }
+
             if ($payPeriodsWorked != $payPeriods) {
                 // Add an exception
                 $exceptions[] = [
@@ -5660,6 +5693,48 @@ class TaxReconciliation extends Controller
         }
 
         return (['ok' => true, 'exceptions' => $exceptions]);
+    }
+
+    private function resolveBweeReconciliationPayPeriods($calculatedPayPeriods, $storedPeriods)
+    {
+        $result = [
+            'payPeriods' => $calculatedPayPeriods,
+            'isValid' => true,
+            'error' => null
+        ];
+
+        if (count($storedPeriods) === 0) {
+            return $result;
+        }
+
+        $periodNumbers = [];
+        foreach ($storedPeriods as $storedPeriod) {
+            $periodNumber = filter_var($storedPeriod, FILTER_VALIDATE_INT);
+            if ($periodNumber === false || $periodNumber <= 0) {
+                $result['isValid'] = false;
+                $result['error'] = 'A BWEE payslip has a missing or invalid stored period number. The calculated 14-day period count was retained.';
+                return $result;
+            }
+
+            $periodNumbers[] = $periodNumber;
+        }
+
+        sort($periodNumbers, SORT_NUMERIC);
+        $expectedPeriod = 1;
+        foreach ($periodNumbers as $periodNumber) {
+            if ($periodNumber !== $expectedPeriod) {
+                $result['isValid'] = false;
+                $result['error'] = 'The stored BWEE payslip period numbers are duplicated or not sequential from period 1. The calculated 14-day period count was retained.';
+                return $result;
+            }
+
+            $expectedPeriod++;
+        }
+
+        $highestStoredPeriod = $periodNumbers[count($periodNumbers) - 1];
+        $result['payPeriods'] = max($calculatedPayPeriods, $highestStoredPeriod);
+
+        return $result;
     }
 
     // @param $string               The string to format
