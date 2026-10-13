@@ -288,6 +288,14 @@ function getEmployeeDetailsData($data, $user, $db)
         'payment_period_types.name AS payment_period_type_name, ' .
         'employees.payment_day, ' .
         'employees.payment_period_end_day, ' .
+        'employees.bwee_custom_pped, ' .
+        'employees.bwee_custom_payment_day, ' .
+        'employees.first_period_start, ' .
+        'employees.first_period_end, ' .
+        'employees.first_period_payment_day, ' .
+        'employees.second_period_start, ' .
+        'employees.second_period_end, ' .
+        'employees.second_period_payment_day, ' .
         'employees.income_tax_number, ' .
         'employee_bank_details.account_number AS employee_account_number, ' .
         'employee_bank_details.branch_code AS employee_branch_code, ' .
@@ -427,6 +435,14 @@ function getEmployeeDetailsData($data, $user, $db)
             'paymentPeriodTypeName' => $sqlRow['payment_period_type_name'],
             'paymentDay' => $sqlRow['payment_day'],
             'paymentPeriodEndDay' => $sqlRow['payment_period_end_day'],
+            'bweeCustomPped' => $sqlRow['bwee_custom_pped'],
+            'bweeCustomPaymentDay' => $sqlRow['bwee_custom_payment_day'],
+            'twiceMonthlyFirstStartDay' => $sqlRow['first_period_start'],
+            'twiceMonthlyFirstEndDay' => $sqlRow['first_period_end'],
+            'twiceMonthlyFirstPaymentDay' => $sqlRow['first_period_payment_day'],
+            'twiceMonthlySecondStartDay' => $sqlRow['second_period_start'],
+            'twiceMonthlySecondEndDay' => $sqlRow['second_period_end'],
+            'twiceMonthlySecondPaymentDay' => $sqlRow['second_period_payment_day'],
             'employeeFinancialInstitutionName' => $sqlRow['employee_financial_institution_name'],
             'employeeBankAccountTypeCode' => $sqlRow['employee_bank_account_type_code'],
             'employeeAccountNumber' => $sqlRow['employee_account_number'],
