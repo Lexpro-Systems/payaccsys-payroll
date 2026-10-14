@@ -2933,7 +2933,8 @@ app.panel.AddEmployeeWizard = function (config) {
                 flexDirection: 'row',
                 alignItems: 'flex-start',
                 justifyContent: 'space-between',
-                width: '100%'
+                width: '100%',
+                margin: '15px 0px 0px 0px'
             }
         });
 
@@ -2941,7 +2942,7 @@ app.panel.AddEmployeeWizard = function (config) {
             renderTo: paymentPeriodSelectContainerEl,
             label: 'Payment Period *',
             labelAlign: 'left',
-            margin: '15px 0px 0px 0px',
+            margin: '0px',
             labelWidth: '220px',
             maxWidth: '600px',
 
@@ -2968,6 +2969,51 @@ app.panel.AddEmployeeWizard = function (config) {
 
             onChange: paymentPeriodSelectChangeEventHandler
         });
+        let paymentPeriodInfoEl = new lx.createElement('DIV', {
+            parent: paymentPeriodSelectContainerEl,
+            style: {
+                cursor: 'pointer',
+                display: 'flex',
+                width: '24px',
+                minWidth: '24px',
+                height: '24px',
+                minHeight: '24px',
+                margin: 'auto 0px auto 10px',
+                fontSize: '12px',
+                color: lx.style.global.backgroundColor,
+                backgroundColor: '#3B81EB',
+                borderRadius: '50%'
+            },
+            innerHTML: '<i class="fa fa-question" style="margin: auto auto;"></i>'
+        });
+
+        let paymentPeriodTooltipLocusEl = lx.createElement('DIV', {
+            parent: paymentPeriodSelectContainerEl,
+            style: {
+                position: 'relative',
+                margin: 'auto 0px 0px 0px',
+                width: '0px',
+                height: '30px'
+            }
+        });
+
+        let paymentPeriodInfoTooltip = new lx.component.Tooltip({
+            renderTo: paymentPeriodTooltipLocusEl,
+            alignment: 'topRight',
+            arrowOffset: '8px',
+            width: '100%',
+            maxWidth: '480px',
+            margin: '5px 10px',
+            backgroundColor: '#3B81EB', // '#4885F4',
+            message:
+                '<span style="font-size: 12px;">' +
+                'Payment Periods - Every Two Weeks vs Twice Monthly:<br><br>' +
+                'Every Two Weeks: Payment period follows a fixed 14-day cycle. The user can choose whether the cycle starts on the employee&apos;s employment date or a specified custom date.<br><br>' +
+                'Twice Monthly: Two payment periods are configured using specified days of the month. Each period requires a start day, an end day and a payment day. Unlike the Every Two Weeks option, the length of these periods may vary depending on the dates selected by the user.' +
+                '</span>'
+        });
+        paymentPeriodInfoEl.addEventListener('mouseenter', function () { paymentPeriodInfoTooltip.show(); });
+        paymentPeriodInfoEl.addEventListener('mouseleave', function () { paymentPeriodInfoTooltip.hide(); });
 
         let paymentPeriodSelectValidatorEl = lx.createElement('DIV', {
             parent: paymentPeriodSelectContainerEl,
@@ -3092,7 +3138,7 @@ app.panel.AddEmployeeWizard = function (config) {
 
         bweeCustomDateDate = new lx.component.DatePicker({
             renderTo: bweeCustomDateContainerEl,
-            label: 'Custom Payment Period End Day',
+            label: 'Custom Payment Period Start *',
             labelAlign: 'left',
             margin: '15px 0px 0px 0px',
             labelWidth: '220px',
@@ -3103,7 +3149,7 @@ app.panel.AddEmployeeWizard = function (config) {
 
         bweeCustomPaymentDayDate = new lx.component.DatePicker({
             renderTo: bweeCustomDateContainerEl,
-            label: 'Custom Payment Day',
+            label: 'Custom Payment Day *',
             labelAlign: 'left',
             margin: '15px 0px 0px 0px',
             labelWidth: '220px',
