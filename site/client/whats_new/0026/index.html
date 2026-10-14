@@ -1,0 +1,134 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Lexpro Payroll: What's New</title>
+
+    <!-- GOOGLE FONTS -->
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+
+    <style type="text/css">
+        html, body {
+            margin: 0px;
+            padding: 0px;
+        }
+
+        body {
+            margin: 0px auto;
+            max-width: 640px;
+            padding: 10px 40px 20px 40px;
+            background-color: #FFFFFF;
+            font-family: 'Roboto', sans-serif;
+            color: #2C333E;
+        }
+
+        h1 {
+            font-size: 18px;
+        }
+
+        p {
+            font-size: 14px;
+            margin: 20px 0px;
+            text-align: justify;
+        }
+
+        ul {
+            font-size: 14px;
+        }
+
+        ul > li {
+            margin: 5px 0px 0px 0px;
+        }
+
+        .overview-section {
+            margin: 0px 0px 20px 0px;
+            padding: 10px 0px;
+            width: 360px;
+            max-width: 100%;
+            background-color: #F3F3F3;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .overview-section > ul {
+            color: #2C333E;
+        }
+
+        .overview-section > ul > li > a {
+            font-size: 14px;
+            margin: 5px 0px 0px 0px;
+            color: #FC8C3A;
+        }
+
+        .release-image {
+            box-sizing: border-box;
+            width: 100%;
+            margin: 20px 0px 5px 0px;
+        }
+
+        .release-image > img {
+            box-sizing: border-box;
+            display: block;
+            width: 100%;
+            height: auto;
+            border: 1px solid #AAAAAA;
+        }
+
+        .screenshot-caption {
+            margin: 5px 0px 25px 0px;
+            font-size: 12px;
+            text-align: right;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Overview</h1>
+    <div class="overview-section">
+        <ul>
+            <li><a href="#DownloadAllPayslips">Download all payslips as one PDF</a></li>
+            <li><a href="#EmployeePaymentPeriodOptions">Custom Biweekly and Twice Monthly employee options</a></li>
+            <li><a href="#EmployeeDetailsExport">Employee Details payment-period export fields</a></li>
+            <li><a href="#DepartmentDefaultSettings">Department Default Settings</a></li>
+        </ul>
+    </div>
+
+    <a name="DownloadAllPayslips"></a>
+    <h1>Download All Payslips as One PDF</h1>
+    <p>A new &apos;Download All Payslips&apos; option is available from a payrun&apos;s menu. It downloads the payslips belonging to the selected payrun as one combined PDF document.</p>
+    <div class="release-image"><img src="bulk_payslip_download.png" alt="Payrun menu showing the Download All Payslips option."></div>
+    <p class="screenshot-caption">Download All Payslips.</p>
+
+    <a name="EmployeePaymentPeriodOptions"></a>
+    <h1>Custom Biweekly and Twice Monthly Employee Options</h1>
+    <p>Custom Biweekly and Twice Monthly payment-period options have been added to the Employee Details page and the Add Employee wizard. These options allow an existing employee&apos;s payment-period configuration to be reviewed and updated, or configured while a new employee is being added.</p>
+    <div class="release-image"><img src="twice_monthly_bwee_payfrequency.png" alt="Twice Monthly payment-period configuration fields on Employee Details."></div>
+    <p class="screenshot-caption">Twice Monthly payment-period options on Employee Details.</p>
+
+    <a name="EmployeeDetailsExport"></a>
+    <h1>Employee Details Payment-Period Export Fields</h1>
+    <p>The Employee Details CSV and Excel exports now include custom biweekly payment-period fields and twice-monthly payment-period fields. For biweekly employees, the export uses the custom payment-period end date and payment day when configured; otherwise it uses the standard biweekly values.</p>
+    <div class="release-image"><img src="employee_details_export.png" alt="Employee Details export showing custom biweekly and twice-monthly columns."></div>
+    <p class="screenshot-caption">Employee Details payment-period columns.</p>
+
+    <a name="DepartmentDefaultSettings"></a>
+    <h1>Department Default Settings</h1>
+    <p>Department Default Settings can be accessed from the Departments page by opening the selected department&apos;s menu and choosing &apos;Default Settings&apos;.</p>
+    <div class="release-image"><img src="department_default_setting_option.png" alt="Departments page menu showing the Default Settings option."></div>
+    <p class="screenshot-caption">Accessing Default Settings from the Departments page.</p>
+    <p>The Department Default Settings page provides three individual options:</p>
+    <ul>
+        <li><strong>Details</strong> &mdash; configure the department&apos;s employment details, employee working days and work schedule defaults.</li>
+        <li><strong>Earnings / Deductions</strong> &mdash; configure the default earnings and deductions that apply to the department.</li>
+        <li><strong>Leave</strong> &mdash; select the department&apos;s default leave subscriptions and review the configured rule descriptions for each leave type.</li>
+    </ul>
+    <div class="release-image"><img src="department_default_details_page.png" alt="Department Default Settings Details page."></div>
+    <p class="screenshot-caption">Department Details defaults.</p>
+    <div class="release-image"><img src="department_default_earnings_page.png" alt="Department Default Settings Earnings and Deductions page."></div>
+    <p class="screenshot-caption">Department Earnings / Deductions defaults.</p>
+    <div class="release-image"><img src="department_default_leave_page.png" alt="Department Default Settings Leave page showing leave subscriptions and descriptions."></div>
+    <p class="screenshot-caption">Department Leave subscriptions and rule descriptions.</p>
+</body>
+</html>
