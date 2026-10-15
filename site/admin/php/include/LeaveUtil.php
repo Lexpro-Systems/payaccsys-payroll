@@ -2060,32 +2060,76 @@ function paymentPeriodProrataCalculations($config, $type): int|float
             // error_log("first to last day");
         } else {
 
-            $effectiveEndDay = min(
-                $config['paymentPeriodEndDay'],
-                $daysInMonth
-            );
+            $isNonLeapMarchPpesCycle =
+                $type === 'PPES' &&
+                (int)$config['paymentPeriodEndDay'] === 28 &&
+                $currentDate->format('L') === '0' &&
+                $currentDate->format('m') === '03' &&
+                (int)$currentDate->format('d') <= 28;
 
-            // Determine which month the cycle starts in
-            if ((int)$currentDate->format('d') <= $effectiveEndDay) {
+            if ($isNonLeapMarchPpesCycle) {
 
-                // Cycle started previous month
-                $cycleMonth = (clone $currentDate)->modify('-1 month');
+                // The payment period following 28 February in a
+                // non-leap year is 1 March through 28 March.
+                $cycleStart = (clone $currentDate)->modify(
+                    'first day of this month'
+                );
+
+                $cycleEnd = (clone $currentDate)->setDate(
+                    (int)$currentDate->format('Y'),
+                    3,
+                    28
+                );
             } else {
-                // Cycle started current month
-                $cycleMonth = clone $currentDate;
+
+                $effectiveEndDay = min(
+                    (int)$config['paymentPeriodEndDay'],
+                    $daysInMonth
+                );
+
+                if ((int)$currentDate->format('d') <= $effectiveEndDay) {
+                    $cycleMonth = (clone $currentDate)->modify('-1 month');
+                } else {
+                    $cycleMonth = clone $currentDate;
+                }
+
+                $cycleStart = (clone $cycleMonth)->setDate(
+                    (int)$cycleMonth->format('Y'),
+                    (int)$cycleMonth->format('m'),
+                    $effectiveEndDay + 1
+                );
+
+                $cycleEnd = (clone $cycleStart)
+                    ->modify('+1 month')
+                    ->modify('-1 day');
             }
 
-            // Build cycle start
-            $cycleStart = (clone $cycleMonth)->setDate(
-                (int)$cycleMonth->format('Y'),
-                (int)$cycleMonth->format('m'),
-                $effectiveEndDay + 1
-            );
+            // $effectiveEndDay = min(
+            //     $config['paymentPeriodEndDay'],
+            //     $daysInMonth
+            // );
 
-            // Build cycle end
-            $cycleEnd = (clone $cycleStart)
-                ->modify('+1 month')
-                ->modify('-1 day');
+            // // Determine which month the cycle starts in
+            // if ((int)$currentDate->format('d') <= $effectiveEndDay) {
+
+            //     // Cycle started previous month
+            //     $cycleMonth = (clone $currentDate)->modify('-1 month');
+            // } else {
+            //     // Cycle started current month
+            //     $cycleMonth = clone $currentDate;
+            // }
+
+            // // Build cycle start
+            // $cycleStart = (clone $cycleMonth)->setDate(
+            //     (int)$cycleMonth->format('Y'),
+            //     (int)$cycleMonth->format('m'),
+            //     $effectiveEndDay + 1
+            // );
+
+            // // Build cycle end
+            // $cycleEnd = (clone $cycleStart)
+            //     ->modify('+1 month')
+            //     ->modify('-1 day');
 
             //error_log("Not first to last day");
         }
@@ -3872,6 +3916,18 @@ function  paymentPeriodDay($currentDate, $startDate, $paymentPeriodEndDay, $Mont
             $startDay = 1;
         }
         $result =  $currentDay == $startDay;
+
+        if ((int)$paymentPeriodEndDay === 28 && $currentDate->format('L') === '0') {
+            $monthAndDay = $currentDate->format('m-d');
+
+            if ($monthAndDay === '02-01') {
+                // 31 January was not a payment-period end.
+                $result = false;
+            } else if ($monthAndDay === '03-01') {
+                // 28 February was the payment-period end.
+                $result = true;
+            }
+        }
         return [
             'Result' => $result,
             'CycleStart' => null,
