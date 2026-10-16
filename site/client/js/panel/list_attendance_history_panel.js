@@ -100,6 +100,7 @@ app.panel.ListAttendanceHistory = function(config) {
                     }
                     persons.push({
                         id: response.persons[i].id,
+                        departmentId: response.persons[i].departmentId,
                         attendanceId: response.persons[i].attendanceId,
                         status: status,
                         cellNumber: response.persons[i].cellNumber,
@@ -964,7 +965,8 @@ app.panel.ListAttendanceHistory = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: attendanceGrid.getRow(event.rowIndex).id,
-                employeeName: attendanceGrid.getRow(event.rowIndex).name
+                employeeName: attendanceGrid.getRow(event.rowIndex).name,
+                departmentId: attendanceGrid.getRow(event.rowIndex).departmentId
             });
             
             var panelState = {

@@ -1110,11 +1110,11 @@
                 $commissionIncome = $commissionIncome + $item['amount'];
                 $totalIncome = $totalIncome + $item['amount'];
             }
-            else if( $item['type']['code'] === '1004' ) {           // Annual Payment
+            else if( $item['type']['code'] === '1004' || $item['type']['code'] === '1006') {   // Annual Payment || Leave Payout
                 $taxableIncome = $taxableIncome + $item['amount'];
                 $totalOnceOffIncome = $totalOnceOffIncome + $item['amount'];
             }
-            else if( $item['type']['code'] === '1005' ) {           // Overtime
+            else if( $item['type']['code'] === '1005' || $item['type']['code'] === '5008' || $item['type']['code'] === '5009') {           // Overtime
                 $taxableIncome = $taxableIncome + $item['amount'];
                 $totalIncome = $totalIncome + $item['amount'];
             }
@@ -1398,11 +1398,11 @@
                 $commissionIncome = $commissionIncome + $item['amount'];
                 $totalIncome = $totalIncome + $item['amount'];
             }
-            else if( $item['type']['code'] === '1004' ) {   // Annual Payment
+            else if( $item['type']['code'] === '1004' || $item['type']['code'] === '1006') {   // Annual Payment || Leave Payout
                 $taxableIncome = $taxableIncome + $item['amount'];
                 $totalOnceOffIncome = $totalOnceOffIncome + $item['amount'];
             }
-            else if( $item['type']['code'] === '1005' ) {   // Overtime
+            else if( $item['type']['code'] === '1005' || $item['type']['code'] === '5008' || $item['type']['code'] === '5009') {   // Overtime
                 $taxableIncome = $taxableIncome + $item['amount'];
                 $totalIncome = $totalIncome + $item['amount'];
             }

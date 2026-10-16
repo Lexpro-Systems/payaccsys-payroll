@@ -534,32 +534,32 @@ app.panel.EditEmployeePersonalDetails = function(config) {
     function saveBtnClickEventHandler() {
         // Check all required values
         if( titleSelect.getValue() === null ) {
-            saveBtn.showWarning('The employee title can not be empty.');
+            saveBtn.showWarning('The employee title cannot be empty.');
             return;
         }
         
         if( initialsTxt.getValue().trim() === '' ) {
-            saveBtn.showWarning('The employee initials can not be empty.');
+            saveBtn.showWarning('The employee initials cannot be empty.');
             return;
         }
         
         if( fullNamesTxt.getValue().trim() === '' ) {
-            saveBtn.showWarning('The employee full names can not be empty.');
+            saveBtn.showWarning('The employee full names cannot be empty.');
             return;
         }
         
         if( lastNameTxt.getValue().trim() === '' ) {
-            saveBtn.showWarning('The employee last name can not be empty.');
+            saveBtn.showWarning('The employee last name cannot be empty.');
             return;
         }
         
         if( aliasTxt.getValue().trim() === '' ) {
-            saveBtn.showWarning('The employee alias can not be empty.');
+            saveBtn.showWarning('The employee alias cannot be empty.');
             return;
         }
         
         if( dateOfBirthDate.getValue() === '' || dateOfBirthDate.getValue() === null) {
-            saveBtn.showWarning('The employee date of birth can not be empty.');
+            saveBtn.showWarning('The employee date of birth cannot be empty.');
             return;
         }
         

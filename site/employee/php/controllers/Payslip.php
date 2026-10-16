@@ -264,7 +264,8 @@
                         'employees.send_payslip_by_email, ' .
                         'employee_bank_details.account_number, ' .
                         'employee_bank_details.branch_code, ' .
-                        'bank_account_types.name AS bank_account_type_name ' .
+                        'bank_account_types.name AS bank_account_type, ' .
+                        'financial_institutions.name AS financial_institution_name ' .
                     'FROM ' .
                         'payslips ' .
                     'LEFT JOIN ' .
@@ -275,6 +276,8 @@
                         'employee_bank_details ON employee_bank_details.employee_id = employees.id ' .
                     'LEFT JOIN ' .
                         'bank_account_types ON employee_bank_details.bank_account_type_code = bank_account_types.code ' .
+                    'LEFT JOIN ' .
+                        'financial_institutions ON employee_bank_details.financial_institution_code = financial_institutions.code ' .
                     'WHERE ' .
                         'payslips.id = $1 AND ' .
                         'employees.id = $2 ' .
@@ -325,9 +328,13 @@
                 $printer->setEmployeePassportNumber($payslipRow['passport_number']);
                 $printer->setEmployeeIncomeTaxNumber($payslipRow['income_tax_number']);
                 
-                $bankAccountTypeName = $payslipRow['bank_account_type_name'];
-                if( $bankAccountTypeName === null ) $bankAccountTypeName = '';
-                $printer->setEmployeeBankName($bankAccountTypeName);
+                $bankAccountType = $payslipRow['bank_account_type'];
+                if ($bankAccountType === null) $bankAccountType = '';
+                $printer->setEmployeeBankType($bankAccountType);
+
+                $financialInstitutionName = $payslipRow['financial_institution_name'];
+                if ($financialInstitutionName === null) $financialInstitutionName = '';
+                $printer->setEmployeeBankName($financialInstitutionName);
                 
                 $accountNumber = $payslipRow['account_number'];
                 if( $accountNumber === null ) $accountNumber = '';
@@ -393,11 +400,21 @@
                     
                     // Set the description
                     $description = $itemRow['description'];
-                    
+
                     // Is it an overtime item?
-                    if( $itemRow['payslip_item_type_code'] == '1005' ) {
+                    if ($itemRow['payslip_item_type_code'] == '1005' || $itemRow['payslip_item_type_code'] == '5008' || $itemRow['payslip_item_type_code'] == '5009') {
                         // Add the number of hours worked to the payslip item description
-                        $description = $description . ' (' . $hoursWorked . ' hours)';
+                        $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                    }
+
+                    // Add hours worked and hourly rate to description
+                    if ($itemRow['payslip_item_type_code'] == '1001') {
+                        $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                    }
+
+                    // Add days worked and daily rate to description
+                    if ($itemRow['payslip_item_type_code'] == '1002') {
+                        $description = $description . ' (' . $daysWorked . ' days @ ' . $itemRow['rate'] . ' per day)';
                     }
                     
                     // Add the specified item details to the payslip printer
@@ -854,7 +871,8 @@
                     'employees.send_payslip_by_email, ' .
                     'employee_bank_details.account_number, ' .
                     'employee_bank_details.branch_code, ' .
-                    'bank_account_types.name AS bank_account_type_name ' .
+                    'bank_account_types.name AS bank_account_type, ' .
+                    'financial_institutions.name AS financial_institution_name ' .
                 'FROM ' .
                     'payslips ' .
                 'LEFT JOIN ' .
@@ -865,6 +883,8 @@
                     'employee_bank_details ON employee_bank_details.employee_id = employees.id ' .
                 'LEFT JOIN ' .
                     'bank_account_types ON employee_bank_details.bank_account_type_code = bank_account_types.code ' .
+                'LEFT JOIN ' .
+                    'financial_institutions ON employee_bank_details.financial_institution_code = financial_institutions.code ' .
                 'WHERE ' .
                     'payslips.id = $1 AND ' .
                     'employees.id = $2 ' .
@@ -915,9 +935,13 @@
             $printer->setEmployeePassportNumber($payslipRow['passport_number']);
             $printer->setEmployeeIncomeTaxNumber($payslipRow['income_tax_number']);
             
-            $bankAccountTypeName = $payslipRow['bank_account_type_name'];
-            if( $bankAccountTypeName === null ) $bankAccountTypeName = '';
-            $printer->setEmployeeBankName($bankAccountTypeName);
+            $bankAccountType = $payslipRow['bank_account_type'];
+            if ($bankAccountType === null) $bankAccountType = '';
+            $printer->setEmployeeBankType($bankAccountType);
+
+            $financialInstitutionName = $payslipRow['financial_institution_name'];
+            if ($financialInstitutionName === null) $financialInstitutionName = '';
+            $printer->setEmployeeBankName($financialInstitutionName);
             
             $accountNumber = $payslipRow['account_number'];
             if( $accountNumber === null ) $accountNumber = '';
@@ -985,9 +1009,19 @@
                 $description = $itemRow['description'];
                 
                 // Is it an overtime item?
-                if( $itemRow['payslip_item_type_code'] == '1005' ) {
+                if ($itemRow['payslip_item_type_code'] == '1005' || $itemRow['payslip_item_type_code'] == '5008' || $itemRow['payslip_item_type_code'] == '5009') {
                     // Add the number of hours worked to the payslip item description
-                    $description = $description . ' (' . $hoursWorked . ' hours)';
+                    $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                }
+
+                // Add hours worked and hourly rate to description
+                if ($itemRow['payslip_item_type_code'] == '1001') {
+                    $description = $description . ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+                }
+
+                // Add days worked and daily rate to description
+                if ($itemRow['payslip_item_type_code'] == '1002') {
+                    $description = $description . ' (' . $daysWorked . ' days @ ' . $itemRow['rate'] . ' per day)';
                 }
                 
                 // Add the specified item details to the payslip printer

@@ -90,6 +90,7 @@ app.panel.BirthdayReport = function(config) {
                     }
                     employees.push({
                         id: response.employees[i].id,
+                        departmentId: response.employees[i].departmentId,
                         code: response.employees[i].code,
                         name: response.employees[i].alias,
                         email: response.employees[i].emailAddress,
@@ -482,6 +483,7 @@ app.panel.BirthdayReport = function(config) {
                 
                 employeeId: event.record.id,
                 employeeName: event.record.name,
+                departmentId: event.record.departmentId,
                 
                 onDestroy: function( event ) {
                     if( event.refreshEmployees === true ) {

@@ -1,0 +1,409 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Lexpro Payroll: What's New</title>
+
+    <!-- GOOGLE FONTS -->
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+
+    <!-- LOAD FONT AWESOME -->
+    <link rel="stylesheet" href="https://www.lexproonline.co.za/cdn/font_awesome_5_13_0/css/all.min.css">
+
+    <style type="text/css">
+        html,
+        body {
+            margin: 0px;
+            padding: 0px;
+        }
+
+        body {
+            margin: 0px auto;
+            max-width: 640px;
+            padding: 10px 40px 20px 40px;
+            background-color: #FFFFFF;
+            font-family: 'Roboto', sans-serif;
+            color: #2C333E;
+        }
+
+        h1 {
+            font-size: 18px;
+        }
+
+        h2 {
+            font-size: 14px;
+            margin: 30px 0px 0px 0px;
+        }
+
+        p {
+            font-size: 14px;
+            margin: 20px 0px;
+            text-align: justify;
+        }
+
+        ul {
+            font-size: 14px;
+        }
+
+        ul>li {
+            margin: 5px 0px 0px 0px;
+        }
+
+        .overview-section {
+            margin: 0px 0px 20px 0px;
+            padding: 10px 0px;
+            width: 280px;
+            background-color: #F3F3F3;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .overview-section>ul {
+            color: #2C333E;
+        }
+
+        .overview-section>ul>li>a {
+            font-size: 14px;
+            margin: 5px 0px 0px 0px;
+            color: #FC8C3A;
+        }
+
+        .paye-over-deduction-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .paye-over-deduction-img>div {
+            background-image: url(paye_od_panel.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 370px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .paye-over-deduction-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+        .paye-over-deduction-button-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .paye-over-deduction-button-img>div {
+            background-image: url(paye_od_credit_button.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 270px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .paye-over-deduction-button-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+        .paye-od-debit-item-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .paye-od-debit-item-img>div {
+            background-image: url(od_debit_item.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 270px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .paye-od-debit-item-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+        .annual-item-popup-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .annual-item-popup-img>div {
+            background-image: url(annuel_payment_item_popup.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 270px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .annual-item-popup-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+        .annual-debit-item-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .annual-debit-item-img>div {
+            background-image: url(annuel_debit_item.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 270px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .annual-debit-item-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+        .payslip-encryption-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .payslip-encryption-img>div {
+            background-image: url(payslip_encryption_all.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 360px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .payslip-encryption-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+        .payslip-encryption-button-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .payslip-encryption-button-img>div {
+            background-image: url(payslip_encruption_button.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 270px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .payslip-encryption-button-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+        .ui19-form-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .ui19-form-img>div {
+            background-image: url(ui19_form.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 310px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .ui19-form-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+        .ui19-form-dismissed-employees-list-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .ui19-form-dismissed-employees-list-img>div {
+            background-image: url(ui19_dismissed_employee_list.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 260px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .ui19-form-dismissed-employees-list-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+
+        .ui19-form-button-img {
+            width: 100%;
+            max-width: 605px;
+        }
+
+        .ui19-form-button-img>div {
+            background-image: url(ui19_form_button.png);
+            background-repeat: no-repeat;
+            background-position: left top;
+            background-size: 100% auto;
+            width: 100%;
+            height: 300px;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #AAAAAA;
+        }
+
+        .ui19-form-button-img>p {
+            font-size: 12px;
+            margin: 5px 0px 0px 0px;
+            text-align: right;
+        }
+    </style>
+
+</head>
+
+<body>
+    <h1>Overview</h1>
+    <div class="overview-section">
+        <ul>
+            <li><a href="#PayeOverDeduction">Added PAYE Over-Deduction updates</a></li>
+            <li><a href="#PayslipEncryption">Enabled encryption for payslips</a></li>
+            <li><a href="#UI19Form">Added UI-19 From</a></li>
+        </ul>
+    </div>
+
+    <a name="PayeOverDeduction"></a>
+    <h1>Added PAYE Over Deduction updates</h1>
+    <!-- <p>Functionality has been implemented to export a UIF declaration which can be electronically submitted as an attachment to the Department of Labour via e-mail to: declarations@labour.gov.za.</p> -->
+    <p>Functionality has been implemented to enable users to calculate the Over-Deduction balance for each employee for
+        each month, and subtract an amount (PAYE OD Debit) from that balance to decrease the employee's PAYE for that
+        month. PAYE Over-Deduction items will be displayed on the employee's payslip.</p>
+
+    <div class="paye-over-deduction-img">
+        <div></div>
+        <!-- <p>Export UIF declaration.</p> -->
+        <p>PAYE Over-Deduction Credit panel.</p>
+    </div>
+
+    <!-- <p>The UIF declartion function can be executed by clicking the &apos;UIF Declaration&apos; button at the top of the UIF Report panel:</p> -->
+    <p>The PAYE Over-Deduction Credit function can be accessed by clicking the &apos;PAYE Over-Deduction Credit&apos;
+        button in the drop-down menu section of the Edit Payrun panel:</p>
+
+    <div class="paye-over-deduction-button-img">
+        <div></div>
+        <!-- <p>UIF declaration button.</p>  -->
+        <p>PAYE Over-Deduction Credit button.</p>
+    </div>
+
+    <p>A PAYE OD Debit item can be added to a payslip by clicking the &apos;Add Item&apos; button in the drop-down menu
+        section of the employee's payslip:</p>
+
+    <div class="paye-od-debit-item-img">
+        <div></div>
+        <p>PAYE OD Debit item.</p>
+    </div>
+
+    <p>If a user adds an &apos;Annual Payment&apos; to an employee's payslip, a &apos;Use PAYE Over Deduction
+        Credit&apos; pop-up will appear, if the employee has Over-Deduction credit available. The pop-up will display
+        the employee's Over-Deduction credit balance. If the user clicks &apos;Yes&apos;, the PAYE OD Debit item will be
+        added to the employee's payslip.</p>
+
+    <div class="annual-item-popup-img">
+        <div></div>
+        <p>&apos;Use PAYE Over Deduction Credit&apos; pop-up.<br><br></p>
+    </div>
+
+    <div class="annual-debit-item-img">
+        <div></div>
+        <p>PAYE OD Debit item added through &apos;Annual Payment&apos;.</p>
+    </div>
+
+    <a name="PayslipEncryption"></a>
+    <h1>Added Payslip Encryption</h1>
+
+    <p>All payslips in a Payrun can be encrypted by selecting the &apos;Encrypt Payslips&apos; option in the
+        &apos;Payrun Options&apos; section, after clicking the &apos;Process&apos; button. Encrypted payslips can be
+        opened by using the employee's ID number (or Passport number) as the password.</p>
+
+    <div class="payslip-encryption-img">
+        <div></div>
+        <p>Encrypt Payslips.</p>
+    </div>
+
+    <p>Payslips can be encrypted individually by clicking the &apos;Add/Remove Encryption&apos; button in the drop-down
+        menu section of the employee's payslip:</p>
+
+    <div class="payslip-encryption-button-img">
+        <div></div>
+        <p>Add/Remove Encryption.</p>
+    </div>
+
+    <a name="UI19Form"></a>
+    <h1>Added UI-19 Form to Reports</h1>
+
+    <p>A dismissed employee's UIF details can be used to automatically populate a UI-19 form:</p>
+
+    <div class="ui19-form-img">
+        <div></div>
+        <p>UI-19 Form.</p>
+    </div>
+
+    <p>When clicking on the &apos;Reports&apos; button and selecting &apos;Open&apos; in the &apos;UI-19 Export&apos;
+        section, a list of all the dismissed employees of a company will be displayed. When clicking on the drop-down
+        menu of a specific employee, the user can view, download or email the UI-19 Form of that employee.</p>
+
+    <div class="ui19-form-dismissed-employees-list-img">
+        <div></div>
+        <p>Dismissed Employees and Menu.<br><br></p>
+    </div>
+
+    <div class="ui19-form-button-img">
+        <div></div>
+        <p>UI-19 Export Button.</p>
+    </div>
+
+</body>
+
+</html>

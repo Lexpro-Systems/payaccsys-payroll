@@ -159,6 +159,7 @@ app.panel.UifReport = function(config) {
                             code: response.employees[i].code,
                             name: response.employees[i].alias,
                             employeeId: response.employees[i].id,
+                            departmentId: response.employees[i].departmentId,
                             uifReferenceNumber: response.employees[i].uifReferenceNumber,
                             idNumber: response.employees[i].idNumber,
                             passportNumber: response.employees[i].passportNumber,
@@ -667,7 +668,8 @@ app.panel.UifReport = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: event.record.employeeId,
-                employeeName: event.record.name
+                employeeName: event.record.name,
+                departmentId: event.record.departmentId
             });
             
             var panelState = {

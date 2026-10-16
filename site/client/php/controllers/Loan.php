@@ -224,6 +224,7 @@
                     'loans.calculate_taxable_benefit, ' . 
                     'employees.alias, ' . 
                     'employees.last_name, ' . 
+                    'employees.department_id, ' .
                     'employees.code AS employee_code, ' .
                     'employees.email_address, ' .
                     'loan_history.interest_rate, ' .
@@ -257,6 +258,7 @@
                 $loans[] = [
                     'id' => $sqlRow['id'],
                     'employeeId' => $sqlRow['employee_id'],
+                    'departmentId' => $sqlRow['department_id'],
                     'description' => $sqlRow['description'],
                     'principalAmount' => $sqlRow['principal_amount'],
                     'adjustLoanAmount' => $sqlRow['adjust_loan_amount'],

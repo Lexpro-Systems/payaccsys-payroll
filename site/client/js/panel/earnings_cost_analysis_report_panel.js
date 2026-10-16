@@ -134,6 +134,7 @@ app.panel.EarningsCostAnalysisReport = function(config) {
                         code: response.employees[i].employeeCode,
                         name: response.employees[i].employeeAlias,
                         employeeId: response.employees[i].employeeId,
+                        departmentId: response.employees[i].departmentId,
                         earnings: lx.util.formatCurrency(response.employees[i].income === null ? 0 : response.employees[i].income),
                         allowances: lx.util.formatCurrency(response.employees[i].allowances === null ? 0 : response.employees[i].allowances),
                         deductions: lx.util.formatCurrency(response.employees[i].deductions === null ? 0 : response.employees[i].deductions),
@@ -583,7 +584,8 @@ app.panel.EarningsCostAnalysisReport = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: event.record.employeeId,
-                employeeName: event.record.name
+                employeeName: event.record.name,
+                departmentId: event.record.departmentId
             });
             
             var panelState = {

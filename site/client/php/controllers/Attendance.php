@@ -1478,6 +1478,7 @@
                 
                 $persons[] = [
                     'id' => $sqlRow['id'],
+                    'departmentId' => $sqlRow['department_id'],
                     'attendanceId' => $sqlRow['attendance_id'],
                     'alias' => $sqlRow['alias'],
                     'time' => $time,

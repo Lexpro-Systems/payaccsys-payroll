@@ -11,6 +11,8 @@
 //  show:               If true the panel will be shown immediately after it was created.  If false the panel will be created but not shown.
 //                      Default to false.
 //  employeeId          The ID of the employee to add the earnings item to.
+//  departmentId        The ID of the department to add the default item to.
+//                      Exactly one of employeeId or departmentId is required.
 //
 // Events:
 //
@@ -28,6 +30,7 @@ app.panel.AddOnceOffPayslipConfigItem = function(config) {
     var confirmDestroy = null;
     var itemTypes = null;
     var employeeId = null;
+    var departmentId = null;
     
     var el = null;
     
@@ -104,7 +107,9 @@ app.panel.AddOnceOffPayslipConfigItem = function(config) {
             width: '100%',
             height: '100%',
             flex: '1 1 100%',
-            show: false
+            show: false,
+            employeeId: null,
+            departmentId: null
         };
         
         // Parse user config
@@ -122,6 +127,7 @@ app.panel.AddOnceOffPayslipConfigItem = function(config) {
         // Initialize state
         confirmDestroy = false;
         employeeId = compConfig.employeeId;
+        departmentId = compConfig.departmentId;
         
         // Create root element
         el = lx.createElement('DIV', {
@@ -401,23 +407,54 @@ app.panel.AddOnceOffPayslipConfigItem = function(config) {
         // Get the amount.  If the amount is empty change it to null
         var amount = itemAmountTxt.getValue();
         if( amount === '' ) amount = null;
-        
+
+        if (itemAccrualDate.getValue() === null || itemAccrualDate.getValue() === '') {
+            addBtn.showWarning('Please select an accrual date.');
+            return;
+        }
+
+        var hasEmployeeId = employeeId !== null && employeeId !== undefined;
+
+        var hasDepartmentId = departmentId !== null && departmentId !== undefined;
+
+        if (hasEmployeeId === hasDepartmentId) {
+            addBtn.showWarning('Exactly one employee or department must be selected.');
+            return;
+        }
+
+        var url = null;
+
+        if (hasEmployeeId) {
+            url = 'exec.php?c=Employee&fn=addPayslipItem';
+        }
+        else {
+            url = 'exec.php?c=Department&fn=addDepartmentDefaultPayslipItem';
+        }
+
+        var requestData = {
+            typeCode: selectedItemType.code,
+            description: itemDescriptionTxt.getValue(),
+            accrualDate: itemAccrualDate.getValue(),
+            autoCalculate: false,
+            unitSourceCode: null,
+            amount: amount,
+            includeInNettPay: false
+        };
+
+        if (hasEmployeeId) {
+            requestData.employeeId = employeeId;
+        }
+        else {
+            requestData.departmentId = departmentId;
+        }
+
         // Add the item
         addBtn.showLoader();
         addBtn.disable();
+
         lx.sendJSON({
-            url: 'exec.php?c=Employee&fn=addPayslipItem',
-            data: {
-                typeCode: selectedItemType.code,
-                employeeId: employeeId,
-                description: itemDescriptionTxt.getValue(),
-                accrualDate: itemAccrualDate.getValue(),
-                autoCalculate: false,
-                unitSourceCode: null,
-                isOnceOff: true,
-                amount: amount,
-                includeInNettPay: false
-            },
+            url: url,
+            data: requestData,
             onSuccess: function( responseText ) {
                 addBtn.hideLoader();
                 addBtn.enable();

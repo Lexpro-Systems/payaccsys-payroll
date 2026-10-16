@@ -50,6 +50,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
     var filterPayslipItemSelectContainerEl = null;
     var filterPayslipItemSelect = null;
     
+    var resultContainerEl = null;
     var resultGrid = null;
 
     //
@@ -72,6 +73,44 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
         html = html + '</span>';
         
         return html;
+    }
+
+    //Helper function to get header text based on selected payslip item
+    function getPayslipItemHeaderText() {
+
+        var headerAmountText = filterPayslipItemSelect.getText();
+
+        if( headerAmountText === null || headerAmountText.trim() === '' ) {
+            headerAmountText = 'Amount';
+        }
+
+        return headerAmountText;
+    }
+
+    //Function to build the result grid to dynamically set header text based on the selected payslip item
+    function buildResultGrid() {
+        if( resultContainerEl === null ) {
+            return;
+        }
+
+        if( resultGrid !== null && typeof resultGrid.destroy === 'function' ) {
+            resultGrid.destroy();
+        }
+
+        resultContainerEl.innerHTML = '';
+
+        resultGrid = new lx.component.Grid({
+            renderTo: resultContainerEl,
+            flex: '1 1 100%',
+
+            columns: [
+                {name: 'Code', dataIndex: 'code', type: 'button', width: '100px', padding: '0px 10px 0px 20px'},
+                {name: 'Name', dataIndex: 'name'},
+                {name: getPayslipItemHeaderText(), dataIndex: 'overtimeAmount', width: '300px', alignment: 'right'}
+            ],
+
+            onCellClick: resultGridCellClickEventHandler
+        });
     }
 
     // Function to load payruns into the select component
@@ -166,6 +205,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
         if( filterPayslipItemSelect.getValue() === null ){
             filterPayslipItemSelect.setValue( '1000', 'Salary' );
         }
+        buildResultGrid(); // Rebuild the grid to update the header text based on the selected payslip item
         var payslipItem = filterPayslipItemSelect.getValue();
 
         
@@ -177,6 +217,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
                 filterType: filterTypeRadio.getValue(),
                 payrunId: filterPayrunSelect.getValue(),
                 payslipItem: filterPayslipItemSelect.getValue(),
+                payslipItemText: filterPayslipItemSelect.getText(),
                 startDate: (filterStartDate.getValue().trim() == '' ? null : filterStartDate.getValue().trim()),
                 endDate: (filterEndDate.getValue().trim() == '' ? null : filterEndDate.getValue().trim()),
                 payslipItem: payslipItem // Include the selected payslip item
@@ -198,6 +239,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
                         code: response.employees[i].employeeCode,
                         name: response.employees[i].employeeAlias,
                         employeeId: response.employees[i].employeeId,
+                        departmentId: response.employees[i].departmentId,
                         overtimeUnits: formatGridAmount(response.employees[i].overtimeUnits),
                         overtimeAmount: formatGridAmount(response.employees[i].overtimeAmount)
                     });
@@ -309,7 +351,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
                 margin: '0px 0px 0px 0px',
                 userSelect: 'none'
             },
-            innerHTML: 'Payslip Items Report ( Specified )'
+            innerHTML: 'Payslip Items Report (Specified)'
         });
 
         // Create the exportExcelBtn component
@@ -592,7 +634,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
         //
 
         // Container to ensure the full result is always visible (with a scroll-bar if necessary)
-        let resultContainerEl = lx.createElement('DIV', {
+        resultContainerEl = lx.createElement('DIV', {
             parent: contentContainerEl,
             style: {
                 boxSizing: 'border-box',
@@ -603,20 +645,8 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
             }
         });
 
-        resultGrid = new lx.component.Grid({
-            renderTo: resultContainerEl,
-            // minWidth: '100%',
-            flex: '1 1 100%',
-            
-            columns: [
-                {name: 'Code', dataIndex: 'code', type: 'button', width: '100px', padding: '0px 10px 0px 20px'},
-                {name: 'Name', dataIndex: 'name'},
-                // {name: 'Hours Worked', dataIndex: 'overtimeUnits', width: '200px', alignment: 'right'},
-                {name: 'Amount Earned', dataIndex: 'overtimeAmount', width: '200px', alignment: 'right'}
-            ],
-            
-            onCellClick: resultGridCellClickEventHandler
-        });
+
+        buildResultGrid();
         
         loadPayslipItemTypes();
         // Load the form data
@@ -666,7 +696,8 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: event.record.employeeId,
-                employeeName: event.record.name
+                employeeName: event.record.name,
+                departmentId: event.record.departmentId
             });
             
             var panelState = {
@@ -707,6 +738,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
                 filterType: filterTypeRadio.getValue(),
                 payrunId: filterPayrunSelect.getValue(),
                 payslipItem: filterPayslipItemSelect.getValue(),
+                payslipItemText: filterPayslipItemSelect.getText(),
                 startDate: (filterStartDate.getValue().trim() == '' ? null : filterStartDate.getValue().trim()),
                 endDate: (filterEndDate.getValue().trim() == '' ? null : filterEndDate.getValue().trim())
             }
@@ -731,6 +763,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
                 filterType: filterTypeRadio.getValue(),
                 payrunId: filterPayrunSelect.getValue(),
                 payslipItem: filterPayslipItemSelect.getValue(),
+                payslipItemText: filterPayslipItemSelect.getText(),
                 startDate: (filterStartDate.getValue().trim() == '' ? null : filterStartDate.getValue().trim()),
                 endDate: (filterEndDate.getValue().trim() == '' ? null : filterEndDate.getValue().trim())
             }
@@ -754,6 +787,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
                 filterType: filterTypeRadio.getValue(),
                 payrunId: filterPayrunSelect.getValue(),
                 payslipItem: filterPayslipItemSelect.getValue(),
+                payslipItemText: filterPayslipItemSelect.getText(),
                 startDate: (filterStartDate.getValue().trim() == '' ? null : filterStartDate.getValue().trim()),
                 endDate: (filterEndDate.getValue().trim() == '' ? null : filterEndDate.getValue().trim())
             }

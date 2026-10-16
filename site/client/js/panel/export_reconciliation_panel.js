@@ -18,50 +18,54 @@
 //  onCancel            This event is fired when the user click the cancel button
 //  onDestroy           This event is fired just before the component is destroyed.
 //
-app.panel.ExportReconciliation = function(config) {
-    
+app.panel.ExportReconciliation = function (config) {
+
     //
     // PRIVATE VARIABLES
     //
-    
+
     var me = this;
     var confirmDestroy = null;
-    
+
     var el = null;
-    
+
     var contentEl = null;
     var loader = null;
-    
+
     var reconciliationDetailsSectionEl = null;
     var disclaimerDisplay = null;
+    var WarningDisplay = null;
+    var WarningSymbol = null;
+    var WarningText = null;
+
     var disclaimerCb = null;
     var typeSelect = null;
-    
+
     var buttonContainerEl = null;
     var cancelBtn = null;
     var exportBtnContainerEl = null;
     var exportBtn = null;
-    
+
     var reconciliationId = null;
-    
-    
+
+
     //
     // OBJECT EXTENSIONS
     //
-    
+
     lx.EventEmitter.call(this);
-    
-    
+
+
     //
     // PRIVATE FUNCTIONS
     //
-    
-    
+
+
     //
     // PUBLIC FUNCTIONS
     //
-    
-    me.init = function( config ) {
+
+    me.init = function (config) {
         // Initialize component config
         var compConfig = {
             renderTo: null,
@@ -69,26 +73,26 @@ app.panel.ExportReconciliation = function(config) {
             height: '100%',
             flex: '1 1 100%',
             show: false,
-            
+
             reconciliationId: null
         };
-        
+
         // Parse user config
-        if( typeof config !== 'undefined' && config !== null ) {
-            for( var property in config ) {
-                if( config.hasOwnProperty(property) ) compConfig[property] = config[property];
+        if (typeof config !== 'undefined' && config !== null) {
+            for (var property in config) {
+                if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
-        
+
         // Attach external event handlers
-        if( compConfig.hasOwnProperty('onExport') ) me.addEventListener('export', compConfig.onExport);
-        if( compConfig.hasOwnProperty('onCancel') ) me.addEventListener('cancel', compConfig.onCancel);
-        if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
-        
+        if (compConfig.hasOwnProperty('onExport')) me.addEventListener('export', compConfig.onExport);
+        if (compConfig.hasOwnProperty('onCancel')) me.addEventListener('cancel', compConfig.onCancel);
+        if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
+
         // Initialize state
         confirmDestroy = false;
         reconciliationId = compConfig.reconciliationId;
-        
+
         // Create root element
         el = lx.createElement('DIV', {
             parent: compConfig.renderTo,
@@ -98,12 +102,12 @@ app.panel.ExportReconciliation = function(config) {
                 alignItems: 'stretch',
                 boxSizing: 'border-box',
                 width: compConfig.width,
-                height: compConfig.height,
+                height: '473px', //compConfig.height,
                 flex: compConfig.flex,
                 backgroundColor: '#FFFFFF'
             }
         });
-        
+
         // Create the heading
         lx.createElement('DIV', {
             parent: el,
@@ -118,7 +122,7 @@ app.panel.ExportReconciliation = function(config) {
             },
             innerHTML: 'Export SARS Reconciliation'
         });
-        
+
         // Create the contentEl element
         contentEl = lx.createElement('DIV', {
             parent: el,
@@ -131,17 +135,17 @@ app.panel.ExportReconciliation = function(config) {
                 padding: '0px 0px 15px 0px'
             }
         });
-        
+
         // Create the loader
         loader = new lx.component.Loader({
             renderTo: contentEl
         });
-        
-        
+
+
         //
         // DEPARTMNT DETAILS SECTION
         //
-        
+
         // Create example section
         reconciliationDetailsSectionEl = lx.createElement('DIV', {
             parent: contentEl,
@@ -154,7 +158,7 @@ app.panel.ExportReconciliation = function(config) {
                 padding: '15px'
             }
         });
-        
+
         // Create a heading for the disclaimer
         new lx.component.Heading({
             renderTo: reconciliationDetailsSectionEl,
@@ -169,14 +173,14 @@ app.panel.ExportReconciliation = function(config) {
             padding: '0px 0px 0px 0px',
             fontSize: '16px'
         });
-        
+
         // Create the disclaimerDisplay component
         disclaimerDisplay = new lx.createElement('DIV', {
-        // disclaimerDisplay = new lx.component.Display({
+            // disclaimerDisplay = new lx.component.Display({
             parent: reconciliationDetailsSectionEl,
             style: {
                 textAlign: 'justify',
-                margin: '15px 0px 0px 0px',
+                margin: '15px 0px 10px 0px',
                 padding: '0px'
             },
             innerHTML:
@@ -186,18 +190,55 @@ app.panel.ExportReconciliation = function(config) {
                 'Lexpro Systems (Pty) Ltd will not be held accountable for any loss or ' +
                 'damages due to the aforementioned submissions.'
         });
-        
+
+        WarningDisplay = new lx.createElement('DIV', {
+            parent: reconciliationDetailsSectionEl,
+            style: {
+                display: 'flex',
+                alignItems: 'center', // Vertically align symbol and text
+                gap: '10px',          // Space between symbol and text
+                maxWidth: '500px',
+                fontSize: '12px',
+                margin: '15px 0px 15px 0px',
+            }
+        });
+
+        WarningSymbol = new lx.createElement('DIV', {
+            parent: WarningDisplay,
+            style: {
+                border: '2px solid #f60606',
+                borderRadius: '50%',
+                width: '15px',
+                height: '15px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                fontWeight: 'bold',
+                color: '#f60606',
+                flexShrink: '0' // Prevent the circle from shrinking
+            },
+            innerHTML: '!'
+        });
+
+        WarningText = new lx.createElement('DIV', {
+            parent: WarningDisplay,
+            style: {
+                color: '#f60606',
+                maxWidth: '100%'
+            },
+            innerHTML: 'This exported document is intended for SARS Efiling upload, if you require a view only document then proceed to the EMP501 report!'
+        });
         // Create the disclaimerCb component
         disclaimerCb = new lx.component.Checkbox({
             renderTo: reconciliationDetailsSectionEl,
             label: 'I have read and understood the disclaimer',
             labelAlign: 'right',
-            margin: '15px 0px 0px 0px',
+            margin: '10px 0px 0px 0px',
             labelWidth: '220px',
             maxWidth: '500px',
             isChecked: false
         });
-        
+
         // Create the typeSelect component
         typeSelect = new lx.component.Selectbox({
             renderTo: reconciliationDetailsSectionEl,
@@ -208,13 +249,13 @@ app.panel.ExportReconciliation = function(config) {
             { value: 'TEST', text: 'Test' },
             { value: 'LIVE', text: 'Live' }
         ]);
-        typeSelect.setValue( 'TEST', 'Test' );
-        
-        
+        typeSelect.setValue('TEST', 'Test');
+
+
         //
         // BUTTON CONTAINER SECTION
         //
-        
+
         // Create the buttonContainerEl element
         buttonContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -222,22 +263,22 @@ app.panel.ExportReconciliation = function(config) {
                 display: 'flex',
                 flexDirection: 'row',
                 justifyContent: 'flex-end',
-                padding: '15px',
+                padding: '10px',
                 borderStyle: 'solid',
                 borderWidth: '1px 0px 0px 0px',
                 borderColor: '#DFDFDF'
             }
         });
-        
+
         // Create the cancelBtn component
         cancelBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
             label: 'Cancel',
             style: 'text',
-            
+
             onClick: cancelBtnClickEventHandler
         });
-        
+
         // Create the exportBtnContainerEl element
         exportBtnContainerEl = lx.createElement('DIV', {
             parent: buttonContainerEl,
@@ -246,100 +287,100 @@ app.panel.ExportReconciliation = function(config) {
                 margin: '0px 0px 0px 30px'
             }
         });
-        
+
         // Create the exportBtn component
         exportBtn = new lx.component.Button({
             renderTo: exportBtnContainerEl,
             label: 'Export',
             width: '120px',
-            
+
             onClick: exportBtnClickEventHandler
         });
-        
+
         // If show is set to true show the panel.
-        if( compConfig.show === true ) me.show();
+        if (compConfig.show === true) me.show();
     };
-    
+
     // Function to set the renderTo target of the panel.
     //
     // renderTo         The new DOM element to render this component to.
-    me.setRenderTarget = function(renderTo) {
+    me.setRenderTarget = function (renderTo) {
         // Remove it from its current target
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         // Save it to the new renderTo element
-        renderTo.appendChild( el );
+        renderTo.appendChild(el);
     };
-    
+
     // Function to show the panel
-    me.show = function() {
-        lx.applyStyle(el, {display: 'flex'});
+    me.show = function () {
+        lx.applyStyle(el, { display: 'flex' });
     };
-    
+
     // Function to hide the panel
-    me.hide = function() {
-        lx.applyStyle(el, {display: 'none'});
+    me.hide = function () {
+        lx.applyStyle(el, { display: 'none' });
     };
-    
+
     // Function to set focus to the panel.
-    me.focus = function() {
+    me.focus = function () {
         typeSelect.focus();
     };
-    
+
     // Function to destroy the panel and all its contents.
     //
     // NOTE: Must return true if the panel was destroyed successfully and false if the panel was not destroyed.
-    me.destroy = function() {
+    me.destroy = function () {
         // Check if we need to confirm before destroying the panel.
-        if( confirmDestroy === true ) {
+        if (confirmDestroy === true) {
             new lx.component.Messagebox({
                 title: 'You have unsaved changes',
                 message: 'If you continue the changes will be lost.',
                 buttons: [
-                    {name: 'cancel', label: 'Cancel', style: 'text', isCancel: true},
-                    {name: 'continue', label: 'Continue', isDefault: true}
+                    { name: 'cancel', label: 'Cancel', style: 'text', isCancel: true },
+                    { name: 'continue', label: 'Continue', isDefault: true }
                 ],
-                onClose: function( event ) {
-                    if( event.button === 'continue' ) {
+                onClose: function (event) {
+                    if (event.button === 'continue') {
                         confirmDestroy = false;
                         me.destroy();
                     }
                 }
             });
-            
+
             return false;
         }
-        
+
         // If there is a onDestroy event run that before destroying the panel
         me.fireEvent('destroy', null);
-        
+
         // Remove the panel from its parent
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         return true;
     };
-    
-    
+
+
     //
     // EVENT HANDLERS
     //
-    
+
     // Cancel button click event handler
     function cancelBtnClickEventHandler() {
-        me.fireEvent('cancel', {srcPanel: me});
+        me.fireEvent('cancel', { srcPanel: me });
     }
-    
+
     // Export button click event handler
     function exportBtnClickEventHandler() {
         // Check that disclaimer was accepted
-        if( !disclaimerCb.getValue() ) {
+        if (!disclaimerCb.getValue()) {
             new lx.component.Messagebox({
                 title: 'Disclaimer not checked',
                 message: 'Please indicate whether you have read and understood the disclaimer before exporting.'
             });
             return;
         }
-        
+
         // Export the reconciliation
         lx.sendForm({
             url: 'exec.php?c=TaxReconciliation&fn=exportSars',
@@ -349,14 +390,14 @@ app.panel.ExportReconciliation = function(config) {
                 type: typeSelect.getValue()
             }
         });
-                    
-        me.fireEvent('export', {srcPanel: me});
+
+        me.fireEvent('export', { srcPanel: me });
     }
-    
-    
+
+
     //
     // INITIALIZE OBJECT
     //
-    
-    me.init( config );
+
+    me.init(config);
 };

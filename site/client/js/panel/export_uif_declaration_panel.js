@@ -593,7 +593,7 @@ app.panel.ExportUifDeclaration = function(config) {
                 
                 if( response.ok !== true ) {
                     new lx.component.Messagebox({
-                        title: 'Exporting UIF Decalaration Failed',
+                        title: 'Exporting UIF Declaration Failed',
                         message: response.error
                     });
                     return;

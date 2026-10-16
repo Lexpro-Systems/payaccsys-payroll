@@ -11,6 +11,7 @@
 //  show:               If true the panel will be shown immediately after it was created.  If false the panel will be created but not shown.
 //                      Default to false.
 //  employeeId          The ID of the employee to add the earnings item to.
+//  departmentId        The ID of the department to add the earnings item to.
 //
 // Events:
 //
@@ -28,6 +29,7 @@ app.panel.AddRecurringPayslipConfigItem = function(config) {
     var confirmDestroy = null;
     var itemTypes = null;
     var employeeId = null;
+    var departmentId = null;
     
     var el = null;
     
@@ -109,7 +111,9 @@ app.panel.AddRecurringPayslipConfigItem = function(config) {
             width: '100%',
             height: '100%',
             flex: '1 1 100%',
-            show: false
+            show: false,
+            employeeId: null,
+            departmentId: null
         };
         
         // Parse user config
@@ -127,6 +131,7 @@ app.panel.AddRecurringPayslipConfigItem = function(config) {
         // Initialize state
         confirmDestroy = false;
         employeeId = compConfig.employeeId;
+        departmentId = compConfig.departmentId;
         
         // Create root element
         el = lx.createElement('DIV', {
@@ -493,22 +498,48 @@ app.panel.AddRecurringPayslipConfigItem = function(config) {
         
         let unitSource = null;
         if( importHoursCheck.getValue() ) unitSource = 'ATTE';
+
+        var url = null;
+
+        var hasEmployeeId = employeeId !== null && employeeId !== undefined;
+        var hasDepartmentId = departmentId !== null && departmentId !== undefined;
+
+        if (hasEmployeeId === hasDepartmentId) {
+            throw new Error(
+                'Exactly one employee or department must be selected to add a payslip item.'
+            );
+        }
+
+        if (hasEmployeeId) {
+            url = 'exec.php?c=Employee&fn=addPayslipItem';
+        }
+        else {
+            url = 'exec.php?c=Department&fn=addDepartmentDefaultPayslipItem';
+        }
+
+        var requestData = {
+            typeCode: selectedItemType.code,
+            description: itemDescriptionTxt.getValue(),
+            accrualDate: null,
+            autoCalculate: itemAutoCheck.getValue(),
+            unitSourceCode: unitSource,
+            amount: amount,
+            includeInNettPay: partOfNettPayCheck.getValue()
+        };
+
+        if (hasEmployeeId) {
+            requestData.employeeId = employeeId;
+        }
+        else {
+            requestData.departmentId = departmentId;
+        }
         
         // Add the item
         addBtn.showLoader();
         addBtn.disable();
         lx.sendJSON({
-            url: 'exec.php?c=Employee&fn=addPayslipItem',
-            data: {
-                typeCode: selectedItemType.code,
-                employeeId: employeeId,
-                description: itemDescriptionTxt.getValue(),
-                accrualDate: null,
-                autoCalculate: itemAutoCheck.getValue(),
-                unitSourceCode: unitSource,
-                amount: amount,
-                includeInNettPay: partOfNettPayCheck.getValue()
-            },
+            url: url,
+            data: requestData,
             onSuccess: function( responseText ) {
                 addBtn.hideLoader();
                 addBtn.enable();

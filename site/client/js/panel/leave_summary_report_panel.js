@@ -398,7 +398,8 @@ app.panel.LeaveSummaryReport = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: event.record.employeeId,
-                employeeName: event.record.name
+                employeeName: event.record.name,
+                departmentId: event.record.departmentId
             });
             
             var panelState = {
@@ -539,6 +540,7 @@ app.panel.LeaveSummaryReport = function(config) {
                     }
                     leaveSummary.push({
                         employeeId: response.leaveSummary[i].id,
+                        departmentId: response.leaveSummary[i].departmentId,
                         code: response.leaveSummary[i].code,
                         name: response.leaveSummary[i].alias,
                         startingBalance: startingBalance,
