@@ -134,6 +134,7 @@ app.panel.CoidaReport = function (config) {
                         email: response.employees[i].emailAddress,
                         cellphone: response.employees[i].cellNumber,
                         department: response.employees[i].departmentName,
+                        departmentId: response.employees[i].departmentId,
                         employmentStatus: response.employees[i].employmentStatus,
                         employmentDate: employmentDate,
                         menu: '<i class="fa fa-ellipsis-v"></i>',
@@ -649,6 +650,8 @@ app.panel.CoidaReport = function (config) {
                 for (let i = 0; i < response.results.length; i++) {
                     // Add the results for the grid
                     results.push({
+                        id: response.results[i].id,
+                        departmentId: response.results[i].departmentId,
                         name: response.results[i].name,
                         idno: response.results[i].idno,
                         email: response.results[i].email,
@@ -766,6 +769,7 @@ app.panel.CoidaReport = function (config) {
 
                 employeeId: event.record.id,
                 employeeName: event.record.name,
+                departmentId: event.record.departmentId,
 
                 onDestroy: function (event) {
                     if (event.refreshEmployees === true) {

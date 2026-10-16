@@ -239,6 +239,7 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
                         code: response.employees[i].employeeCode,
                         name: response.employees[i].employeeAlias,
                         employeeId: response.employees[i].employeeId,
+                        departmentId: response.employees[i].departmentId,
                         overtimeUnits: formatGridAmount(response.employees[i].overtimeUnits),
                         overtimeAmount: formatGridAmount(response.employees[i].overtimeAmount)
                     });
@@ -695,7 +696,8 @@ app.panel.PayslipItemsSpecifiedReport = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: event.record.employeeId,
-                employeeName: event.record.name
+                employeeName: event.record.name,
+                departmentId: event.record.departmentId
             });
             
             var panelState = {

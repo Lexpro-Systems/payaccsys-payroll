@@ -185,6 +185,7 @@ app.panel.EtiReport = function(config) {
                             name: response.employees[i].name,
                             surname: response.employees[i].surname,
                             employeeId: response.employees[i].employeeId,
+                            departmentId: response.employees[i].departmentId,
                             dateOfBirth: response.employees[i].dateOfBirth,
                             age: response.employees[i].age,
                             employmentStartDate: response.employees[i].employmentStartDate,
@@ -644,7 +645,8 @@ app.panel.EtiReport = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: event.record.employeeId,
-                employeeName: event.record.name
+                employeeName: event.record.name,
+                departmentId: event.record.departmentId
             });
             
             var panelState = {

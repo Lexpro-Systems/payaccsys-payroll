@@ -1613,6 +1613,7 @@ class TaxCertificate extends Controller
             'tax_reconciliation_periods.name AS period_name, ' .
             'tax_certificates.employee_id, ' .
             'employees.alias AS employee_name, ' .
+            'employees.department_id, ' .
             'employees.email_address AS employee_email_address, ' .
             'tax_certificates.self_service_access, ' .
             'tax_reconciliations.sars_year, ' .
@@ -1648,6 +1649,7 @@ class TaxCertificate extends Controller
                 'typeCode' => $sqlRow['type_code'],
                 'typeName' => $sqlRow['type_name'],
                 'employeeId' => $sqlRow['employee_id'],
+                'departmentId' => $sqlRow['department_id'],
                 'employeeName' => $sqlRow['employee_name'],
                 'employeeEmailAddress' => $sqlRow['employee_email_address'],
                 'selfServiceAccess' => $sqlRow['self_service_access'],

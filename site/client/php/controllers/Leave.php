@@ -1214,6 +1214,7 @@ class Leave extends Controller
             'leave_requests.added_on, ' .
             'leave_requests.employee_id, ' .
             'employees.alias AS employee_alias, ' .
+            'employees.department_id, ' .
             'leave_requests.leave_type_id, ' .
             'leave_types.name AS leave_type_name, ' .
             'leave_types.leave_unit_code, ' .
@@ -1261,6 +1262,7 @@ class Leave extends Controller
                 'id' => $sqlRow['id'],
                 'addedOn' => $sqlRow['added_on'],
                 'employeeId' => $sqlRow['employee_id'],
+                'departmentId' => $sqlRow['department_id'],
                 'employeeAlias' => $sqlRow['employee_alias'],
                 'leaveTypeId' => $sqlRow['leave_type_id'],
                 'leaveTypeName' => $sqlRow['leave_type_name'],

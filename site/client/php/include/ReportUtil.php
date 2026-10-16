@@ -80,6 +80,7 @@ function getBirthdayData($data, $user, $db)
         'employees.cell_number, ' .
         'employees.email_address, ' .
         'employees.alias, ' .
+        'employees.department_id, ' .
         'employees.date_of_birth ' .
         'FROM ' .
         'employees ' .
@@ -103,6 +104,7 @@ function getBirthdayData($data, $user, $db)
         // Add the row
         $employees[] = [
             'id' => $sqlRow['id'],
+            'departmentId' => $sqlRow['department_id'],
             'code' => $sqlRow['code'],
             'alias' => $sqlRow['alias'],
             'dateOfBirth' => $sqlRow['date_of_birth'],
@@ -986,7 +988,7 @@ function getLeaveSummaryData($data, $user, $db)
     }
 
     // Get the employee details
-    $sqlQuery = 'SELECT id, alias, code FROM employees ORDER BY alias ASC;';
+    $sqlQuery = 'SELECT id, alias, code, department_id FROM employees ORDER BY alias ASC;';
     $sqlResult = $db->paramQuery($sqlQuery, []);
     if (!$sqlResult->isValid()) {
         return (['ok' => false, 'error' => 'Database error.']);
@@ -1112,6 +1114,7 @@ function getLeaveSummaryData($data, $user, $db)
         // Add the leave summary for the specified employee
         $leaveSummary[] = [
             'id' => $sqlRow['id'],
+            'departmentId' => $sqlRow['department_id'],
             'code' => $sqlRow['code'],
             'alias' => $sqlRow['alias'],
             'leave' => $leave,
@@ -1919,6 +1922,7 @@ function getUifData($data, $user, $db)
         $employees[] = [
             'uifReferenceNumber' => $uifReferenceNumber,
             'id' => $sqlRow['employee_id'],
+            'departmentId' => $sqlRow['department_id'],
             'code' => $sqlRow['employee_code'],
             'titleCode' => $sqlRow['title_code'],
             'titleNumber' => $titleNumber,
@@ -2096,6 +2100,7 @@ function getNettPayData($data, $user, $db)
         'payslips.id AS payslip_id, ' .
         'payslips.employee_id, ' .
         'employees.code AS employee_code, ' .
+        'employees.department_id, ' .
         'employees.full_names, ' .
         'employees.last_name, ' .
         'employees.alias AS employee_alias, ' .
@@ -2145,6 +2150,7 @@ function getNettPayData($data, $user, $db)
             'employeeAlias' => $sqlRow['employee_alias'],
             'paymentMethodName' => $sqlRow['payment_method_name'],
             'employeeId' => $sqlRow['employee_id'],
+            'departmentId' => $sqlRow['department_id'],
             'financialInstitutionName' => $sqlRow['financial_institution_name'],
             'branchCode' => $sqlRow['branch_code'],
             'bankAccountTypeName' => $sqlRow['bank_account_type_name'],
@@ -2239,6 +2245,7 @@ function getEmp201Data($data, $user, $db)
         'payslips.employee_id, ' .
         'employees.alias AS employee_alias, ' .
         'employees.code AS employee_code, ' .
+        'employees.department_id, ' .
         'employees.email_address, ' .
         'CAST(COALESCE(paye_details.total, 0) AS FLOAT) AS total_paye, ' .
         'CAST(COALESCE(uif_details.total, 0) AS FLOAT) AS total_uif, ' .
@@ -2277,6 +2284,7 @@ function getEmp201Data($data, $user, $db)
             'employeeCode' => $sqlRow['employee_code'],
             'employeeAlias' => $sqlRow['employee_alias'],
             'employeeId' => $sqlRow['employee_id'],
+            'departmentId' => $sqlRow['department_id'],
             'paye' => number_format((float)$sqlRow['total_paye'], 2, '.', ''),
             'uif' => number_format((float)$sqlRow['total_uif'], 2, '.', ''),
             'sdl' => number_format((float)$sqlRow['total_sdl'], 2, '.', '')
@@ -2573,6 +2581,7 @@ function getEarningsCostAnalysisData($data, $user, $db)
         'employees.id AS employee_id, ' .
         'employees.code AS employee_code, ' .
         'employees.alias AS employee_alias, ' .
+        'employees.department_id, ' .
         'COALESCE(income_details.total, 0.00) AS income_total, ' .
         'COALESCE(allowance_details.total, 0.00) AS allowance_total, ' .
         'COALESCE(deductions_details.total, 0.00) AS deductions_total, ' .
@@ -2609,6 +2618,7 @@ function getEarningsCostAnalysisData($data, $user, $db)
             'employeeCode' => $sqlRow['employee_code'],
             'employeeAlias' => $sqlRow['employee_alias'],
             'employeeId' => $sqlRow['employee_id'],
+            'departmentId' => $sqlRow['department_id'],
             'income' => $sqlRow['income_total'],
             'deductions' =>  $sqlRow['deductions_total'],
             'companyContributions' =>  $sqlRow['contributions_total'],
@@ -3160,6 +3170,7 @@ function getPayslipItemsData($data, $user, $db)
         'employees.full_names AS employee_full_names, ' .
         'employees.last_name AS employee_last_name, ' .
         'employees.alias AS employee_alias, ' .
+        'employees.department_id, ' .
         'employees.id_number AS employee_id_number, ' .
         'employees.email_address AS employee_email_address, ' .
         'employees.employment_end_date AS employee_employment_end_date,' .
@@ -3241,6 +3252,7 @@ function getPayslipItemsData($data, $user, $db)
             'employeeCode' => $sqlRow['employee_code'],
             'employeeAlias' => $sqlRow['employee_alias'],
             'employeeId' => $sqlRow['employee_id'],
+            'departmentId' => $sqlRow['department_id'],
             'employeeFullNames' => $sqlRow['employee_full_names'],
             'employeeLastName' => $sqlRow['employee_last_name'],
             'employeeIdNumber' => $sqlRow['employee_id_number'],
@@ -3692,6 +3704,7 @@ function getOvertimeData($data, $user, $db)
         'employees.full_names AS employee_full_names, ' .
         'employees.last_name AS employee_last_name, ' .
         'employees.alias AS employee_alias, ' .
+        'employees.department_id, ' .
         'CASE WHEN ' .
         'employees.id_number IS NOT NULL AND employees.id_number != \'\' ' .
         'THEN ' .
@@ -3727,6 +3740,7 @@ function getOvertimeData($data, $user, $db)
             'employeeCode' => $sqlRow['employee_code'],
             'employeeAlias' => $sqlRow['employee_alias'],
             'employeeId' => $sqlRow['employee_id'],
+            'departmentId' => $sqlRow['department_id'],
             'employeeFullNames' => $sqlRow['employee_full_names'],
             'employeeLastName' => $sqlRow['employee_last_name'],
             'employeeIdNumber' => $sqlRow['employee_id_number'],
@@ -3860,6 +3874,7 @@ function getPayslipItemSpecifiedData($data, $user, $db)
         'employees.full_names AS employee_full_names, ' .
         'employees.last_name AS employee_last_name, ' .
         'employees.alias AS employee_alias, ' .
+        'employees.department_id, ' .
         'CASE WHEN ' .
         'employees.id_number IS NOT NULL AND employees.id_number != \'\' ' .
         'THEN ' .
@@ -3897,6 +3912,7 @@ function getPayslipItemSpecifiedData($data, $user, $db)
             'employeeCode' => $sqlRow['employee_code'],
             'employeeAlias' => $sqlRow['employee_alias'],
             'employeeId' => $sqlRow['employee_id'],
+            'departmentId' => $sqlRow['department_id'],
             'employeeFullNames' => $sqlRow['employee_full_names'],
             'employeeLastName' => $sqlRow['employee_last_name'],
             'employeeIdNumber' => $sqlRow['employee_id_number'],

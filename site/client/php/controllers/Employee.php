@@ -721,7 +721,7 @@ class Employee extends Controller
         $validationResult = Json::validate($data, [
             // Required parameters
             'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
-            'departmentId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'departmentId' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
 
             // Optional parameters
             'startDate' => ['type' => Json::TYPE_DATE, 'required' => false, 'nullable' => true],

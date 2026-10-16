@@ -91,6 +91,7 @@ app.panel.ListTaxReconciliationCertificates = function(config) {
                         typeCode: response.certificates[i].typeCode,
                         typeName: response.certificates[i].typeName,
                         employeeId: response.certificates[i].employeeId,
+                        departmentId: response.certificates[i].departmentId,
                         employeeName: response.certificates[i].employeeName,
                         employeeEmailAddress: response.certificates[i].employeeEmailAddress,
                         selfServiceAccess: selfServiceAccess,
@@ -469,7 +470,8 @@ app.panel.ListTaxReconciliationCertificates = function(config) {
                 show: true,
                 
                 employeeId: certificatesGrid.getRow(event.rowIndex).employeeId,
-                employeeName: certificatesGrid.getRow(event.rowIndex).employeeName
+                employeeName: certificatesGrid.getRow(event.rowIndex).employeeName,
+                departmentId: certificatesGrid.getRow(event.rowIndex).departmentId
             });
             
             let panelState = {

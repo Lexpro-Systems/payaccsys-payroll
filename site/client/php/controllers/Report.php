@@ -2379,6 +2379,7 @@ private function getEtiReportData($data, $user, $db)
         'SELECT DISTINCT ' .
         'employees.id AS employee_id, ' .
         'employees.code AS employee_code, ' .
+        'employees.department_id, ' .
         'employees.alias AS name, ' .
         'employees.last_name AS surname, ' .
         'employees.date_of_birth AS dob, ' .
@@ -2423,6 +2424,7 @@ private function getEtiReportData($data, $user, $db)
 
         $employee = [
             'employeeId' => $sqlRow['employee_id'] ?? null,
+            'departmentId' => $sqlRow['department_id'] ?? null,
             'code' => $sqlRow['employee_code'] ?? '',
             'name' => $sqlRow['name'] ?? '',
             'surname' => $sqlRow['surname'] ?? '',

@@ -143,6 +143,7 @@ app.panel.NettPayReport = function(config) {
                         code: response.employees[i].employeeCode,
                         name: response.employees[i].employeeAlias,
                         employeeId: response.employees[i].employeeId,
+                        departmentId: response.employees[i].departmentId,
                         paymentMethod: response.employees[i].paymentMethodName,
                         financialInstitutionName: response.employees[i].financialInstitutionName,
                         branchCode: response.employees[i].branchCode,
@@ -599,7 +600,8 @@ app.panel.NettPayReport = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: event.record.employeeId,
-                employeeName: event.record.name
+                employeeName: event.record.name,
+                departmentId: event.record.departmentId
             });
             
             var panelState = {

@@ -128,6 +128,7 @@ app.panel.ListLeaveRequests = function (config) {
                         id: response.requests[i].id,
                         addedOn: response.requests[i].addedOn,
                         employeeId: response.requests[i].employeeId,
+                        departmentId: response.requests[i].departmentId,
                         employeeAlias: response.requests[i].employeeAlias,
                         leaveTypeId: response.requests[i].leaveTypeId,
                         leaveTypeName: response.requests[i].leaveTypeName,
@@ -473,6 +474,7 @@ app.panel.ListLeaveRequests = function (config) {
 
                 employeeId: event.record.employeeId,
                 employeeName: event.record.employeeAlias,
+                departmentId: event.record.departmentId,
 
                 onDestroy: function (event) {
                     if (event.refreshEmployees === true) {

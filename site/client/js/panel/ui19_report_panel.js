@@ -103,6 +103,7 @@ app.panel.UI19Report = function(config){
                                  email: response.employees[i].emailAddress,
                                  cellphone: response.employees[i].cellNumber,
                                  department: response.employees[i].departmentName,
+                                 departmentId: response.employees[i].departmentId,
                                  employmentStatus: response.employees[i].employmentStatus,
                                  employmentDate: employmentDate,
                                  id_numba: response.employees[i].id_numba,
@@ -515,6 +516,7 @@ app.panel.UI19Report = function(config){
                 
                 employeeId: event.record.id,
                 employeeName: event.record.name,
+                departmentId: event.record.departmentId,
                 
                 onDestroy: function( event ) {
                     if( event.refreshEmployees === true ) {

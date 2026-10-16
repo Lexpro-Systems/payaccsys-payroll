@@ -123,6 +123,7 @@ app.panel.EmpReport = function(config) {
                         code: response.employees[i].employeeCode,
                         name: response.employees[i].employeeAlias,
                         employeeId: response.employees[i].employeeId,
+                        departmentId: response.employees[i].departmentId,
                         paye: lx.util.formatCurrency(response.employees[i].paye),
                         uif: lx.util.formatCurrency(response.employees[i].uif),
                         sdl: lx.util.formatCurrency(response.employees[i].sdl)
@@ -439,7 +440,8 @@ app.panel.EmpReport = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: event.record.employeeId,
-                employeeName: event.record.name
+                employeeName: event.record.name,
+                departmentId: event.record.departmentId
             });
             
             var panelState = {

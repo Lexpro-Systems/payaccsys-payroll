@@ -91,6 +91,7 @@ app.panel.ListLoans = function(config) {
                     loans.push({
                         id: response.loans[i].id,
                         employeeId: response.loans[i].employeeId,
+                        departmentId: response.loans[i].departmentId,
                         startDate: response.loans[i].startDate,
                         name: response.loans[i].alias + ' ' + response.loans[i].lastName,
                         description: response.loans[i].description,
@@ -389,6 +390,7 @@ app.panel.ListLoans = function(config) {
                 
                 employeeId: event.record.employeeId,
                 employeeName: event.record.name,
+                departmentId: event.record.departmentId,
                 
                 onDestroy: function( event ) {
                     if( event.refreshEmployees === true ) {

@@ -142,6 +142,7 @@ app.panel.PayslipItemsReport = function(config) {
                         code: response.employees[i].employeeCode,
                         name: response.employees[i].employeeAlias,
                         employeeId: response.employees[i].employeeId,
+                        departmentId: response.employees[i].departmentId,
                         totalEmployerUif: formatGridAmount(response.employees[i].totalEmployerUif),
                         totalSdl: formatGridAmount(response.employees[i].totalSdl),
                         totalContributions: formatGridAmount(response.employees[i].totalContributions),
@@ -622,7 +623,8 @@ app.panel.PayslipItemsReport = function(config) {
                 renderTo: app.mainPanel.getContainer(),
                 show: true,
                 employeeId: event.record.employeeId,
-                employeeName: event.record.name
+                employeeName: event.record.name,
+                departmentId: event.record.departmentId
             });
             
             var panelState = {
