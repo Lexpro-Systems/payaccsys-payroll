@@ -19,8 +19,21 @@ ADD COLUMN IF NOT EXISTS second_period_payment_day INT;
 ALTER TABLE work_schedules
 ADD COLUMN IF NOT EXISTS department_id INT;
 
+ALTER TABLE payslip_config_items
+ADD COLUMN IF NOT EXISTS department_id INT;
+ 
+ALTER TABLE leave_config_items 
+ADD COLUMN IF NOT EXISTS department_id INT;
+
+ALTER TABLE leave_config_items 
+ALTER COLUMN employee_id DROP NOT NULL;
+
 ALTER TABLE work_schedules
 ALTER COLUMN employee_id DROP NOT NULL;
+
+ALTER TABLE payslip_config_items
+ALTER COLUMN employee_id DROP NOT NULL;
+
 
 -- INSERT section
 insert into payment_period_types (code, name) values ('TWMO', 'Twice Monthly') ON CONFLICT DO NOTHING;;
