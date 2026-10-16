@@ -112,6 +112,25 @@ app.panel.ViewEmployee = function (config) {
         });
     }
 
+    function normalizeDepartmentId(value) {
+        var normalizedDepartmentId = parseInt(value, 10);
+        if (isNaN(normalizedDepartmentId) || normalizedDepartmentId < 1) {
+            return null;
+        }
+
+        return normalizedDepartmentId;
+    }
+
+    function reloadDepartmentSetup(selectedDepartmentId, updateResponse) {
+        if (updateResponse === null || updateResponse.ok !== true) {
+            return;
+        }
+
+        departmentId = normalizeDepartmentId(selectedDepartmentId);
+        earningsPanel.reloadPage();
+        leavePanel.reloadPage(departmentId);
+    }
+
 
     //
     // PUBLIC FUNCTIONS
@@ -151,7 +170,7 @@ app.panel.ViewEmployee = function (config) {
         fullname = compConfig.fullname;
         lastname = compConfig.lastname;
         employmentDate = compConfig.employmentDate;
-        departmentId = compConfig.departmentId;
+        departmentId = normalizeDepartmentId(compConfig.departmentId);
 
         // Create root element
         el = lx.createElement('DIV', {
@@ -456,6 +475,11 @@ app.panel.ViewEmployee = function (config) {
                 refreshEmployees = event.refreshEmployees;
                 if (refreshEmployees) {
                     titleTextEl.innerHTML = 'Employee: ' + event.employeeName;
+                }
+
+                var updatedDepartmentId = normalizeDepartmentId(event.departmentId);
+                if (updatedDepartmentId !== departmentId) {
+                    reloadDepartmentSetup(event.selectedDepartmentId, event.updateResponse);
                 }
             }
         });

@@ -752,6 +752,12 @@ app.panel.ViewEmployeeLeave = function (config) {
         return true;
     };
 
+    me.reloadPage = function (departmentId) {
+        config.departmentId = departmentId;
+        contentContainerEl.innerHTML = '';
+        loadLeaveTypes();
+    };
+
 
     //
     // EVENT HANDLERS

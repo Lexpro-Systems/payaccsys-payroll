@@ -3403,6 +3403,42 @@ class Employee extends Controller
         $db->paramQuery('LOCK TABLE employees IN ACCESS EXCLUSIVE MODE', []);
         $db->paramQuery('LOCK TABLE employment_history IN ACCESS EXCLUSIVE MODE', []);
 
+        // Determine whether this update moves the employee to a different department.
+        $departmentChangeRequested = array_key_exists('departmentId', $data);
+        $newDepartmentId = null;
+        $departmentChanged = false;
+
+        if ($departmentChangeRequested) {
+            if ($data['departmentId'] !== null) {
+                $newDepartmentId = (int)$data['departmentId'];
+                if ($newDepartmentId < 1) {
+                    $newDepartmentId = null;
+                }
+            }
+
+            $currentDepartmentResult = $db->paramQuery(
+                'SELECT department_id FROM employees WHERE id = $1;',
+                [$data['employeeId']]
+            );
+            if (!$currentDepartmentResult->isValid()) {
+                $db->rollbackTransaction();
+                echo (json_encode(['ok' => false, 'error' => 'Database error.']));
+                return false;
+            }
+
+            if ($currentDepartmentResult->getRowCount() !== 1) {
+                $db->rollbackTransaction();
+                echo (json_encode(['ok' => false, 'error' => 'Employee not found']));
+                return false;
+            }
+
+            $currentDepartmentRow = $currentDepartmentResult->fetchAssociative();
+            $currentDepartmentId = $currentDepartmentRow['department_id'] === null
+                ? null
+                : (int)$currentDepartmentRow['department_id'];
+            $departmentChanged = $currentDepartmentId !== $newDepartmentId;
+        }
+
         // Build the query to update the employee and employee history
         $updateCount = 0;
         $updateValues = [];
@@ -3894,14 +3930,11 @@ class Employee extends Controller
             $updateValues[] = $data['employmentPosition'];
         }
 
-        if (isset($data['departmentId'])) {
-            $department = $data['departmentId'];
-            if ($department < 1) $department = null;
-
+        if ($departmentChangeRequested) {
             $updateCount++;
             if ($updateCount > 1) $updateQuery = $updateQuery . ', ';
             $updateQuery = $updateQuery . 'department_id = $' . $updateCount;
-            $updateValues[] = $department;
+            $updateValues[] = $newDepartmentId;
         }
 
         if (isset($data['paymentMethodCode'])) {
@@ -4139,6 +4172,22 @@ class Employee extends Controller
 
             if (!$this->applyDepartmentDefaultPayslipItems($db, (int)$data['employeeId'], $departmentId)) {
                 echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default payslip items.']));
+                return false;
+            }
+        }
+
+        // Phase 1 department transfer defaults: keep existing records, overwrite/insert
+        // Details from the new department and add only missing Leave subscriptions.
+        if ($departmentChanged && $newDepartmentId !== null) {
+            if (!$this->applyDepartmentDefaultWorkSchedule($db, (int)$data['employeeId'], $newDepartmentId)) {
+                $db->rollbackTransaction();
+                echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default work schedule/work days.']));
+                return false;
+            }
+
+            if (!$this->applyDepartmentDefaultLeaveSubscriptions($db, (int)$data['employeeId'], $newDepartmentId)) {
+                $db->rollbackTransaction();
+                echo(json_encode(['ok' => false, 'error' => 'Unable to apply department default leave subscriptions.']));
                 return false;
             }
         }
@@ -7845,7 +7894,7 @@ class Employee extends Controller
         return false;
     }
 
-    // Apply the department's leave subscriptions to a newly imported employee.
+    // Apply the department's missing leave subscriptions to an employee.
     private function applyDepartmentDefaultLeaveSubscriptions($db, int $employeeId, ?int $departmentId): bool
     {
         if ($departmentId === null) {
@@ -7854,7 +7903,7 @@ class Employee extends Controller
 
         $sqlQuery =
             'INSERT INTO leave_config_items (employee_id, leave_type_id) ' .
-            'SELECT DISTINCT $1, department_leave.leave_type_id ' .
+            'SELECT DISTINCT $1::INTEGER, department_leave.leave_type_id ' .
             'FROM leave_config_items AS department_leave ' .
             'WHERE department_leave.department_id = $2 ' .
             'AND department_leave.employee_id IS NULL ' .
@@ -7872,7 +7921,7 @@ class Employee extends Controller
         return $sqlResult->isValid();
     }
 
-    // Apply the department's work schedule or work days to a newly imported employee.
+    // Apply the department's work schedule or work days to an employee.
     private function applyDepartmentDefaultWorkSchedule($db, int $employeeId, ?int $departmentId): bool
     {
         if ($departmentId === null) {
@@ -7895,11 +7944,25 @@ class Employee extends Controller
             'FROM work_schedules AS department_schedule ' .
             'WHERE department_schedule.department_id = $2 ' .
             'AND department_schedule.employee_id IS NULL ' .
-            'AND NOT EXISTS ( ' .
-            'SELECT 1 FROM work_schedules AS employee_schedule ' .
-            'WHERE employee_schedule.employee_id = $1 ' .
-            ') ' .
-            'LIMIT 1;';
+            'LIMIT 1 ' .
+            'ON CONFLICT (employee_id) DO UPDATE SET ' .
+            'department_id = EXCLUDED.department_id, ' .
+            'enable_leave = EXCLUDED.enable_leave, ' .
+            'monday_hours = EXCLUDED.monday_hours, ' .
+            'tuesday_hours = EXCLUDED.tuesday_hours, ' .
+            'wednesday_hours = EXCLUDED.wednesday_hours, ' .
+            'thursday_hours = EXCLUDED.thursday_hours, ' .
+            'friday_hours = EXCLUDED.friday_hours, ' .
+            'saturday_hours = EXCLUDED.saturday_hours, ' .
+            'sunday_hours = EXCLUDED.sunday_hours, ' .
+            'monday_wd = EXCLUDED.monday_wd, ' .
+            'tuesday_wd = EXCLUDED.tuesday_wd, ' .
+            'wednesday_wd = EXCLUDED.wednesday_wd, ' .
+            'thursday_wd = EXCLUDED.thursday_wd, ' .
+            'friday_wd = EXCLUDED.friday_wd, ' .
+            'saturday_wd = EXCLUDED.saturday_wd, ' .
+            'sunday_wd = EXCLUDED.sunday_wd, ' .
+            'wd_enable_leave = EXCLUDED.wd_enable_leave;';
 
         $sqlResult = $db->paramQuery($sqlQuery, [
             $employeeId,

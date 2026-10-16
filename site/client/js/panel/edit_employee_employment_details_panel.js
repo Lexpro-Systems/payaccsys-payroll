@@ -1338,7 +1338,11 @@ app.panel.EditEmployeeEmploymentDetails = function (config) {
                     return;
                 }
 
-                me.fireEvent('save', { srcPanel: me });
+                me.fireEvent('save', {
+                    srcPanel: me,
+                    departmentId: departmentId > 0 ? departmentId : null,
+                    response: response
+                });
             }
         });
     }

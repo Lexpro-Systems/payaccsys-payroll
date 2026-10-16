@@ -101,6 +101,8 @@ app.panel.ViewEmployeeDetails = function (config) {
     var WDDetailsHeadingEl = null;
     var WDDetailsEditBtn = null;
     var WDDetailsSectionEl = null;
+    var WDDetailsCheckboxContainerEl = null;
+    var WDDetailsEmptyEl = null;
     var mondayDWCb = null;
     var tuesdayDWCb = null;
     var wednesdayDWCb = null;
@@ -155,7 +157,7 @@ app.panel.ViewEmployeeDetails = function (config) {
         display.setValue(day === 0 ? 'Last Day' : String(day));
     }
 
-    function loadEmployee(isUpdated) {
+    function loadEmployee(isUpdated, saveEvent) {
         loader.show(false);
         lx.sendJSON({
             url: 'exec.php?c=Employee&fn=get',
@@ -573,6 +575,9 @@ app.panel.ViewEmployeeDetails = function (config) {
 
                     if (response.employee.workSchedule.wdEnableLeave) {
 
+                        lx.applyStyle(WDDetailsCheckboxContainerEl, { display: 'flex' });
+                        lx.applyStyle(WDDetailsEmptyEl, { display: 'none' });
+
                         mondayDWCb.setValue(response.employee.workSchedule.mondaywd);
                         tuesdayDWCb.setValue(response.employee.workSchedule.tuesdaywd);
                         wednesdayDWCb.setValue(response.employee.workSchedule.wednesdaywd);
@@ -582,14 +587,16 @@ app.panel.ViewEmployeeDetails = function (config) {
                         sundayDWCb.setValue(response.employee.workSchedule.sundaywd);
 
                     } else {
-                        WDDetailsSectionEl.innerHTML = "No workdays configured.";
+                        lx.applyStyle(WDDetailsCheckboxContainerEl, { display: 'none' });
+                        lx.applyStyle(WDDetailsEmptyEl, { display: 'block' });
                     }
 
 
                 }
                 else {
                     scheduleDetailsDisplayEl.setValue('No work schedule set.');
-                    WDDetailsSectionEl.innerHTML = "No workdays configured.";
+                    lx.applyStyle(WDDetailsCheckboxContainerEl, { display: 'none' });
+                    lx.applyStyle(WDDetailsEmptyEl, { display: 'block' });
                 }
 
                 var enableLeaveStatus = false;
@@ -667,7 +674,19 @@ app.panel.ViewEmployeeDetails = function (config) {
 
                 // Was the employee updated?
                 if (isUpdated === true) {
-                    me.fireEvent('update', { srcPanel: me, refreshEmployees: true, employeeName: employeeName });
+                    var updatedDepartmentId = parseInt(response.employee.departmentId, 10);
+                    if (isNaN(updatedDepartmentId) || updatedDepartmentId < 1) {
+                        updatedDepartmentId = null;
+                    }
+
+                    me.fireEvent('update', {
+                        srcPanel: me,
+                        refreshEmployees: true,
+                        employeeName: employeeName,
+                        departmentId: updatedDepartmentId,
+                        selectedDepartmentId: saveEvent ? saveEvent.departmentId : null,
+                        updateResponse: saveEvent ? saveEvent.response : null
+                    });
                 }
             }
         });
@@ -1407,8 +1426,24 @@ app.panel.ViewEmployeeDetails = function (config) {
             }
         });
 
+        WDDetailsCheckboxContainerEl = lx.createElement('DIV', {
+            parent: WDDetailsSectionEl,
+            style: {
+                display: 'flex',
+                gap: '10px'
+            }
+        });
+
+        WDDetailsEmptyEl = lx.createElement('DIV', {
+            parent: WDDetailsSectionEl,
+            style: {
+                display: 'none'
+            },
+            innerHTML: 'No workdays configured.'
+        });
+
         mondayDWCb = new lx.component.Checkbox({
-            renderTo: WDDetailsSectionEl,
+            renderTo: WDDetailsCheckboxContainerEl,
             margin: '0px',
             // labelAlign: 'left',
             labelAlign: 'right',
@@ -1416,7 +1451,7 @@ app.panel.ViewEmployeeDetails = function (config) {
             width: '100px',
         });
         tuesdayDWCb = new lx.component.Checkbox({
-            renderTo: WDDetailsSectionEl,
+            renderTo: WDDetailsCheckboxContainerEl,
             //margin: '15px 0px 0px 0px',
             margin: '0px',
             // labelAlign: 'left',
@@ -1427,7 +1462,7 @@ app.panel.ViewEmployeeDetails = function (config) {
             //onChange: tuesdayCbOnChangeEventHandler
         });
         wednesdayDWCb = new lx.component.Checkbox({
-            renderTo: WDDetailsSectionEl,
+            renderTo: WDDetailsCheckboxContainerEl,
             margin: '0px 15px 0px 0px',
             // labelAlign: 'left',
             labelAlign: 'right',
@@ -1436,7 +1471,7 @@ app.panel.ViewEmployeeDetails = function (config) {
 
         });
         thursdayDWCb = new lx.component.Checkbox({
-            renderTo: WDDetailsSectionEl,
+            renderTo: WDDetailsCheckboxContainerEl,
             //margin: '15px 0px 0px 0px',
             margin: '0px',
             // labelAlign: 'left',
@@ -1446,7 +1481,7 @@ app.panel.ViewEmployeeDetails = function (config) {
 
         });
         fridayDWCb = new lx.component.Checkbox({
-            renderTo: WDDetailsSectionEl,
+            renderTo: WDDetailsCheckboxContainerEl,
             //margin: '15px 0px 0px 0px',
             margin: '0px',
             // labelAlign: 'left',
@@ -1456,7 +1491,7 @@ app.panel.ViewEmployeeDetails = function (config) {
 
         });
         saturdayDWCb = new lx.component.Checkbox({
-            renderTo: WDDetailsSectionEl,
+            renderTo: WDDetailsCheckboxContainerEl,
             //margin: '15px 0px 0px 0px',
             margin: '0px',
             // labelAlign: 'left',
@@ -1466,7 +1501,7 @@ app.panel.ViewEmployeeDetails = function (config) {
 
         });
         sundayDWCb = new lx.component.Checkbox({
-            renderTo: WDDetailsSectionEl,
+            renderTo: WDDetailsCheckboxContainerEl,
             //margin: '15px 0px 0px 0px',
             margin: '0px',
             // labelAlign: 'left',
@@ -1474,6 +1509,14 @@ app.panel.ViewEmployeeDetails = function (config) {
             label: 'Sunday',
             width: '100px',
         });
+
+        mondayDWCb.disable();
+        tuesdayDWCb.disable();
+        wednesdayDWCb.disable();
+        thursdayDWCb.disable();
+        fridayDWCb.disable();
+        saturdayDWCb.disable();
+        sundayDWCb.disable();
 
         //
         // WORK SCHEDULE SECTION
@@ -2061,9 +2104,9 @@ app.panel.ViewEmployeeDetails = function (config) {
                 app.route.popState();
             },
 
-            onSave: function () {
+            onSave: function (saveEvent) {
                 app.route.popState();
-                loadEmployee(true);
+                loadEmployee(true, saveEvent);
             }
         });
 
