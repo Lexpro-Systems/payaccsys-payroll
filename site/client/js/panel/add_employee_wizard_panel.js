@@ -5869,8 +5869,11 @@ app.panel.AddEmployeeWizard = function (config) {
                 wizardNextBtn.showWarning('The payment period cannot be empty.');
                 return;
             }
-            let hasStandardEndDay = paymentPeriodEndDaySelect.getValue() !== null;
-            let hasStandardPaymentDay = paymentDaySelect.getValue() !== null;
+            const isEmptySelect = select =>
+                select.getValue() === null || select.getValue() === '';
+
+            let hasStandardEndDay = !isEmptySelect(paymentPeriodEndDaySelect);
+            let hasStandardPaymentDay = !isEmptySelect(paymentDaySelect);
             let hasStandard = hasStandardEndDay || hasStandardPaymentDay;
             let customEndDayVal = (bweeCustomDateDate && bweeCustomDateDate.getValue()) ? bweeCustomDateDate.getValue().trim() : '';
             let customPayDayVal = (bweeCustomPaymentDayDate && bweeCustomPaymentDayDate.getValue()) ? bweeCustomPaymentDayDate.getValue().trim() : '';
@@ -5880,9 +5883,6 @@ app.panel.AddEmployeeWizard = function (config) {
 
             let isTwiceMonthly = paymentPeriodSelect.getValue() === "TWMO";
             let isBWEE = paymentPeriodSelect.getValue() === "BWEE";
-
-            const isEmptySelect = select =>
-                select.getValue() === null || select.getValue() === '';
 
             if (isTwiceMonthly) {
                 if (isEmptySelect(twiceMonthlySelectFirstStartDay)) {
