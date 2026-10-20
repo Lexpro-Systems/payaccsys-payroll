@@ -408,6 +408,7 @@ app.panel.ListPayruns = function (config) {
             { name: '<i class="fas fa-fw fa-file-download" style="margin: 0px 15px 0px 0px;"></i>Download Report', value: 'report' },
             { name: '<i class="fas fa-fw fa-file-download" style="margin: 0px 15px 0px 0px;"></i>Download All Payslips', value: 'download_all_payslips' },
             { name: '<i class="fas fa-fw fa-envelope" style="margin: 0px 15px 0px 0px;"></i>Email Payslips', value: 'email_payslips' },
+            { name: '<i class="fas fa-fw fa-wallet" style="margin: 0px 15px 0px 0px;"></i>Send Payslips to Spendl Wallet', value: 'send_to_wallet' },
             // {name: '<i class="fas fa-fw fa-external-link-alt" style="margin: 0px 15px 0px 0px;"></i>Post to Lexpro Accounting', value: 'lexpro_post'},
             { name: '<i class="fas fa-fw fa-file-export" style="margin: 0px 15px 0px 0px;"></i>Bank Payments Export', value: 'bank_payments_export' },
             { name: '<i class="fas fa-fw fa-undo" style="margin: 0px 15px 0px 0px;"></i>Undo Processing', value: 'undo_processing' },
@@ -789,6 +790,72 @@ app.panel.ListPayruns = function (config) {
             emailPayslipsModal.show();
             emailPayslipsPanel.focus();
         }
+
+
+
+
+
+        else if (clickEvent.value === 'send_to_wallet') {
+            // Has the payrun not been processed?
+            if (payrunsGrid.getRow(clickEvent.rowIndex).isProcessed !== 'Yes') {
+                new lx.component.Messagebox({
+                    title: 'Send Payslips to Spendl Wallet',
+                    message: 'The payslips cannot be sent because the specified payrun has not been processed.'
+                });
+                return;
+            }
+
+            // Create a modal window
+            var sendPayslipsModal = new lx.component.ModalWindow({
+                margin: '40px',
+                maxWidth: '800px',
+                maxHeight: '100%'
+            });
+
+            // Create the sendPayslipsPanel panel
+            var sendPayslipsPanel = new app.panel.SendPayslips({
+                renderTo: sendPayslipsModal.getContainer(),
+                show: true,
+
+                payrunId: parseInt(payrunsGrid.getRow(clickEvent.rowIndex).id),
+
+                onSend: function () {
+                    app.route.popState();
+                    new lx.component.Messagebox({
+                        title: 'Send Payslips to Spendl Wallet',
+                        message: 'The selected payslips were successfully sent.'
+                    });
+                },
+                onCancel: function () {
+                    app.route.popState();
+                }
+            });
+
+            // Add destroy event listener to modal to destroy the contained panel.
+            sendPayslipsModal.addEventListener('destroy', function () {
+                sendPayslipsPanel.destroy();
+            });
+
+            // Create a route entry for the panel
+            let state = {
+                modal: sendPayslipsModal
+            };
+            app.route.pushState(state, function (state) {
+                state.modal.destroy();
+            });
+
+            // Show the modal window and focus on the panel
+            sendPayslipsModal.show();
+            sendPayslipsPanel.focus();
+        }
+
+
+
+
+
+
+
+
         else if (clickEvent.value === 'lexpro_post') {
             // Has the payrun not been processed?
             if (payrunsGrid.getRow(clickEvent.rowIndex).isProcessed !== 'Yes') {
