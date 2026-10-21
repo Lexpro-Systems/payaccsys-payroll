@@ -10,11 +10,13 @@
 //  flex:               CSS flex property for the panel
 //  show:               If true the panel will be shown immediately after it was created.  If false the panel will be created but not shown
 //                      Default to false
+//  payrunId:           The ID of the payrun to display and send to the Spendl Wallet API
 //
 // Events:
 //
-//  onFinish            This event is fired after the profile data was successfully saved
-//  onDestroy           This event is fired just before the component is destroyed
+//  onSend:              Fired after the current payrun has been successfully sent to the Spendl Wallet API
+//  onCancel:            Fired when the user cancels and closes the panel
+//  onDestroy:           Fired just before the panel is destroyed
 //
 app.panel.SendPayslips = function(config) {
     
@@ -70,99 +72,40 @@ app.panel.SendPayslips = function(config) {
                         title: 'Loading Payrun Failed',
                         message: response.error
                     });
+                    return;
                 }
                 
                 // Loop through all payslips
                 let payslips = [];
                 for( let i = 0; i < response.payrun.payslips.length; i++ ) {
+
+                    let payslip = response.payrun.payslips[i];
+                    let employee = payslip.employee;
+                    let isSubscribed = (employee.wallet_subscription_status === true);
+
+                    let idNumber = String(employee.idNumber || '').trim();
+                    let passportNumber = String(employee.passportNumber || '').trim();
+
                     payslips.push({
-                        id: response.payrun.payslips[i].id,
-                        empId: response.payrun.payslips[i].employee.id,
-                        employeeCode: response.payrun.payslips[i].employee.empCode,
-                        employeeAlias: response.payrun.payslips[i].employee.name,
-                        employeeSurname: response.payrun.payslips[i].employee.employeeSurname,
-                        employeeIdNumber: response.payrun.payslips[i].employee.idNumber,
-                        emailAddress: response.payrun.payslips[i].employee.emailAddress,
-                        subscriptionStatus: response.payrun.payslips[i].employee.wallet_subscription_status,
-                        period: (response.payrun.payslips[i].fromDate + ' to ' + response.payrun.payslips[i].toDate),
+                        id: payslip.id,
+                        empId: employee.id,
+                        employeeCode: employee.empCode,
+                        employeeAlias: employee.name,
+                        employeeSurname: employee.employeeSurname,
+                        employeeIdNumber: idNumber,
+                        passportNumber: passportNumber,
+                        employeeId: (idNumber !== '' ? idNumber : passportNumber),
+                        emailAddress: employee.emailAddress,
+                        subscriptionStatus: isSubscribed,
+                        subscriptionDisplay:isSubscribed ? '<i class="fas fa-check-square" style="font-size: 16px; color: #30313C;" aria-label="Subscribed"></i>' : '<i class="far fa-square" style="font-size: 16px; color: #30313C;" aria-label="Not subscribed"></i>',
+                        period: (payslip.fromDate + ' to ' + payslip.toDate),
                         download: '<i class="fas fa-download"></i>'
                     });
                 }
-                payslipsGrid.addRows( payslips );
-                
-                // Select all the payslips by default
-                for( let i = 0; i < payslipsGrid.getRowCount(); i++ ) {
-                    payslipsGrid.selectRow(i);
-                }
+                payslipsGrid.addRows(payslips);
             }
         });
-    }
-    
-    
-    // Function to start editing a text cell
-    //
-    // rowIndex         The row index of the cell to edit.
-    // colIndex         The column index of the cell to edit.
-    // focus            Should the component be focussed after being created.
-    function editCell(rowIndex, colIndex, focus) {
-        let record = payslipsGrid.getRow(rowIndex);
-        let cell = payslipsGrid.getCellContainer(rowIndex, colIndex);
-        let dataIndex = payslipsGrid.getColumnDataIndex(colIndex);
-        let newComponent = null;
-        
-        cell.innerHTML = '';
-        cell.style.overflow = 'visible';
-        
-        // Create the edit component depending on the dataIndex
-        if( dataIndex === 'emailAddress' ) {
-            newComponent = new lx.component.Textbox({
-                renderTo: cell,
-                label: null
-            });
-        }
-        
-        // Add blur event handler
-        newComponent.addEventListener('blur', function() {
-            // Update the row and destroy the component before moving to the next
-            record[payslipsGrid.getColumnDataIndex(colIndex)] = newComponent.getValue();
-            cell.style.overflow = 'hidden';
-            newComponent.destroy();
-            payslipsGrid.updateRow(rowIndex, record);
-        });
-        
-        // Add keydown handler
-        newComponent.addEventListener('keydown', function( event ) {
-            if( event.key === 13 ) {
-                // Update the row and destroy the component before moving to the next
-                record[payslipsGrid.getColumnDataIndex(colIndex)] = newComponent.getValue();
-                cell.style.overflow = 'hidden';
-                newComponent.focus();
-                newComponent.destroy();
-                payslipsGrid.updateRow(rowIndex, record);
-            }
-            else if( event.key === 9 ) {
-                // Update the row and destroy the component before moving to the next
-                record[payslipsGrid.getColumnDataIndex(colIndex)] = newComponent.getValue();
-                cell.style.overflow = 'hidden';
-                newComponent.focus();
-                newComponent.destroy();
-                payslipsGrid.updateRow(rowIndex, record);
-                
-                // Edit the next cell
-                if( dataIndex === 'emailAddress' ) {
-                    // Are there rows left to edit?
-                    if( rowIndex + 1 < payslipsGrid.getRowCount() ) {
-                        // Edit the next row
-                        editCell(rowIndex + 1, colIndex, false);
-                    }
-                }
-            }
-        });
-        
-        if( focus === true ) newComponent.focus();
-        newComponent.setValue( record[payslipsGrid.getColumnDataIndex(colIndex)] );
-    }
-    
+    }    
     
     //
     // PUBLIC FUNCTIONS
@@ -189,7 +132,7 @@ app.panel.SendPayslips = function(config) {
         
         // Attach external event handlers
         if( compConfig.hasOwnProperty('onCancel') ) me.addEventListener('cancel', compConfig.onCancel);
-        if( compConfig.hasOwnProperty('onEmail') ) me.addEventListener('email', compConfig.onEmail);
+        if( compConfig.hasOwnProperty('onSend') ) me.addEventListener('send', compConfig.onSend);
         if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
         
         // Initialize state
@@ -251,26 +194,21 @@ app.panel.SendPayslips = function(config) {
         // Create payslipsGrid component
         payslipsGrid = new lx.component.Grid({
             renderTo: contentEl,
-            // autoSize: true,
             height: '100%',
             borderWidth: '0px',
             
             columns: [
-                {dataIndex: 'select', width: '60px', type: 'rowSelect'},
+                {dataIndex: 'subscriptionDisplay', name: 'Spendl Wallet', width: '120px', alignment: 'center'},
                 {dataIndex: 'employeeCode', name: 'Code', width: '90px'},
                 {dataIndex: 'employeeAlias', name: 'Name', width: '140px'},
                 {dataIndex: 'employeeSurname', name: 'Surname', width: '140px'},
-                {dataIndex: 'employeeIdNumber', name: 'ID/Passport Number', width: '140px'},
-                {dataIndex: 'emailAddress', name: 'Email Address' + '<i class="fas fa-fw fa-pen" style="margin-left: 15px; font-size: 14px; color: #30313C;">'},
+                {dataIndex: 'employeeId', name: 'ID/Passport Number', width: '140px'},
+                {dataIndex: 'emailAddress', name: 'Email Address'},
                 {dataIndex: 'period', name: 'Payslip Date'},
                 {dataIndex: 'download', name: '', type: 'button', width: '35px', alignment: 'center'},
             ],
             
-            onCellClick: payslipsGridCellClickEventHandler,
-            onRowSelect: payslipsGridRowSelectEventHandler,
-            onRowDeselect: payslipsGridRowSelectEventHandler,
-            onSelectAllRows: payslipsGridRowSelectEventHandler,
-            onDeselectAllRows: payslipsGridRowSelectEventHandler
+            onCellClick: payslipsGridCellClickEventHandler
         });
         
         
@@ -298,7 +236,6 @@ app.panel.SendPayslips = function(config) {
             label: 'Cancel',
             width: '120px',
             style: 'text',
-            // margin: '0px 15px 0px 0px',
             
             onClick: cancelBtnClickEventHandler
         });
@@ -390,10 +327,7 @@ app.panel.SendPayslips = function(config) {
         let dataIndex = payslipsGrid.getColumnDataIndex(clickEvent.columnIndex);
         
         // Depending on the column clicked
-        if( dataIndex === 'emailAddress' ) {
-            editCell(clickEvent.rowIndex, clickEvent.columnIndex, true);
-        }
-        else if( dataIndex === 'download' ) {
+        if( dataIndex === 'download' ) {
             lx.sendForm({
                 url: 'exec.php?c=Payslip&fn=downloadPayslip',
                 target: '_blank',
@@ -404,10 +338,6 @@ app.panel.SendPayslips = function(config) {
         }
     }
     
-    // payslipsGrid row select event handler
-    function payslipsGridRowSelectEventHandler() {
-    }
-    
     // Cancel button click event handler
     function cancelBtnClickEventHandler() {
         me.fireEvent('cancel', {srcPanel: me});
@@ -415,52 +345,14 @@ app.panel.SendPayslips = function(config) {
     
     // Send button click event handler
     function sendBtnClickEventHandler() {
-        if( payslipsGrid.getSelectedRowCount() < 1) {
-            sendBtn.showWarning('No payslips selected.');
-            return;
-        }
         
-        // Get all the selected transactions
-        let payslips = [];
-        for( let i = 0; i < payslipsGrid.getRowCount(); i++ ) {
-            // Get the row details
-            let row = payslipsGrid.getRow(i);
-            
-            // Is the row selected?
-            if( payslipsGrid.rowIsSelected(i) === true ) {
-                // Was no email address specified?
-                if( row.emailAddress.trim() === '' ) {
-                    new lx.component.Messagebox({
-                        title: 'Sending Payslips Failed',
-                        message: 'No email address specified. Please ensure all selected employees have valid email addresses.'
-                    });
-                    return;
-                }
-                
-                // Add the payslip to the list
-                payslips.push({
-                    id: row.id,
-                    emailAddress: row.emailAddress
-                });
-            }
-        }
-        
-        // Were no payslips selected
-        if( payslips.length < 1 ) {
-            new lx.component.Messagebox({
-                title: 'Sending Payslips Failed',
-                message: 'No employees are subscribed to Spendl Wallets. Please subscribe employees to Spendl Wallets.'
-            });
-            return;
-        }
-        
-        // Email the selected payslip
+        // Send selected payrun's ID to Spendl API-function
         sendBtn.disable();
         sendBtn.showLoader();
         lx.sendJSON({
             url: 'exec.php?c=Payslip&fn=sendPayslips',
             data: {
-                emailData: payslips
+                payrunId: payrunId
             },
             onSuccess: function( responseText ) {
                 sendBtn.enable();
@@ -470,12 +362,13 @@ app.panel.SendPayslips = function(config) {
                 
                 if( response.ok !== true ) {
                     new lx.component.Messagebox({
-                        title: 'sending Payslips Failed',
+                        title: 'sending Payslips to Spendl Wallet Failed',
                         message: response.error
                     });
+                    return;
                 }
                 
-                me.fireEvent('email', {srcPanel: me});
+                me.fireEvent('send', {srcPanel: me});
             }
         });
     }
