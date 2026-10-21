@@ -2235,7 +2235,7 @@ class Employee extends Controller
         $sqlResult = $db->paramQuery($sqlQuery, [
             $employeeId,                    // employee_id
             $data['walletSubscribed'],      // subscribed
-            date('Y-m-d')                   // updated_on
+            gmdate('Y-m-d\TH:i:s\Z')       // updated_on
         ]);
 
         if (!$sqlResult->isValid()) {
@@ -3222,7 +3222,7 @@ class Employee extends Controller
         $sqlResult = $db->paramQuery($sqlQuery, [
             $data['employeeId'],
             $data['subscribed'],
-            date('Y-m-d')
+            gmdate('Y-m-d\TH:i:s\Z')
         ]);
 
         if (!$sqlResult->isValid()) {
