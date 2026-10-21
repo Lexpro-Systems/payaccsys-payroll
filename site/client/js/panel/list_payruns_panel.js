@@ -409,6 +409,7 @@ app.panel.ListPayruns = function (config) {
             { name: '<i class="fas fa-fw fa-file-download" style="margin: 0px 15px 0px 0px;"></i>Download All Payslips', value: 'download_all_payslips' },
             { name: '<i class="fas fa-fw fa-envelope" style="margin: 0px 15px 0px 0px;"></i>Email Payslips', value: 'email_payslips' },
             { name: '<i class="fas fa-fw fa-wallet" style="margin: 0px 15px 0px 0px;"></i>Send Payslips to Spendl Wallet', value: 'send_to_wallet' },
+            { name: '<i class="fas fa-fw fa-eye" style="margin: 0px 15px 0px 0px;"></i>View Spendl Wallet Status', value: 'view_wallet_status' },
             // {name: '<i class="fas fa-fw fa-external-link-alt" style="margin: 0px 15px 0px 0px;"></i>Post to Lexpro Accounting', value: 'lexpro_post'},
             { name: '<i class="fas fa-fw fa-file-export" style="margin: 0px 15px 0px 0px;"></i>Bank Payments Export', value: 'bank_payments_export' },
             { name: '<i class="fas fa-fw fa-undo" style="margin: 0px 15px 0px 0px;"></i>Undo Processing', value: 'undo_processing' },
@@ -819,8 +820,9 @@ app.panel.ListPayruns = function (config) {
                     app.route.popState();
                     new lx.component.Messagebox({
                         title: 'Send Payslips to Spendl Wallet',
-                        message: 'The selected payslips were successfully sent.'
+                        message: 'The payslips were submitted for sending.'
                     });
+                    openSendPayslipStatusModal(payrunId);
                 },
                 onCancel: function () {
                     app.route.popState();
@@ -843,6 +845,14 @@ app.panel.ListPayruns = function (config) {
             // Show the modal window and focus on the panel
             sendPayslipsModal.show();
             sendPayslipsPanel.focus();
+        }
+
+        else if (clickEvent.value === 'view_wallet_status') {
+            var payrunId = parseInt(
+                payrunsGrid.getRow(clickEvent.rowIndex).id
+            );
+
+            openSendPayslipsStatusModal(payrunId);
         }
 
         else if (clickEvent.value === 'lexpro_post') {
@@ -1205,6 +1215,37 @@ app.panel.ListPayruns = function (config) {
 
         addPayrunModal.show();
         addPayrunPanel.focus();
+    }
+
+    function openSendPayslipsStatusModal(payrunId) {
+        var statusModal = new lx.component.ModalWindow({
+            margin: '40px',
+            maxWidth: '1100px',
+            maxHeight: '100%'
+        });
+
+        var statusPanel = new app.panel.SendPayslipStatus({
+            renderTo: statusModal.getContainer(),
+            show: true,
+            payrunId: payrunId,
+
+            onCancel: function () {
+                app.route.popState();
+            }
+        });
+
+        statusModal.addEventListener('destroy', function () {
+            statusPanel.destroy();
+        });
+
+        app.route.pushState({
+            modal: statusModal
+        }, function (state) {
+            state.modal.destroy();
+        });
+
+        statusModal.show();
+        statusPanel.focus();
     }
 
 

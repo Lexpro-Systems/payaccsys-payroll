@@ -362,7 +362,7 @@ app.panel.SendPayslips = function(config) {
                 
                 if( response.ok !== true ) {
                     new lx.component.Messagebox({
-                        title: 'sending Payslips to Spendl Wallet Failed',
+                        title: 'Sending Payslips to Spendl Wallet Failed',
                         message: response.error
                     });
                     return;
