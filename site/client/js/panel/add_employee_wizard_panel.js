@@ -171,6 +171,7 @@ app.panel.AddEmployeeWizard = function (config) {
     var bankDetailsAccountTypeRadio = null;
     var bankDetailsAccountNumberTxt = null;
     var bankDetailsBranchCodeTxt = null;
+    var walletSubscribedCb = null;
 
     var wizardPage3ContainerEl = null;
     let payslipItemSectionEl = null;
@@ -1900,6 +1901,7 @@ app.panel.AddEmployeeWizard = function (config) {
                 workAddressCity: workAddressCityTxt.getValue().trim(),
                 workAddressPostalCode: workAddressPostalCodeTxt.getValue().trim(),
                 workAddressCountryCode: workAddressCountrySelect.getValue(),
+                walletSubscribed: walletSubscribedCb.getValue(),
                 bankDetails: {
                     financialInstitution: {
                         code: bankDetailsInsitutionSelect.getValue()
@@ -4558,6 +4560,17 @@ app.panel.AddEmployeeWizard = function (config) {
         bankDetailsBranchCodeTxt = new lx.component.Textbox({
             renderTo: bankDetailsSectionEl,
             label: 'Branch Code',
+            labelAlign: 'left',
+            margin: '15px 0px 0px 0px',
+            labelWidth: '220px',
+            maxWidth: '600px',
+
+            onChange: defaultOnChangeEventHandler
+        });
+
+        walletSubscribedCb = new lx.component.Checkbox({
+            renderTo: bankDetailsSectionEl,
+            label: 'Subscribe to Spendl Wallet',
             labelAlign: 'left',
             margin: '15px 0px 0px 0px',
             labelWidth: '220px',

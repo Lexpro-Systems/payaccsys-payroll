@@ -70,6 +70,9 @@ app.panel.ViewEmployeeDetails = function (config) {
     var bankDetailsAccountTypeDisplay = null;
     var bankDetailsAccountNumberDisplay = null;
     var bankDetailsBranchCodeDisplay = null;
+    var walletSubscribedCb = null;
+    var walletSubscribed = false;
+    var walletSubscriptionUpdatePending = false;
 
     var employmentDetailsHeadingEl = null;
     var employmentDetailsEditBtn = null;
@@ -363,6 +366,9 @@ app.panel.ViewEmployeeDetails = function (config) {
 
                 if (bankDetails.branchCode === '') bankDetailsBranchCodeDisplay.setValue('-');
                 else bankDetailsBranchCodeDisplay.setValue(bankDetails.branchCode);
+
+                walletSubscribed = response.employee.walletSubscribed === true;
+                walletSubscribedCb.setValue(walletSubscribed);
 
                 // Set employment details
                 value = '-';
@@ -1133,6 +1139,16 @@ app.panel.ViewEmployeeDetails = function (config) {
             labelWidth: '230px'
         });
 
+        walletSubscribedCb = new lx.component.Checkbox({
+            renderTo: bankDetailsSectionEl,
+            margin: '10px 0px 0px 0px',
+            label: 'Send to spendl',
+            labelAlign: 'left',
+            labelWidth: '230px',
+
+            onChange: walletSubscribedCbOnChangeEventHandler
+        });
+
 
         //
         // EMPLOYMENT DETAILS SECTION
@@ -1800,6 +1816,44 @@ app.panel.ViewEmployeeDetails = function (config) {
     //
     // EVENT HANDLERS
     //
+
+    function walletSubscribedCbOnChangeEventHandler() {
+        if (walletSubscriptionUpdatePending) {
+            walletSubscribedCb.setValue(walletSubscribed);
+            return;
+        }
+
+        var requestedValue = walletSubscribedCb.getValue();
+        if (requestedValue === walletSubscribed) return;
+
+        walletSubscriptionUpdatePending = true;
+        walletSubscribedCb.disable();
+
+        lx.sendJSON({
+            url: 'exec.php?c=Employee&fn=updateWalletSubscription',
+            data: {
+                employeeId: employeeId,
+                subscribed: requestedValue
+            },
+            onSuccess: function (responseText) {
+                var response = JSON.parse(responseText);
+
+                walletSubscriptionUpdatePending = false;
+                walletSubscribedCb.enable();
+
+                if (response.ok !== true) {
+                    walletSubscribedCb.setValue(walletSubscribed);
+                    new lx.component.Messagebox({
+                        title: 'Updating Wallet Subscription Failed',
+                        message: response.error
+                    });
+                    return;
+                }
+
+                walletSubscribed = requestedValue;
+            }
+        });
+    }
 
     function enableLeaveCbOnChangeEventHandler() {
         lx.sendJSON({

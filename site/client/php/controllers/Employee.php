@@ -1552,6 +1552,7 @@ class Employee extends Controller
     //  employmentEndDate           The the date on which the employee was terminated
     //  departmentId                The id of the employee's department
     //  sendPayslipByEmail          Should payslips be emailed to employee.
+    //  walletSubscribed            Whether the employee is subscribed to the Spendl wallet.
     //  incomeTaxDirective1         The first income tax directive for the employee
     //  incomeTaxDirective2         The second income tax directive for the employee
     //  incomeTaxDirective3         The third income tax directive for the employee
@@ -1594,6 +1595,7 @@ class Employee extends Controller
             'employmentEndDate' => null,
             'departmentId' => null,
             'sendPayslipByEmail' => false,
+            'walletSubscribed' => false,
             'incomeTaxDirective1' => '',
             'incomeTaxDirective1IssuedOn' => null,
             'incomeTaxDirective1SourceCode' => '',
@@ -1685,6 +1687,7 @@ class Employee extends Controller
             'employmentPosition' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
             'departmentId' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
             'sendPayslipByEmail' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
+            'walletSubscribed' => ['type' => Json::TYPE_BOOL, 'required' => false, 'nullable' => false],
             'incomeTaxDirective1' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
             'incomeTaxDirective1IssuedOn' => ['type' => Json::TYPE_DATE, 'required' => false, 'nullable' => true],
             'incomeTaxDirective1SourceCode' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
@@ -2225,6 +2228,20 @@ class Employee extends Controller
         $employeeId = $sqlRow['id'];
         $employmentPosition = $sqlRow['employment_position'];
         $employmentStartDate = $sqlRow['employment_start_date'];
+
+        $sqlQuery =
+            'INSERT INTO wallet_subscriptions (employee_id, subscribed, updated_on) ' .
+            'VALUES ($1, $2, $3);';
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $employeeId,                    // employee_id
+            $data['walletSubscribed'],      // subscribed
+            date('Y-m-d')                   // updated_on
+        ]);
+
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Unable to add wallet subscription.']));
+            return false;
+        }
 
         // Build the query to insert the item.
         $sqlQuery =
@@ -2934,7 +2951,9 @@ class Employee extends Controller
             'postal_address_country_code, ' .
             'employee_bank_details.financial_institution_code, financial_institutions.name AS financial_institution_name, ' .
             'employee_bank_details.bank_account_type_code, bank_account_types.name AS bank_account_type_name, ' .
-            'employee_bank_details.account_number, employee_bank_details.branch_code ' .
+            'employee_bank_details.account_number, employee_bank_details.branch_code, ' .
+            'COALESCE((SELECT wallet_subscriptions.subscribed FROM wallet_subscriptions ' .
+            'WHERE wallet_subscriptions.employee_id = employees.id LIMIT 1), FALSE) AS wallet_subscribed ' .
             'FROM ' .
             'employees ' .
             'LEFT JOIN ' .
@@ -3124,7 +3143,8 @@ class Employee extends Controller
             'sicCode' => $sqlRow['sic_code'],
             'sicName' => $sqlRow['sic_name'],
             'workSchedule' => null,
-            'bankDetails' => $bankDetails
+            'bankDetails' => $bankDetails,
+            'walletSubscribed' => $sqlRow['wallet_subscribed']
         ];
 
         // Add work schedule if available
@@ -3156,6 +3176,66 @@ class Employee extends Controller
             'employee' => $employee
         ]));
 
+        return true;
+    }
+
+    // Function to update an employee's Spendl wallet subscription.
+    //
+    // Required Parameters
+    //  employeeId              The id of the employee whose subscription to update
+    //  subscribed              Whether the employee is subscribed
+    //
+    public function updateWalletSubscription($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        $defaults = [];
+        Json::copy($defaults, $data);
+
+        $validationResult = Json::validate($data, [
+            'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'subscribed' => ['type' => Json::TYPE_BOOL, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        $sqlQuery =
+            'WITH target_employee AS ( ' .
+            'SELECT id FROM employees WHERE id = $1 ' .
+            '), updated_subscription AS ( ' .
+            'UPDATE wallet_subscriptions ' .
+            'SET subscribed = $2, updated_on = $3 ' .
+            'WHERE employee_id = $1 ' .
+            'AND EXISTS (SELECT 1 FROM target_employee) ' .
+            'RETURNING employee_id ' .
+            '), inserted_subscription AS ( ' .
+            'INSERT INTO wallet_subscriptions (employee_id, subscribed, updated_on) ' .
+            'SELECT target_employee.id, $2, $3 FROM target_employee ' .
+            'WHERE NOT EXISTS (SELECT 1 FROM updated_subscription) ' .
+            'RETURNING employee_id ' .
+            ') ' .
+            'SELECT employee_id FROM updated_subscription ' .
+            'UNION ALL ' .
+            'SELECT employee_id FROM inserted_subscription;';
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $data['employeeId'],
+            $data['subscribed'],
+            date('Y-m-d')
+        ]);
+
+        if (!$sqlResult->isValid()) {
+            echo (json_encode(['ok' => false, 'error' => 'Unable to update wallet subscription.']));
+            return false;
+        }
+
+        if ($sqlResult->getRowCount() < 1) {
+            echo (json_encode(['ok' => false, 'error' => 'Employee \'' . $data['employeeId'] . '\' not found.']));
+            return false;
+        }
+
+        echo (json_encode(['ok' => true]));
         return true;
     }
 
