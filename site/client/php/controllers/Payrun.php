@@ -4512,7 +4512,7 @@ class Payrun extends Controller
                 // Add an exception
                 $exceptions[] = [
                     'description' =>
-                        'No PAYE tax table available for the ' .
+                    'No PAYE tax table available for the ' .
                         $payslipRow['sars_year'] .
                         ' tax year. Therefore PAYE could not be calculated.',
                     'payslip' => [
@@ -10480,5 +10480,368 @@ class Payrun extends Controller
         }
 
         return $writer;
+    }
+
+    // Build the structured payslip requests that will be sent to the Spendl wallet API.
+    //
+    // Required Parameters
+    //  payrunId        The processed payrun whose active, subscribed payslips to load
+    //
+    // This function only builds and returns the request payloads. It does not call Spendl.
+    public function walletApiCaller($data, $user, $db)
+    {
+
+        /***************************************
+          PayrunID, Payrun & Company Validation
+         ***************************************/
+        header('Content-Type: application/json');
+
+        # Validates data provided.
+        $defaults = [];
+        Json::copy($defaults, $data);
+        $validationResult = Json::validate($data, [
+            'payrunId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        # Checks if a company exists
+        if (!isset($user['companyId']) || $user['companyId'] === null) {
+            echo (json_encode(['ok' => false, 'error' => 'No company is selected.']));
+            return false;
+        }
+
+        $payrunId = $data['payrunId'];
+        $payloadResult = $this->buildWalletPayloads($payrunId, (int)$user['companyId'], $db);
+
+        if ($payloadResult['ok'] !== true) {
+            echo (json_encode($payloadResult));
+            return false;
+        }
+
+        echo (json_encode([
+            'ok' => true,
+            'payrunId' => $payrunId,
+            'payloads' => $payloadResult['payloads']
+        ]));
+        return true;
+    }
+
+    // Loads the payrun data and returns the structured Spendl payslip payloads.
+    private function buildWalletPayloads(int $payrunId, int $companyId, $db): array
+    {
+        # Confirm that the payrun exists and has been processed before building wallet payloads.
+        $sqlQuery = 'SELECT id, processed_on FROM payruns WHERE id = $1;';
+        $sqlResult = $db->paramQuery($sqlQuery, [$payrunId]);
+        if (!$sqlResult->isValid()) {
+            return ['ok' => false, 'error' => 'Database error.'];
+        }
+
+        # Checks if the payrun was found
+        if ($sqlResult->getRowCount() !== 1) {
+            return ['ok' => false, 'error' => 'Payrun \'' . $payrunId . '\' not found.'];
+        }
+
+        # Checks if the payrun is proccessed
+        $payrunRow = $sqlResult->fetchAssociative();
+        if ($payrunRow['processed_on'] === null) {
+            return ['ok' => false, 'error' => 'Payrun \'' . $payrunId . '\' has not yet been processed.'];
+        }
+
+        # Load the employer details required by every structured payslip request.
+        $sqlQuery = 'SELECT name, paye_reference_number FROM company_details ORDER BY id DESC LIMIT 1;';
+        $sqlResult = $db->paramQuery($sqlQuery, []);
+        if (!$sqlResult->isValid()) {
+            return ['ok' => false, 'error' => 'Database error.'];
+        }
+
+        if ($sqlResult->getRowCount() !== 1) {
+            return ['ok' => false, 'error' => 'Company details not found.'];
+        }
+
+        $companyRow = $sqlResult->fetchAssociative();
+
+        /******************************************************
+          Retrieving Employee, Payslip & Subscription Details
+         ******************************************************/
+
+        # Load only active payslips belonging to employees who are currently opted in.
+        $sqlQuery =
+            'SELECT ' .
+            'payslips.id, ' .
+            'payslips.payrun_id, ' .
+            'payslips.employee_id, ' .
+            'payslips.period, ' .
+            'payslips.from_date, ' .
+            'payslips.to_date, ' .
+            'payslips.payment_period_code, ' .
+            'employees.code AS employee_code, ' .
+            'employees.email_address, ' .
+            'employees.id_number, ' .
+            'employees.payment_day, ' .
+            'employees.bwee_custom_pped, ' .
+            'employees.bwee_custom_payment_day, ' .
+            'employees.first_period_end, ' .
+            'employees.first_period_payment_day, ' .
+            'employees.second_period_end, ' .
+            'employees.second_period_payment_day, ' .
+            'wallet_subscriptions.updated_on ' .
+            'FROM payslips ' .
+            'INNER JOIN employees ON employees.id = payslips.employee_id ' .
+            'INNER JOIN wallet_subscriptions ON wallet_subscriptions.employee_id = employees.id ' .
+            'WHERE payslips.payrun_id = $1 ' .
+            'AND payslips.status_code = \'ACTI\' ' .
+            'AND wallet_subscriptions.subscribed IS TRUE ' .
+            'ORDER BY payslips.employee_id ASC, payslips.id ASC;';
+        $payslipResult = $db->paramQuery($sqlQuery, [$payrunId]);
+        if (!$payslipResult->isValid()) {
+            return ['ok' => false, 'error' => 'Database error.'];
+        }
+
+        /*********************************
+               Building payment dates
+         *********************************/
+
+        $payloads = [];
+        $utcTimezone = new DateTimeZone('UTC');
+
+        # Loops through all of the payslips int the payrun.
+        while ($payslipRow = $payslipResult->fetchAssociative()) {
+
+            # Check if the payslip has an invalid period date.
+            try {
+                $periodEndDate = new DateTime($payslipRow['to_date']);
+            } catch (Exception $exception) {
+                return ['ok' => false, 'error' => 'Invalid period end date for payslip \'' . $payslipRow['id'] . '\'.'];
+            }
+
+            # Determine paydate based on payment period code.
+            $payDate = null;
+            $paymentPeriodCode = $payslipRow['payment_period_code'];
+            if ($paymentPeriodCode === 'WEEK') {
+                if ($payslipRow['payment_day'] === null) {
+                    return ['ok' => false, 'error' => 'Payment day not configured for payslip \'' . $payslipRow['id'] . '\'.'];
+                }
+
+                $paymentDay = (int)$payslipRow['payment_day'];
+                if ($paymentDay < 0 || $paymentDay > 6) {
+                    return ['ok' => false, 'error' => 'Invalid weekly payment day for payslip \'' . $payslipRow['id'] . '\'.'];
+                }
+
+                $payDate = clone $periodEndDate;
+                $daysUntilPayment = ($paymentDay - (int)$payDate->format('w') + 7) % 7;
+                if ($daysUntilPayment > 0) {
+                    $payDate->modify('+' . $daysUntilPayment . ' days');
+                }
+            } else if ($paymentPeriodCode === 'BWEE') {
+                if ($payslipRow['bwee_custom_pped'] !== null && $payslipRow['bwee_custom_payment_day'] !== null) {
+                    try {
+                        $payDate = new DateTime($payslipRow['bwee_custom_payment_day']);
+                    } catch (Exception $exception) {
+                        return ['ok' => false, 'error' => 'Invalid custom biweekly payment date for payslip \'' . $payslipRow['id'] . '\'.'];
+                    }
+
+                    # Custom biweekly payment dates repeat every 14 days. Select the first configured payment date that is on or after this payslip's period end.
+                    while ($payDate < $periodEndDate) {
+                        $payDate->modify('+14 days');
+                    }
+                    while (true) {
+                        $previousPayDate = clone $payDate;
+                        $previousPayDate->modify('-14 days');
+                        if ($previousPayDate < $periodEndDate) {
+                            break;
+                        }
+                        $payDate = $previousPayDate;
+                    }
+                } else {
+                    if ($payslipRow['payment_day'] === null) {
+                        return ['ok' => false, 'error' => 'Payment day not configured for payslip \'' . $payslipRow['id'] . '\'.'];
+                    }
+
+                    $paymentDay = (int)$payslipRow['payment_day'];
+                    if ($paymentDay < 0 || $paymentDay > 6) {
+                        return ['ok' => false, 'error' => 'Invalid biweekly payment day for payslip \'' . $payslipRow['id'] . '\'.'];
+                    }
+
+                    $payDate = clone $periodEndDate;
+                    $daysUntilPayment = ($paymentDay - (int)$payDate->format('w') + 7) % 7;
+                    if ($daysUntilPayment > 0) {
+                        $payDate->modify('+' . $daysUntilPayment . ' days');
+                    }
+                }
+            } else if ($paymentPeriodCode === 'MONT') {
+                if ($payslipRow['payment_day'] === null) {
+                    return ['ok' => false, 'error' => 'Payment day not configured for payslip \'' . $payslipRow['id'] . '\'.'];
+                }
+
+                $paymentDay = (int)$payslipRow['payment_day'];
+                if ($paymentDay < 0 || $paymentDay > 28) {
+                    return ['ok' => false, 'error' => 'Invalid monthly payment day for payslip \'' . $payslipRow['id'] . '\'.'];
+                }
+
+                $payDate = clone $periodEndDate;
+                if ($paymentDay === 0) {
+                    $payDate->modify('last day of this month');
+                } else {
+                    $payDate->setDate(
+                        (int)$periodEndDate->format('Y'),
+                        (int)$periodEndDate->format('m'),
+                        $paymentDay
+                    );
+                }
+            } else if ($paymentPeriodCode === 'TWMO') {
+
+                $isFirstPeriod = ((int)$payslipRow['period'] % 2) === 1;
+                $paymentDay = $isFirstPeriod ? $payslipRow['first_period_payment_day'] : $payslipRow['second_period_payment_day'];
+                if ($paymentDay === null) {
+                    return ['ok' => false, 'error' => 'Twice-monthly payment day not configured for payslip \'' . $payslipRow['id'] . '\'.'];
+                }
+
+                $paymentDay = (int)$paymentDay;
+                if ($paymentDay < 0 || $paymentDay > 28) {
+                    return ['ok' => false, 'error' => 'Invalid twice-monthly payment day for payslip \'' . $payslipRow['id'] . '\'.'];
+                }
+
+                $payDate = clone $periodEndDate;
+                if ($paymentDay === 0) {
+                    $payDate->modify('last day of this month');
+                } else {
+                    $payDate->setDate((int)$periodEndDate->format('Y'), (int)$periodEndDate->format('m'), $paymentDay);
+                }
+            } else {
+                return [
+                    'ok' => false,
+                    'error' => 'Unsupported payment period \'' . $paymentPeriodCode . '\' for payslip \'' . $payslipRow['id'] . '\'.'
+                ];
+            }
+
+            if ($payslipRow['updated_on'] === null || trim($payslipRow['updated_on']) === '') {
+                return [
+                    'ok' => false,
+                    'error' => 'Wallet subscription date not configured for employee \'' . $payslipRow['employee_id'] . '\'.'
+                ];
+            }
+
+            try {
+                $consentDate = new DateTime($payslipRow['updated_on'], $utcTimezone);
+                $consentDate->setTimezone($utcTimezone);
+            } catch (Exception $exception) {
+                return [
+                    'ok' => false,
+                    'error' => 'Invalid wallet subscription date for employee \'' . $payslipRow['employee_id'] . '\'.'
+                ];
+            }
+
+            // Load and classify the payslip items required by the current Spendl payload.
+            $itemQuery =
+                'SELECT ' .
+                'payslip_items.payslip_item_type_code, ' .
+                'payslip_item_types.payslip_category_code, ' .
+                'payslip_items.description, ' .
+                'payslip_items.units, ' .
+                'payslip_items.rate, ' .
+                'payslip_items.total ' .
+                'FROM payslip_items ' .
+                'INNER JOIN payslip_item_types ' .
+                'ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
+                'WHERE payslip_items.payslip_id = $1 ' .
+                'ORDER BY payslip_items.id ASC;';
+            $itemResult = $db->paramQuery($itemQuery, [$payslipRow['id']]);
+            if (!$itemResult->isValid()) {
+                return ['ok' => false, 'error' => 'Database error.'];
+            }
+
+            $earnings = [];
+            $deductions = [];
+            $employerContributions = [];
+            $grossPay = 0;
+            $totalDeductions = 0;
+
+            while ($itemRow = $itemResult->fetchAssociative()) {
+                if ($itemRow['total'] === null) {
+                    continue;
+                }
+
+                $amount = (int)round((float)$itemRow['total'] * 100);
+                if ($amount < 0) {
+                    return [
+                        'ok' => false,
+                        'error' => 'Negative payslip item amount found on payslip \'' . $payslipRow['id'] . '\'.'
+                    ];
+                }
+
+                $item = [
+                    'code' => trim($itemRow['payslip_item_type_code']),
+                    'description' => $itemRow['description'],
+                    'amount' => $amount
+                ];
+
+                if ($itemRow['payslip_category_code'] === 'INCO') {
+                    if ($itemRow['units'] !== null) {
+                        $item['hours'] = round((float)$itemRow['units'], 2);
+                    }
+                    if ($itemRow['rate'] !== null) {
+                        $item['rate'] = (int)round((float)$itemRow['rate'] * 100);
+                    }
+
+                    $earnings[] = $item;
+                    $grossPay += $amount;
+                } else if ($itemRow['payslip_category_code'] === 'DEDU') {
+                    $deductions[] = $item;
+                    $totalDeductions += $amount;
+                } else if ($itemRow['payslip_category_code'] === 'CONT') {
+                    $employerContributions[] = $item;
+                }
+            }
+
+            $employeeCode = 'EMP' . $payslipRow['employee_code'];
+            $idempotencyKey =
+                'payaccsys:' . $companyId . ':' . $payrunId . ':' . $employeeCode;
+
+            if (strlen($idempotencyKey) > 200) {
+                return [
+                    'ok' => false,
+                    'error' => 'The idempotency key for payslip \'' . $payslipRow['id'] . '\' exceeds 200 characters.'
+                ];
+            }
+
+            $payloads[] = [
+                'idempotencyKey' => $idempotencyKey,
+                'source' => 'payaccsys',
+                'recipient' => [
+                    'email' => $payslipRow['email_address'],
+                    'idNumber' => $payslipRow['id_number'],
+                    'employeeCode' => $employeeCode,
+                    'spendlUserId' => null
+                ],
+                'consent' => [
+                    'optedInAt' => $consentDate->format('Y-m-d\TH:i:s\Z')
+                ],
+                'employer' => [
+                    'name' => $companyRow['name'],
+                    'payeReference' => $companyRow['paye_reference_number']
+                ],
+                'payslip' => [
+                    'payrunId' => (string)$payslipRow['payrun_id'],
+                    'periodStart' => $payslipRow['from_date'],
+                    'periodEnd' => $payslipRow['to_date'],
+                    'payDate' => $payDate->format('Y-m-d'),
+                    'currency' => 'ZAR',
+                    'grossPay' => $grossPay,
+                    'totalDeductions' => $totalDeductions,
+                    'netPay' => $grossPay - $totalDeductions,
+                    'earnings' => $earnings,
+                    'deductions' => $deductions,
+                    'employerContributions' => $employerContributions
+                ]
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'payloads' => $payloads
+        ];
     }
 }
