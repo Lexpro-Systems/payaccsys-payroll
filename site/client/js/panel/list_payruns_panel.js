@@ -791,10 +791,6 @@ app.panel.ListPayruns = function (config) {
             emailPayslipsPanel.focus();
         }
 
-
-
-
-
         else if (clickEvent.value === 'send_to_wallet') {
             // Has the payrun not been processed?
             if (payrunsGrid.getRow(clickEvent.rowIndex).isProcessed !== 'Yes') {
@@ -808,7 +804,7 @@ app.panel.ListPayruns = function (config) {
             // Create a modal window
             var sendPayslipsModal = new lx.component.ModalWindow({
                 margin: '40px',
-                maxWidth: '800px',
+                maxWidth: '1100px',
                 maxHeight: '100%'
             });
 
@@ -848,13 +844,6 @@ app.panel.ListPayruns = function (config) {
             sendPayslipsModal.show();
             sendPayslipsPanel.focus();
         }
-
-
-
-
-
-
-
 
         else if (clickEvent.value === 'lexpro_post') {
             // Has the payrun not been processed?

@@ -34,7 +34,7 @@ app.panel.SendPayslips = function(config) {
     
     var buttonContainerEl = null;
     var cancelBtn = null;
-    var emailBtn = null;
+    var sendBtn = null;
     
     var payrunId = null;
     
@@ -77,9 +77,14 @@ app.panel.SendPayslips = function(config) {
                 for( let i = 0; i < response.payrun.payslips.length; i++ ) {
                     payslips.push({
                         id: response.payrun.payslips[i].id,
-                        period: (response.payrun.payslips[i].fromDate + ' to ' + response.payrun.payslips[i].toDate),
-                        employeeName: response.payrun.payslips[i].employee.name,
+                        empId: response.payrun.payslips[i].employee.id,
+                        employeeCode: response.payrun.payslips[i].employee.empCode,
+                        employeeAlias: response.payrun.payslips[i].employee.name,
+                        employeeSurname: response.payrun.payslips[i].employee.employeeSurname,
+                        employeeIdNumber: response.payrun.payslips[i].employee.idNumber,
                         emailAddress: response.payrun.payslips[i].employee.emailAddress,
+                        subscriptionStatus: response.payrun.payslips[i].employee.wallet_subscription_status,
+                        period: (response.payrun.payslips[i].fromDate + ' to ' + response.payrun.payslips[i].toDate),
                         download: '<i class="fas fa-download"></i>'
                     });
                 }
@@ -217,7 +222,7 @@ app.panel.SendPayslips = function(config) {
                 borderWidth: '0px 0px 1px 0px',
                 borderColor: '#DFDFDF'
             },
-            innerHTML: 'Email Payslips'
+            innerHTML: 'Send Payslips to Spendl Wallet'
         });
         
         // Create the contentEl element
@@ -252,9 +257,12 @@ app.panel.SendPayslips = function(config) {
             
             columns: [
                 {dataIndex: 'select', width: '60px', type: 'rowSelect'},
-                {dataIndex: 'period', name: 'Period', width: '180px'},
-                {dataIndex: 'employeeName', name: 'Employee'},
+                {dataIndex: 'employeeCode', name: 'Code', width: '90px'},
+                {dataIndex: 'employeeAlias', name: 'Name', width: '140px'},
+                {dataIndex: 'employeeSurname', name: 'Surname', width: '140px'},
+                {dataIndex: 'employeeIdNumber', name: 'ID/Passport Number', width: '140px'},
                 {dataIndex: 'emailAddress', name: 'Email Address' + '<i class="fas fa-fw fa-pen" style="margin-left: 15px; font-size: 14px; color: #30313C;">'},
+                {dataIndex: 'period', name: 'Payslip Date'},
                 {dataIndex: 'download', name: '', type: 'button', width: '35px', alignment: 'center'},
             ],
             
@@ -296,13 +304,13 @@ app.panel.SendPayslips = function(config) {
         });
         
         
-        // Create the emailBtn component
-        emailBtn = new lx.component.Button({
+        // Create the sendBtn component
+        sendBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
             label: 'Send',
             width: '120px',
             
-            onClick: emailBtnClickEventHandler
+            onClick: sendBtnClickEventHandler
         });
         
         // Load form data
@@ -405,10 +413,10 @@ app.panel.SendPayslips = function(config) {
         me.fireEvent('cancel', {srcPanel: me});
     }
     
-    // Email button click event handler
-    function emailBtnClickEventHandler() {
+    // Send button click event handler
+    function sendBtnClickEventHandler() {
         if( payslipsGrid.getSelectedRowCount() < 1) {
-            emailBtn.showWarning('No payslips selected.');
+            sendBtn.showWarning('No payslips selected.');
             return;
         }
         
@@ -423,8 +431,8 @@ app.panel.SendPayslips = function(config) {
                 // Was no email address specified?
                 if( row.emailAddress.trim() === '' ) {
                     new lx.component.Messagebox({
-                        title: 'Emailing Payslips Failed',
-                        message: 'No email address specified. Please ensure all selected transactions have valid email addresses.'
+                        title: 'Sending Payslips Failed',
+                        message: 'No email address specified. Please ensure all selected employees have valid email addresses.'
                     });
                     return;
                 }
@@ -440,29 +448,29 @@ app.panel.SendPayslips = function(config) {
         // Were no payslips selected
         if( payslips.length < 1 ) {
             new lx.component.Messagebox({
-                title: 'Emailing Payslips Failed',
-                message: 'No payslips selected. Please select the payslips you wish to email.'
+                title: 'Sending Payslips Failed',
+                message: 'No employees are subscribed to Spendl Wallets. Please subscribe employees to Spendl Wallets.'
             });
             return;
         }
         
         // Email the selected payslip
-        emailBtn.disable();
-        emailBtn.showLoader();
+        sendBtn.disable();
+        sendBtn.showLoader();
         lx.sendJSON({
             url: 'exec.php?c=Payslip&fn=sendPayslips',
             data: {
                 emailData: payslips
             },
             onSuccess: function( responseText ) {
-                emailBtn.enable();
-                emailBtn.hideLoader();
+                sendBtn.enable();
+                sendBtn.hideLoader();
                 
                 var response = JSON.parse(responseText);
                 
                 if( response.ok !== true ) {
                     new lx.component.Messagebox({
-                        title: 'Emailing Payslips Failed',
+                        title: 'sending Payslips Failed',
                         message: response.error
                     });
                 }

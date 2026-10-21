@@ -914,16 +914,22 @@ class Payrun extends Controller
             'employees.first_name AS employee_first_name, ' .
             'employees.last_name AS employee_last_name, ' .
             'employees.alias AS employee_alias, ' .
+            'employees.code AS emp_code, ' .
+            'employees.id_number, ' .
+            'employees.passport_number, ' .
             'EXTRACT(YEAR FROM age(payslips.to_date, employees.date_of_birth)) AS employee_age, ' .
             'employees.employment_start_date, ' .
             'employees.employment_end_date, ' .
-            'employees.email_address ' .
+            'employees.email_address, ' .
+            'COALESCE(wallet_subscriptions.subscribed, FALSE) AS subscription_status ' .
             'FROM ' .
             'payslips ' .
             'LEFT JOIN ' .
             'payslip_status_codes ON payslip_status_codes.code = payslips.status_code ' .
             'LEFT JOIN ' .
             'employees ON employees.id = payslips.employee_id ' .
+            'LEFT JOIN ' .
+            'wallet_subscriptions ON wallet_subscriptions.employee_id = employees.id ' .
             $payslipsWhereClause .
             'ORDER BY employees.alias ASC, payslips.employee_id ASC, payslips.id ASC;';
         $payslipResult = $db->paramQuery($payslipQuery, $payslipSqlParams);
@@ -942,10 +948,16 @@ class Payrun extends Controller
                 'statusName' => $payslipRow['status_name'],
                 'employee' => [
                     'id' => $payslipRow['employee_id'],
+                    'empCode' => $payslipRow['emp_code'],
+                    'idNumber' => $payslipRow['id_number'],
+                    'passportNumber' => $payslipRow['passport_number'],
                     'name' => $payslipRow['employee_alias'],
+                    'employeeName' => $payslipRow['employee_first_name'],
+                    'employeeSurname' => $payslipRow['employee_last_name'],
                     'age' => $payslipRow['employee_age'],
                     'paymentPeriodEndDay' => $payslipRow['payment_period_end_day'],
-                    'emailAddress' => $payslipRow['email_address']
+                    'emailAddress' => $payslipRow['email_address'],
+                    'wallet_subscription_status' => $payslipRow['subscription_status'],
                 ],
                 'taxPeriod' => [
                     'type' => $payslipRow['payment_period_code'],
