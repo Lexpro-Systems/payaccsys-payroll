@@ -199,7 +199,7 @@ app.panel.SendPayslips = function(config) {
             
             columns: [
                 {dataIndex: 'subscriptionDisplay', name: 'Spendl Wallet', width: '120px', alignment: 'center'},
-                {dataIndex: 'employeeCode', name: 'Code', width: '90px'},
+                {dataIndex: 'employeeCode', name: 'Employee Code', width: '100px'},
                 {dataIndex: 'employeeAlias', name: 'Name', width: '140px'},
                 {dataIndex: 'employeeSurname', name: 'Surname', width: '140px'},
                 {dataIndex: 'employeeId', name: 'ID/Passport Number', width: '140px'},
