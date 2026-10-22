@@ -10482,21 +10482,17 @@ class Payrun extends Controller
         return $writer;
     }
 
-    // Build the structured payslip requests that will be sent to the Spendl wallet API.
+    // Build and send the selected payrun's structured payslips to the Spendl wallet API.
     //
     // Required Parameters
     //  payrunId        The processed payrun whose active, subscribed payslips to load
     //
-    // This function only builds and returns the request payloads. It does not call Spendl.
+    // Returns one response result per opted-in employee for display in the frontend grid.
     public function walletApiCaller($data, $user, $db)
     {
-
-        /***************************************
-          PayrunID, Payrun & Company Validation
-         ***************************************/
         header('Content-Type: application/json');
 
-        # Validates data provided.
+        # Validates the provided payrunId.
         $defaults = [];
         Json::copy($defaults, $data);
         $validationResult = Json::validate($data, [
@@ -10507,24 +10503,89 @@ class Payrun extends Controller
             return false;
         }
 
-        # Checks if a company exists
+        # Checks if a company exists.
         if (!isset($user['companyId']) || $user['companyId'] === null) {
             echo (json_encode(['ok' => false, 'error' => 'No company is selected.']));
             return false;
         }
 
+        # Calls the method to build the JSON wallet payloads.
         $payrunId = $data['payrunId'];
         $payloadResult = $this->buildWalletPayloads($payrunId, (int)$user['companyId'], $db);
-
         if ($payloadResult['ok'] !== true) {
             echo (json_encode($payloadResult));
             return false;
         }
 
+        # Checks if any employee opted to send their payslips to spendl
+        if (count($payloadResult['payloads']) === 0) {
+            echo (json_encode([
+                'ok' => true,
+                'payrunId' => $payrunId,
+                'summary' => [
+                    'total' => 0,
+                    'successful' => 0,
+                    'failed' => 0
+                ],
+                'results' => []
+            ]));
+            return true;
+        }
+
+        # Loads spendl's API infromation(api_url, api_key, api_secrets).
+        $spendlConfiguration = $this->getSpendlApiConfiguration();
+        if ($spendlConfiguration['ok'] !== true) {
+            echo (json_encode($spendlConfiguration));
+            return false;
+        }
+
+        # Authenticate an employee as a spendle user once for the complete payrun send operation.
+        $tokenResult = $this->requestSpendlAccessToken($spendlConfiguration);
+        if ($tokenResult['ok'] !== true) {
+            echo (json_encode($tokenResult));
+            return false;
+        }
+
+        $accessToken = $tokenResult['accessToken'];
+        $deliveryResults = [];
+        $successfulDeliveries = 0;
+        $failedDeliveries = 0;
+
+        # Each payslip is sent separately because every payload has its own idempotency key and response.
+        foreach ($payloadResult['payloads'] as $payload) {
+
+            # Sends the Json payload to spendle and return the status result.
+            $requestResult = $this->sendSpendlPayslip($spendlConfiguration['baseUrl'], $accessToken, $payload);
+
+            # A token can expire while a large payrun is being sent. Refresh it once and retry only this payslip.
+            if ($requestResult['httpStatus'] === 401 && $this->getSpendlErrorType($requestResult) === 'INVALID_TOKEN') {
+                $tokenResult = $this->requestSpendlAccessToken($spendlConfiguration);
+                if ($tokenResult['ok'] === true) {
+                    $accessToken = $tokenResult['accessToken'];
+                    $requestResult = $this->sendSpendlPayslip($spendlConfiguration['baseUrl'], $accessToken, $payload);
+                }
+            }
+
+            # Formats the send request response into a structured delivery result.
+            $deliveryResult = $this->formatSpendlDeliveryResult($payload, $requestResult);
+            $deliveryResults[] = $deliveryResult;
+
+            if ($deliveryResult['ok'] === true) {
+                $successfulDeliveries++;
+            } else {
+                $failedDeliveries++;
+            }
+        }
+
         echo (json_encode([
             'ok' => true,
             'payrunId' => $payrunId,
-            'payloads' => $payloadResult['payloads']
+            'summary' => [
+                'total' => count($deliveryResults),
+                'successful' => $successfulDeliveries,
+                'failed' => $failedDeliveries
+            ],
+            'results' => $deliveryResults
         ]));
         return true;
     }
@@ -10734,7 +10795,7 @@ class Payrun extends Controller
                 ];
             }
 
-            // Load and classify the payslip items required by the current Spendl payload.
+            # Load and classify the payslip items required by the current Spendl payload.
             $itemQuery =
                 'SELECT ' .
                 'payslip_items.payslip_item_type_code, ' .
@@ -10797,8 +10858,7 @@ class Payrun extends Controller
             }
 
             $employeeCode = 'EMP' . $payslipRow['employee_code'];
-            $idempotencyKey =
-                'payaccsys:' . $companyId . ':' . $payrunId . ':' . $employeeCode;
+            $idempotencyKey = 'payaccsys:' . $companyId . ':' . $payrunId . ':' . $employeeCode;
 
             if (strlen($idempotencyKey) > 200) {
                 return [
@@ -10843,5 +10903,236 @@ class Payrun extends Controller
             'ok' => true,
             'payloads' => $payloads
         ];
+    }
+
+    // Returns the temporary Spendl API configuration used during the build phase.
+    private function getSpendlApiConfiguration(): array
+    {
+        $baseUrl = defined('CONF_SPENDL_API_URL') ? CONF_SPENDL_API_URL : 'https://ingest.staging.spendl.money';
+        $apiKey = defined('CONF_SPENDL_API_KEY') ? CONF_SPENDL_API_KEY : 'SPENDL_API_KEY_PLACEHOLDER';
+        $apiSecret = defined('CONF_SPENDL_API_SECRET') ? CONF_SPENDL_API_SECRET : 'SPENDL_API_SECRET_PLACEHOLDER';
+
+        # Prevent an accidental external request while the temporary credentials are still placeholders.
+        if ($apiKey === 'SPENDL_API_KEY_PLACEHOLDER' || $apiSecret === 'SPENDL_API_SECRET_PLACEHOLDER') {
+            return [
+                'ok' => false,
+                'error' => 'Spendl API credentials have not been configured.',
+                'configurationRequired' => true
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'baseUrl' => rtrim($baseUrl, '/'),
+            'apiKey' => $apiKey,
+            'apiSecret' => $apiSecret
+        ];
+    }
+
+    // Exchanges the Spendl API key and secret for a one-hour access token.
+    private function requestSpendlAccessToken(array $configuration): array
+    {
+        $requestResult = $this->sendSpendlJsonRequest(
+            $configuration['baseUrl'] . '/auth/token',
+            [
+                'apiKey' => $configuration['apiKey'],
+                'apiSecret' => $configuration['apiSecret']
+            ]
+        );
+
+        if ($requestResult['transportOk'] !== true) {
+            return [
+                'ok' => false,
+                'error' => 'Unable to connect to the Spendl authentication endpoint.',
+                'details' => $requestResult['error']
+            ];
+        }
+
+        if (
+            $requestResult['httpStatus'] < 200 ||
+            $requestResult['httpStatus'] >= 300
+        ) {
+            return [
+                'ok' => false,
+                'error' => $this->getSpendlErrorMessage(
+                    $requestResult,
+                    'Spendl authentication failed.'
+                ),
+                'httpStatus' => $requestResult['httpStatus'],
+                'errorType' => $this->getSpendlErrorType($requestResult)
+            ];
+        }
+
+        if (
+            !is_array($requestResult['response']) ||
+            !isset($requestResult['response']['accessToken']) ||
+            trim($requestResult['response']['accessToken']) === ''
+        ) {
+            return [
+                'ok' => false,
+                'error' => 'Spendl authentication returned no access token.',
+                'httpStatus' => $requestResult['httpStatus']
+            ];
+        }
+
+        return [
+            'ok' => true,
+            'accessToken' => $requestResult['response']['accessToken'],
+            'expiresIn' => isset($requestResult['response']['expiresIn'])
+                ? $requestResult['response']['expiresIn']
+                : null
+        ];
+    }
+
+    // Sends one structured payslip payload to Spendl.
+    private function sendSpendlPayslip(string $baseUrl, string $accessToken, array $payload): array
+    {
+        return $this->sendSpendlJsonRequest(
+            rtrim($baseUrl, '/') . '/api/payslips',
+            $payload,
+            [
+                'Authorization: Bearer ' . $accessToken,
+                'X-Idempotency-Key: ' . $payload['idempotencyKey']
+            ]
+        );
+    }
+
+    // Sends a JSON POST request while preserving the HTTP response for the calling function.
+    private function sendSpendlJsonRequest(string $url, array $payload, array $additionalHeaders = []): array
+    {
+        if (!function_exists('curl_init')) {
+            return [
+                'transportOk' => false,
+                'httpStatus' => 0,
+                'response' => null,
+                'error' => 'The PHP cURL extension is not available.'
+            ];
+        }
+
+        $jsonPayload = json_encode($payload);
+        if ($jsonPayload === false) {
+            return [
+                'transportOk' => false,
+                'httpStatus' => 0,
+                'response' => null,
+                'error' => 'Unable to encode the Spendl request as JSON.'
+            ];
+        }
+
+        $headers = array_merge([
+            'Accept: application/json',
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen($jsonPayload)
+        ], $additionalHeaders);
+
+        $curlHandle = curl_init();
+        curl_setopt($curlHandle, CURLOPT_URL, $url);
+        curl_setopt($curlHandle, CURLOPT_POST, true);
+        curl_setopt($curlHandle, CURLOPT_POSTFIELDS, $jsonPayload);
+        curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curlHandle, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($curlHandle, CURLOPT_TIMEOUT, 30);
+        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($curlHandle, CURLOPT_HTTPHEADER, $headers);
+
+        $responseBody = curl_exec($curlHandle);
+        $httpStatus = (int)curl_getinfo($curlHandle, CURLINFO_HTTP_CODE);
+
+        if ($responseBody === false) {
+            $error = curl_error($curlHandle);
+            @curl_close($curlHandle);
+
+            return [
+                'transportOk' => false,
+                'httpStatus' => $httpStatus,
+                'response' => null,
+                'error' => $error
+            ];
+        }
+
+        @curl_close($curlHandle);
+
+        $decodedResponse = json_decode($responseBody, true);
+        if ($decodedResponse === null && trim($responseBody) !== '' && strtolower(trim($responseBody)) !== 'null') {
+            return [
+                'transportOk' => true,
+                'httpStatus' => $httpStatus,
+                'response' => null,
+                'rawResponse' => $responseBody,
+                'error' => null
+            ];
+        }
+
+        return [
+            'transportOk' => true,
+            'httpStatus' => $httpStatus,
+            'response' => $decodedResponse,
+            'rawResponse' => null,
+            'error' => null
+        ];
+    }
+
+    // Converts a Spendl HTTP response into a stable result for the frontend payslip-response grid.
+    private function formatSpendlDeliveryResult(array $payload, array $requestResult): array
+    {
+        $httpStatus = isset($requestResult['httpStatus']) ? (int)$requestResult['httpStatus'] : 0;
+        $successful = isset($requestResult['transportOk']) && $requestResult['transportOk'] === true && ($httpStatus === 200 || $httpStatus === 201);
+        $response = isset($requestResult['response']) && is_array($requestResult['response']) ? $requestResult['response'] : [];
+        $result = [
+            'ok' => $successful,
+            'employeeCode' => $payload['recipient']['employeeCode'],
+            'employeeEmail' => $payload['recipient']['email'],
+            'idempotencyKey' => $payload['idempotencyKey'],
+            'httpStatus' => $httpStatus,
+            'status' => $successful ? (isset($response['status']) ? $response['status'] : 'submitted') : 'failed',
+            'payslipId' => isset($response['payslipId']) ? $response['payslipId'] : null,
+            'spendlUserId' => isset($response['spendlUserId']) ? $response['spendlUserId'] : null,
+            'idempotentReplay' => isset($response['idempotentReplay']) ? (bool)$response['idempotentReplay'] : false
+        ];
+
+        if ($successful !== true) {
+            $result['errorType'] = $this->getSpendlErrorType($requestResult);
+            $result['error'] = $this->getSpendlErrorMessage($requestResult, 'Unable to send the payslip to Spendl.');
+        }
+
+        return $result;
+    }
+
+    // Reads the stable Spendl error type from its standard error envelope.
+    private function getSpendlErrorType(array $requestResult)
+    {
+        if (
+            isset($requestResult['response']['error']) &&
+            is_array($requestResult['response']['error']) &&
+            isset($requestResult['response']['error']['type'])
+        ) {
+            return $requestResult['response']['error']['type'];
+        }
+
+        return null;
+    }
+
+    // Returns a readable error without exposing credentials or request payload data.
+    private function getSpendlErrorMessage(array $requestResult, string $defaultMessage): string
+    {
+        if (
+            isset($requestResult['response']['error']) &&
+            is_array($requestResult['response']['error']) &&
+            isset($requestResult['response']['error']['message']) &&
+            trim($requestResult['response']['error']['message']) !== ''
+        ) {
+            return $requestResult['response']['error']['message'];
+        }
+
+        if (isset($requestResult['error']) && trim((string)$requestResult['error']) !== '') {
+            return $requestResult['error'];
+        }
+
+        if (isset($requestResult['rawResponse']) && trim((string)$requestResult['rawResponse']) !== '') {
+            return $requestResult['rawResponse'];
+        }
+
+        return $defaultMessage;
     }
 }

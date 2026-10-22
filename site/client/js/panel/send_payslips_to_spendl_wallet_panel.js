@@ -350,7 +350,7 @@ app.panel.SendPayslips = function(config) {
         sendBtn.disable();
         sendBtn.showLoader();
         lx.sendJSON({
-            url: 'exec.php?c=Payslip&fn=sendPayslips',
+            url: 'exec.php?c=Payrun&fn=walletApiCaller',
             data: {
                 payrunId: payrunId
             },
