@@ -53,7 +53,7 @@ app.panel.SendPayslipStatus = function(config) {
     //
     
     // Function to load the payrun data
-    function loadPayrun( payrunId ) {
+    function loadPayrun( payrunId, deliveryResults ) {
         loader.show(false);
         
         lx.sendJSON({
@@ -74,6 +74,16 @@ app.panel.SendPayslipStatus = function(config) {
                     });
                     return;
                 }
+
+                var resultsByEmployeeCode = {};
+
+                if (Array.isArray(deliveryResults)) {
+                    for (var resultIndex = 0; resultIndex < deliveryResults.length; resultIndex++) {
+                        var deliveryResult = deliveryResults[resultIndex];
+
+                        resultsByEmployeeCode[deliveryResult.employeeCode] = deliveryResult;
+                    }
+                }
                 
                 // Loop through all payslips
                 let payslips = [];
@@ -81,25 +91,36 @@ app.panel.SendPayslipStatus = function(config) {
 
                     let payslip = response.payrun.payslips[i];
                     let employee = payslip.employee;
-                    let isSubscribed = (employee.wallet_subscription_status === true);
+                    
+                    var deliveryResult = resultsByEmployeeCode['EMP' + employee.empCode] || null;
 
-                    let idNumber = String(employee.idNumber || '').trim();
-                    let passportNumber = String(employee.passportNumber || '').trim();
+                    var statusCode = '-';
+                    var type = 'Not available';
+                    var details = 'No stored delivery status is available yet.';
+
+                    if (deliveryResult !== null) {
+                        statusCode =
+                            typeof deliveryResult.httpStatus !== 'undefined' ? deliveryResult.httpStatus : '-';
+
+                        if (deliveryResult.ok === true) {
+                            type = deliveryResult.status || 'submitted';
+                            details = 'Payslip submitted to Spendl Wallet.';
+                        } else {
+                            type = deliveryResult.errorType || 'failed';
+                            details = deliveryResult.error || 'Unable to send the payslip to Spendl Wallet.';
+                        }
+                    }
 
                     payslips.push({
                         id: payslip.id,
-                        empId: employee.id,
                         employeeCode: employee.empCode,
                         employeeAlias: employee.name,
                         employeeSurname: employee.employeeSurname,
-                        employeeIdNumber: idNumber,
-                        passportNumber: passportNumber,
-                        employeeId: (idNumber !== '' ? idNumber : passportNumber),
-                        emailAddress: employee.emailAddress,
-                        subscriptionStatus: isSubscribed,
-                        subscriptionDisplay:isSubscribed ? '<i class="fas fa-check-square" style="font-size: 16px; color: #30313C;" aria-label="Subscribed"></i>' : '<i class="far fa-square" style="font-size: 16px; color: #30313C;" aria-label="Not subscribed"></i>',
                         period: (payslip.fromDate + ' to ' + payslip.toDate),
-                        download: '<i class="fas fa-download"></i>'
+                        statusCode: statusCode,
+                        type: type,
+                        details: details,
+                        retry: '<i class="fas fa-fw fa-redo"></i>',
                     });
                 }
                 payslipsGrid.addRows(payslips);
@@ -119,8 +140,8 @@ app.panel.SendPayslipStatus = function(config) {
             height: '100%',
             flex: '1 1 100%',
             show: false,
-            
-            payrunId: null
+            payrunId: null,
+            deliveryResults: null
         };
         
         // Parse user config
@@ -165,7 +186,7 @@ app.panel.SendPayslipStatus = function(config) {
                 borderWidth: '0px 0px 1px 0px',
                 borderColor: '#DFDFDF'
             },
-            innerHTML: 'Send Payslips to Spendl Wallet'
+            innerHTML: 'View Spendl Wallet Status'
         });
         
         // Create the contentEl element
@@ -198,14 +219,14 @@ app.panel.SendPayslipStatus = function(config) {
             borderWidth: '0px',
             
             columns: [
-                {dataIndex: 'subscriptionDisplay', name: 'Spendl Wallet', width: '120px', alignment: 'center'},
                 {dataIndex: 'employeeCode', name: 'Employee Code', width: '100px'},
                 {dataIndex: 'employeeAlias', name: 'Name', width: '140px'},
                 {dataIndex: 'employeeSurname', name: 'Surname', width: '140px'},
-                {dataIndex: 'employeeId', name: 'ID/Passport Number', width: '140px'},
-                {dataIndex: 'emailAddress', name: 'Email Address'},
-                {dataIndex: 'period', name: 'Payslip Date'},
-                {dataIndex: 'download', name: '', type: 'button', width: '35px', alignment: 'center'},
+                {dataIndex: 'period', name: 'Payslip Date', width: '180px' },
+                {dataIndex: 'statusCode', name: 'Status Code', width: '100px'},
+                {dataIndex: 'type', name: 'Type', width: '120px'},
+                {dataIndex: 'details', name: 'Details'},
+                {dataIndex: 'retry', name: 'Retry', type: 'button', width: '85px', alignment: 'center'},
             ],
             
             onCellClick: payslipsGridCellClickEventHandler
@@ -230,10 +251,10 @@ app.panel.SendPayslipStatus = function(config) {
             }
         });
         
-        // Create the cancelBtn component
+        // Create the cancelBtn component to close the panel
         cancelBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
-            label: 'Cancel',
+            label: 'OK',
             width: '120px',
             style: 'text',
             
@@ -244,14 +265,14 @@ app.panel.SendPayslipStatus = function(config) {
         // Create the sendBtn component
         sendBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
-            label: 'Send',
+            label: 'Retry All',
             width: '120px',
             
             onClick: sendBtnClickEventHandler
         });
         
         // Load form data
-        loadPayrun( compConfig.payrunId );
+        loadPayrun( compConfig.payrunId, compConfig.deliveryResults);
         
         // If show is set to true show the panel.
         if( compConfig.show === true ) me.show();
@@ -327,14 +348,14 @@ app.panel.SendPayslipStatus = function(config) {
         let dataIndex = payslipsGrid.getColumnDataIndex(clickEvent.columnIndex);
         
         // Depending on the column clicked
-        if( dataIndex === 'download' ) {
-            lx.sendForm({
-                url: 'exec.php?c=Payslip&fn=downloadPayslip',
-                target: '_blank',
-                data: {
-                    payslipId: parseInt(payslipsGrid.getRow(clickEvent.rowIndex).id)
-                }
-            });
+        if( dataIndex === 'retry' ) {
+            // lx.sendForm({
+            //     url: 'exec.php?c=Payslip&fn=downloadPayslip',
+            //     target: '_blank',
+            //     data: {
+            //         payslipId: parseInt(payslipsGrid.getRow(clickEvent.rowIndex).id)
+            //     }
+            // });
         }
     }
     
@@ -347,30 +368,30 @@ app.panel.SendPayslipStatus = function(config) {
     function sendBtnClickEventHandler() {
         
         // Send selected payrun's ID to Spendl API-function
-        sendBtn.disable();
-        sendBtn.showLoader();
-        lx.sendJSON({
-            url: 'exec.php?c=Payslip&fn=sendPayslips',
-            data: {
-                payrunId: payrunId
-            },
-            onSuccess: function( responseText ) {
-                sendBtn.enable();
-                sendBtn.hideLoader();
+        // sendBtn.disable();
+        // sendBtn.showLoader();
+        // lx.sendJSON({
+        //     url: 'exec.php?c=Payslip&fn=sendPayslips',
+        //     data: {
+        //         payrunId: payrunId
+        //     },
+        //     onSuccess: function( responseText ) {
+        //         sendBtn.enable();
+        //         sendBtn.hideLoader();
                 
-                var response = JSON.parse(responseText);
+        //         var response = JSON.parse(responseText);
                 
-                if( response.ok !== true ) {
-                    new lx.component.Messagebox({
-                        title: 'sending Payslips to Spendl Wallet Failed',
-                        message: response.error
-                    });
-                    return;
-                }
+        //         if( response.ok !== true ) {
+        //             new lx.component.Messagebox({
+        //                 title: 'sending Payslips to Spendl Wallet Failed',
+        //                 message: response.error
+        //             });
+        //             return;
+        //         }
                 
-                me.fireEvent('send', {srcPanel: me});
-            }
-        });
+        //         me.fireEvent('send', {srcPanel: me});
+        //     }
+        // });
     }
     
     

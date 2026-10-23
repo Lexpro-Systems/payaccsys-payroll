@@ -119,8 +119,8 @@ app.panel.SendPayslips = function(config) {
             height: '100%',
             flex: '1 1 100%',
             show: false,
-            
-            payrunId: null
+            payrunId: null,
+            deliveryResults: null
         };
         
         // Parse user config
@@ -368,7 +368,7 @@ app.panel.SendPayslips = function(config) {
                     return;
                 }
                 
-                me.fireEvent('send', {srcPanel: me});
+                me.fireEvent('send', {srcPanel: me, results: response.results || [], summary: response.summary || null});
             }
         });
     }

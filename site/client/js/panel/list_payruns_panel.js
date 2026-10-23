@@ -152,6 +152,38 @@ app.panel.ListPayruns = function (config) {
         });
     }
 
+    // Function to open the send to wallet status modal
+    function openSendPayslipStatusModal(payrunId) {
+        var statusModal = new lx.component.ModalWindow({
+            margin: '40px',
+            maxWidth: '1300px',
+            maxHeight: '100%'
+        });
+
+        var statusPanel = new app.panel.SendPayslipStatus({
+            renderTo: statusModal.getContainer(),
+            show: true,
+            payrunId: payrunId,
+
+            onCancel: function () {
+                app.route.popState();
+            }
+        });
+
+        statusModal.addEventListener('destroy', function () {
+            statusPanel.destroy();
+        });
+
+        app.route.pushState({
+            modal: statusModal
+        }, function (state) {
+            state.modal.destroy();
+        });
+
+        statusModal.show();
+        statusPanel.focus();
+    }
+
 
     //
     // PUBLIC FUNCTIONS
@@ -793,8 +825,11 @@ app.panel.ListPayruns = function (config) {
         }
 
         else if (clickEvent.value === 'send_to_wallet') {
+
+            var payrun = payrunsGrid.getRow(clickEvent.rowIndex);
+
             // Has the payrun not been processed?
-            if (payrunsGrid.getRow(clickEvent.rowIndex).isProcessed !== 'Yes') {
+            if (payrun.isProcessed !== 'Yes') {
                 new lx.component.Messagebox({
                     title: 'Send Payslips to Spendl Wallet',
                     message: 'The payslips cannot be sent because the specified payrun has not been processed.'
@@ -802,49 +837,64 @@ app.panel.ListPayruns = function (config) {
                 return;
             }
 
+            var payrunId = parseInt(payrun.id);
+            var activePanel = null;
+
             // Create a modal window
             var sendPayslipsModal = new lx.component.ModalWindow({
                 margin: '40px',
-                maxWidth: '1100px',
+                maxWidth: '1300px',
                 maxHeight: '100%'
             });
 
-            // Create the sendPayslipsPanel panel
-            var sendPayslipsPanel = new app.panel.SendPayslips({
+            function closeModal(){
+                app.route.popState();
+            }
+
+            function showStatusPanel(results){
+                //Remove send panel data, but keep the modal and route
+                if(activePanel !== null){ 
+                    activePanel.destroy();
+                    activePanel = null;
+                }
+
+                activePanel = new app.panel.SendPayslipStatus({
+                    renderTo: sendPayslipsModal.getContainer(),
+                    show: true,
+                    payrunId: payrunId,
+                    deliveryResults: results || null,
+
+                    onCancel: closeModal
+                });
+
+                activePanel.focus();
+            }
+
+            activePanel = new app.panel.SendPayslips({
                 renderTo: sendPayslipsModal.getContainer(),
                 show: true,
+                payrunId: payrunId,
 
-                payrunId: parseInt(payrunsGrid.getRow(clickEvent.rowIndex).id),
-
-                onSend: function () {
-                    app.route.popState();
-                    new lx.component.Messagebox({
-                        title: 'Send Payslips to Spendl Wallet',
-                        message: 'The payslips were submitted for sending.'
-                    });
-                    openSendPayslipStatusModal(payrunId);
+                onSend: function (event) {
+                    showStatusPanel(event.results);
                 },
-                onCancel: function () {
-                    app.route.popState();
+                onCancel: closeModal
+            });
+
+            sendPayslipsModal.addEventListener('destroy', function () {
+                if(activePanel !== null){
+                    activePanel.destroy();
+                    activePanel = null;
                 }
             });
 
-            // Add destroy event listener to modal to destroy the contained panel.
-            sendPayslipsModal.addEventListener('destroy', function () {
-                sendPayslipsPanel.destroy();
-            });
-
-            // Create a route entry for the panel
-            let state = {
-                modal: sendPayslipsModal
-            };
-            app.route.pushState(state, function (state) {
-                state.modal.destroy();
-            });
-
-            // Show the modal window and focus on the panel
-            sendPayslipsModal.show();
-            sendPayslipsPanel.focus();
+            app.route.pushState({
+                        modal: sendPayslipsModal
+                    }, function (state) {
+                        state.modal.destroy();
+                });
+                sendPayslipsModal.show();
+                activePanel.focus();
         }
 
         else if (clickEvent.value === 'view_wallet_status') {
@@ -852,7 +902,7 @@ app.panel.ListPayruns = function (config) {
                 payrunsGrid.getRow(clickEvent.rowIndex).id
             );
 
-            openSendPayslipsStatusModal(payrunId);
+            openSendPayslipStatusModal(payrunId);
         }
 
         else if (clickEvent.value === 'lexpro_post') {
@@ -1216,38 +1266,6 @@ app.panel.ListPayruns = function (config) {
         addPayrunModal.show();
         addPayrunPanel.focus();
     }
-
-    function openSendPayslipsStatusModal(payrunId) {
-        var statusModal = new lx.component.ModalWindow({
-            margin: '40px',
-            maxWidth: '1100px',
-            maxHeight: '100%'
-        });
-
-        var statusPanel = new app.panel.SendPayslipStatus({
-            renderTo: statusModal.getContainer(),
-            show: true,
-            payrunId: payrunId,
-
-            onCancel: function () {
-                app.route.popState();
-            }
-        });
-
-        statusModal.addEventListener('destroy', function () {
-            statusPanel.destroy();
-        });
-
-        app.route.pushState({
-            modal: statusModal
-        }, function (state) {
-            state.modal.destroy();
-        });
-
-        statusModal.show();
-        statusPanel.focus();
-    }
-
 
     //
     // INITIALIZE OBJECT
