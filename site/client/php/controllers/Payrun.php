@@ -11135,4 +11135,57 @@ class Payrun extends Controller
 
         return $defaultMessage;
     }
+
+    // Returns the documented Spendl payslip API responses during frontend development.
+    public function testApiResponse($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        echo (json_encode([
+            'ok' => true,
+            'responses' => [
+                [
+                    'code' => 201,
+                    'type' => 'created',
+                    'when' => 'A new payslip was created. Spendl returns the payslip ID, user ID and awaiting_document status.'
+                ],
+                [
+                    'code' => 200,
+                    'type' => 'replay',
+                    'when' => 'The same idempotency key and payload were submitted again, so Spendl returned the original result.'
+                ],
+                [
+                    'code' => 404,
+                    'type' => 'USER_NOT_FOUND',
+                    'when' => 'No Spendl user was found for the tenant with the supplied email address.'
+                ],
+                [
+                    'code' => 409,
+                    'type' => 'IDENTITY_MISMATCH',
+                    'when' => 'The email belongs to a Spendl user whose ID number does not match the supplied ID number.'
+                ],
+                [
+                    'code' => 409,
+                    'type' => 'IDEMPOTENCY_KEY_REUSED',
+                    'when' => 'The idempotency key was previously used with a different request body.'
+                ],
+                [
+                    'code' => 422,
+                    'type' => 'VALIDATION_ERROR',
+                    'when' => 'Required fields are missing or malformed, or the payslip totals do not reconcile.'
+                ],
+                [
+                    'code' => 422,
+                    'type' => 'IDEMPOTENCY_KEY_MISMATCH / MISSING_IDEMPOTENCY_KEY',
+                    'when' => 'The body and header idempotency keys differ, or the required idempotency key was not supplied.'
+                ],
+                [
+                    'code' => 401,
+                    'type' => 'INVALID_TOKEN',
+                    'when' => 'The access token is invalid or expired and must be replaced before retrying.'
+                ]
+            ]
+        ]));
+        return true;
+    }
 }
