@@ -898,6 +898,26 @@ app.panel.ListPayruns = function (config) {
                 activePanel.focus();
         }
 
+        else if (clickEvent.value === 'view_wallet_status') {
+
+            var payrun = payrunsGrid.getRow(clickEvent.rowIndex);
+
+            // Has the payrun not been processed?
+            if (payrun.isProcessed !== 'Yes') {
+                new lx.component.Messagebox({
+                    title: 'Unable to View Spendl Wallet Status',
+                    message: 'The payslips have not been sent to Spendl.'
+                });
+                return;
+            }
+
+            var payrunId = parseInt(
+                payrunsGrid.getRow(clickEvent.rowIndex).id
+            );
+
+            openSendPayslipStatusModal(payrunId);
+        }
+
         else if (clickEvent.value === 'send_to_payments') {
 
             var payrun = payrunsGrid.getRow(clickEvent.rowIndex);
@@ -905,7 +925,7 @@ app.panel.ListPayruns = function (config) {
             // Has the payrun not been processed?
             if (payrun.isProcessed !== 'Yes') {
                 new lx.component.Messagebox({
-                    title: 'Send Transactions to Payaccsys Payments',
+                    title: 'Unable to Send Transactions to Payaccsys Payments',
                     message: 'The transactions cannot be sent because the specified payrun has not been processed.'
                 });
                 return;
@@ -917,7 +937,7 @@ app.panel.ListPayruns = function (config) {
             // Create a modal window
             var sendTransactionsModal = new lx.component.ModalWindow({
                 margin: '40px',
-                maxWidth: '1300px',
+                maxWidth: '1400px',
                 maxHeight: '100%'
             });
 
@@ -971,13 +991,26 @@ app.panel.ListPayruns = function (config) {
                 activePanel.focus();
         }
 
-        else if (clickEvent.value === 'view_wallet_status') {
-            var payrunId = parseInt(
-                payrunsGrid.getRow(clickEvent.rowIndex).id
-            );
+        //Create if add a menu option, else remove.
+        // else if (clickEvent.value === 'view_transaction_status') {
 
-            openSendPayslipStatusModal(payrunId);
-        }
+        //     var payrun = payrunsGrid.getRow(clickEvent.rowIndex);
+
+        //     // Has the payrun not been processed?
+        //     if (payrun.isProcessed !== 'Yes') {
+        //         new lx.component.Messagebox({
+        //             title: 'Send Transactions to Payaccsys Payments',
+        //             message: 'The transactions cannot be sent because the specified payrun has not been processed.'
+        //         });
+        //         return;
+        //     }
+
+        //     var payrunId = parseInt(
+        //         payrunsGrid.getRow(clickEvent.rowIndex).id
+        //     );
+
+        //     openSendTransactionsModal(payrunId);
+        // }
 
         else if (clickEvent.value === 'lexpro_post') {
             // Has the payrun not been processed?

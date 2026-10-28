@@ -10,10 +10,11 @@
 //  flex:               CSS flex property for the panel
 //  show:               If true the panel will be shown immediately after it was created.  If false the panel will be created but not shown
 //                      Default to false
-//  payrunId:           The ID of the payrun to display and send to the Spendl Wallet API
+//  payrunId:           The ID of the payrun of which transactions will be sent to the Payaccsys Payments API
 //
 // Events:
 //
+//  Validate:            Fired when transaction data has been internally validated and are ready to be sent to the Payments API
 //  onSend:              Fired after the transactions from the current payrun has been successfully sent to the Payaccsys Payments API
 //  onCancel:            Fired when the user cancels and closes the panel
 //  onDestroy:           Fired just before the panel is destroyed
@@ -30,9 +31,10 @@ app.panel.SendTransactions = function(config) {
     var el = null;
     
     var contentEl = null;
+    var gridContainerEl = null;
     var loader = null;
     
-    var payslipsGrid = null;
+    var transactionsGrid = null;
     
     var buttonContainerEl = null;
     var cancelBtn = null;
@@ -58,10 +60,9 @@ app.panel.SendTransactions = function(config) {
         loader.show(false);
         
         lx.sendJSON({
-            url: 'exec.php?c=Payrun&fn=get',
+            url: 'exec.php?c=Payrun&fn=getPaymentsBatchPreview',
             data: {
-                payrunId: payrunId,
-                payslipStatusCode: 'ACTI'
+                payrunId: payrunId
             },
             onSuccess: function( responseText ) {
                 loader.hide();
@@ -70,39 +71,39 @@ app.panel.SendTransactions = function(config) {
                 // Check that the response is ok
                 if( response.ok !== true ) {
                     new lx.component.Messagebox({
-                        title: 'Loading Payrun Failed',
+                        title: 'Loading Payment Transactions Failed',
                         message: response.error
                     });
                     return;
                 }
                 
-                // Loop through all payslips
-                let payslips = [];
-                for( let i = 0; i < response.payrun.payslips.length; i++ ) {
+                // Prepare the payment transactions for display in the grid
+                let transactions = response.batch.transactions;
 
-                    let payslip = response.payrun.payslips[i];
-                    let employee = payslip.employee;
-
-                    payslips.push({
-                        id: payslip.id,
-                        empId: employee.id,
-                        employeeCode: employee.empCode,
-                        employeeAlias: employee.name,
-                        employeeSurname: employee.employeeSurname,
-                        emailAddress: employee.emailAddress,
-                        accountHolder: employee.accountHolder,
-                        bankName: employee.bankName,
-                        accountNumber: employee.accountNumber,
-                        branchCode: employee.branchCode,
-                        accountType: employee.accountType,
-                        paymentReference: payslip.paymentReference,
-                        nettPayAmount: payslip.nettPayAmount
-                    });
+                for( let i = 0; i < transactions.length; i++ ) {
+                    let transaction = transactions[i];
+                    let statusMessage = transaction.localCheck.message;
+ 
+                    transaction.localCheckDisplay = '<span ' + 'title="' + escapeHtml(statusMessage) + '" ' + 'style="' + 'display: block;' + 'overflow: hidden;' + 'text-overflow: ellipsis;' + 'white-space: nowrap;' + '">' + escapeHtml(statusMessage) + '</span>';
                 }
-                payslipsGrid.addRows(payslips);
+                transactionsGrid.addRows(transactions);
+                if(response.batch.ready === true){
+                    validateBtn.enable();
+                } else {
+                    validateBtn.disable();
+                }
             }
         });
-    }    
+    } 
+    // Function to escape HTML special characters in a string for safe display in the transactions grid
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
     
     //
     // PUBLIC FUNCTIONS
@@ -162,7 +163,7 @@ app.panel.SendTransactions = function(config) {
                 borderWidth: '0px 0px 1px 0px',
                 borderColor: '#DFDFDF'
             },
-            innerHTML: 'Send Payslips to Spendl Wallet'
+            innerHTML: 'Send Payrun Transactions to Payaccsys Payments'
         });
         
         // Create the contentEl element
@@ -171,9 +172,11 @@ app.panel.SendTransactions = function(config) {
             style: {
                 boxSizing: 'border-box',
                 padding: '0px 0px 1px 0px', // Hack required to allow the grid to fire the scroll event on Chrome browsers
-                overflow: 'auto',
+                overflowX: 'auto',
+                overflowY: 'auto',
                 position: 'relative',
                 flex: '1 1 100%',
+                minWidth: '0px',
                 backgroundColor: '#F4F5F6'
             }
         });
@@ -182,33 +185,45 @@ app.panel.SendTransactions = function(config) {
         loader = new lx.component.Loader({
             renderTo: contentEl
         });
-        
+
+        // Create the gridContainerEl element
+        gridContainerEl = lx.createElement('DIV', {
+            parent: contentEl,
+            style: {
+                boxSizing: 'border-box',
+                width: '100%',
+                minWidth: '1800px',
+                height: '100%'
+            }
+        });
         
         //
-        // PAYSLIP SECTION
+        // TRANSACTION SECTION
         //
         
-        // Create payslipsGrid component
-        payslipsGrid = new lx.component.Grid({
-            renderTo: contentEl,
+        // Create transactionsGrid component
+        transactionsGrid = new lx.component.Grid({
+            renderTo: gridContainerEl,
+            width: '100%',
             height: '100%',
             borderWidth: '0px',
             
             columns: [
-                {dataIndex: 'employeeCode', name: 'Employee Code', width: '100px'},
+                {dataIndex: 'employeeCode', name: 'Emp Code', width: '80px'},
                 {dataIndex: 'employeeAlias', name: 'Name', width: '140px'},
                 {dataIndex: 'employeeSurname', name: 'Surname', width: '140px'},
-                {dataIndex: 'emailAddress', name: 'Email Address', width: '140px'},
-                {dataIndex: 'accountHolder', name: 'Account Holder'},
-                {dataIndex: 'bankName', name: 'Bank Name'},
-                {dataIndex: 'accountNumber', name: 'Account Number'},
-                {dataIndex: 'branchCode', name: 'Branch Code'},
-                {dataIndex: 'accountType', name: 'Account Type'},
-                {dataIndex: 'paymentReference', name: 'Account Type'},
-                {dataIndex: 'nettPayAmount', name: 'Nett Pay Amount', width: '120px'}
+                {dataIndex: 'emailAddress', name: 'Email Address', width: '180px'},
+                {dataIndex: 'bankAccountHoldersName', name: 'Account Holder', width: '180px'},
+                {dataIndex: 'bankName', name: 'Bank Name', width: '140px'},
+                {dataIndex: 'bankAccountNumber', name: 'Account Number', width: '140px'},
+                {dataIndex: 'bankBranchCode', name: 'Branch Code', width: '100px'},
+                {dataIndex: 'bankAccountTypeName', name: 'Account Type', width: '130px'},
+                {dataIndex: 'reference', name: 'Payment Reference', width: '160px'},
+                {dataIndex: 'amount', name: 'Nett Pay Amount', width: '120px'},
+                {dataIndex: 'localCheckDisplay', name: 'Transaction Status', type: 'html'}
             ],
             
-            onCellClick: payslipsGridCellClickEventHandler
+            onCellClick: transactionsGridCellClickEventHandler
         });
         
         //
@@ -247,6 +262,8 @@ app.panel.SendTransactions = function(config) {
             
             onClick: validateBtnClickEventHandler
         });
+
+        validateBtn.disable();
         
         
         // // Create the sendBtn component
@@ -329,10 +346,10 @@ app.panel.SendTransactions = function(config) {
     // EVENT HANDLERS
     //
     
-    // payslipsGrid cell click event handler
-    function payslipsGridCellClickEventHandler( clickEvent ) {
+    // transactionsGrid cell click event handler
+    function transactionsGridCellClickEventHandler( clickEvent ) {
         // Get the data index of the column that was clicked
-        let dataIndex = payslipsGrid.getColumnDataIndex(clickEvent.columnIndex);
+        let dataIndex = transactionsGrid.getColumnDataIndex(clickEvent.columnIndex);
         
         // Depending on the column clicked
         if( dataIndex === 'download' ) {
@@ -340,7 +357,7 @@ app.panel.SendTransactions = function(config) {
                 url: 'exec.php?c=Payslip&fn=downloadPayslip',
                 target: '_blank',
                 data: {
-                    payslipId: parseInt(payslipsGrid.getRow(clickEvent.rowIndex).id)
+                    payslipId: parseInt(transactionsGrid.getRow(clickEvent.rowIndex).id)
                 }
             });
         }

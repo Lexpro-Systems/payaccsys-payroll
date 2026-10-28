@@ -11942,139 +11942,12 @@ class Payrun extends Controller
         return $value;
     }
 
-    // Returns the documented Spendl payslip API responses during frontend development.
-    public function testApiResponse($data, $user, $db)
-    {
-        header('Content-Type: application/json');
-
-        echo (json_encode([
-            'ok' => true,
-            'responses' => [
-                [
-                    'code' => 201,
-                    'type' => 'created',
-                    'when' => 'A new payslip was created. Spendl returns the payslip ID, user ID and awaiting_document status.'
-                ],
-                [
-                    'code' => 200,
-                    'type' => 'replay',
-                    'when' => 'The same idempotency key and payload were submitted again, so Spendl returned the original result.'
-                ],
-                [
-                    'code' => 404,
-                    'type' => 'USER_NOT_FOUND',
-                    'when' => 'No Spendl user was found for the tenant with the supplied email address.'
-                ],
-                [
-                    'code' => 409,
-                    'type' => 'IDENTITY_MISMATCH',
-                    'when' => 'The email belongs to a Spendl user whose ID number does not match the supplied ID number.'
-                ],
-                [
-                    'code' => 409,
-                    'type' => 'IDEMPOTENCY_KEY_REUSED',
-                    'when' => 'The idempotency key was previously used with a different request body.'
-                ],
-                [
-                    'code' => 422,
-                    'type' => 'VALIDATION_ERROR',
-                    'when' => 'Required fields are missing or malformed, or the payslip totals do not reconcile.'
-                ],
-                [
-                    'code' => 422,
-                    'type' => 'IDEMPOTENCY_KEY_MISMATCH / MISSING_IDEMPOTENCY_KEY',
-                    'when' => 'The body and header idempotency keys differ, or the required idempotency key was not supplied.'
-                ],
-                [
-                    'code' => 401,
-                    'type' => 'INVALID_TOKEN',
-                    'when' => 'The access token is invalid or expired and must be replaced before retrying.'
-                ]
-            ]
-        ]));
-        return true;
-    }
-
-    // Returns a preview of the Payaccsys Payments batch for a processed payrun.
-    //
-    // Required Parameters
-    // payrunId    The processed payrun to preview
-    public function getPaymentsBatchPreview($data, $user, $db)
-    {
-        header('Content-Type: application/json');
-
-        $defaults = [];
-        Json::copy($defaults, $data);
-
-        $validationResult = Json::validate($data, [
-            'payrunId' => [
-                'type' => Json::TYPE_INT,
-                'required' => true,
-                'nullable' => false
-            ]
-        ]);
-
-        if ($validationResult !== true) {
-            echo json_encode([
-                'ok' => false,
-                'error' => $validationResult
-            ]);
-            return false;
-        }
-
-        if (!isset($user['companyId']) || $user['companyId'] === null) {
-            echo json_encode([
-                'ok' => false,
-                'error' => 'No company is selected.'
-            ]);
-            return false;
-        }
-
-        $payrunId = $data['payrunId'];
-
-        // Confirm that the payrun exists and has been processed.
-        $sqlQuery =
-            'SELECT ' .
-            'payruns.id, ' .
-            'payruns.description, ' .
-            'payruns.to_date, ' .
-            'payruns.processed_on ' .
-            'FROM ' .
-            'payruns ' .
-            'WHERE ' .
-            'payruns.id = $1;';
-
-        $sqlResult = $db->paramQuery($sqlQuery, [$payrunId]);
-
-        if (!$sqlResult->isValid()) {
-            echo json_encode([
-                'ok' => false,
-                'error' => 'Database error.'
-            ]);
-            return false;
-        }
-
-        if ($sqlResult->getRowCount() !== 1) {
-            echo json_encode([
-                'ok' => false,
-                'error' => 'Payrun \'' . $payrunId . '\' not found.'
-            ]);
-            return false;
-        }
-
-        $payrunRow = $sqlResult->fetchAssociative();
-
-        if ($payrunRow['processed_on'] === null) {
-            echo json_encode([
-                'ok' => false,
-                'error' => 'The specified payrun has not been processed.'
-            ]);
-            return false;
-        }
+    //Helper function related to Payaccsys Payments Validate panel - returns normalised transactions
+    //Loads the processed payrun and its active payment transactions
+    private function loadPaymentsBatchPreview($payrunId, $user, $db){
 
         /*
-        * Load active payslips and calculate net pay using the same formula
-        * currently used by the payment-export functionality:
+        * Load active payslips and calculate net pay using the same formula currently used by the payment-export functionality:
         *
         * income - deductions + allowances + included fringe benefits
         */
@@ -12182,158 +12055,39 @@ class Payrun extends Controller
         $sqlResult = $db->paramQuery($sqlQuery, [$payrunId]);
 
         if (!$sqlResult->isValid()) {
-            echo json_encode([
+            return [
                 'ok' => false,
                 'error' => 'Database error.'
-            ]);
-            return false;
+            ];
         }
 
-        /*
-        * The hash only needs the last 12 digits.
-        *
-        * These helpers perform the calculation modulo 1,000,000,000,000,
-        * avoiding precision problems when account number × amount becomes
-        * larger than PHP's safe integer range.
-        */
-        $hashModulus = 1000000000000;
-
-        $decimalStringModulo = function ($value) use ($hashModulus) {
-            $result = 0;
-            $digits = preg_replace('/[^0-9]/', '', (string)$value);
-
-            for ($i = 0; $i < strlen($digits); $i++) {
-                $result = (($result * 10) + (int)$digits[$i]) % $hashModulus;
-            }
-
-            return $result;
-        };
-
-        $multiplyModulo = function ($left, $right) use ($hashModulus) {
-            $result = 0;
-            $left = $left % $hashModulus;
-            $right = (int)$right;
-
-            while ($right > 0) {
-                if (($right % 2) === 1) {
-                    $result = ($result + $left) % $hashModulus;
-                }
-
-                $left = ($left * 2) % $hashModulus;
-                $right = intdiv($right, 2);
-            }
-
-            return $result;
-        };
-
         // Temporary payment reference until company-level configuration exists.
-        $companyAlias = isset($user['companyAlias'])
-            ? trim($user['companyAlias'])
-            : 'Company';
+        $companyAlias = isset($user['companyAlias']) ? trim($user['companyAlias']) : 'Company';
 
-        $paymentReference = trim(
-            preg_replace('/[^A-Za-z0-9 ]/', '', $companyAlias . ' Salary')
-        );
+        $paymentReference = trim(preg_replace('/[^A-Za-z0-9 ]/', '', $companyAlias . ' Salary'));
 
         $transactions = [];
-        $totalAmountCents = 0;
-        $hashCalculation = 0;
-        $batchIsReady = true;
 
         while ($sqlRow = $sqlResult->fetchAssociative()) {
-            $localErrors = [];
+            $accountNumber = preg_replace('/[^0-9]/', '', (string)$sqlRow['account_number']);
 
-            $accountNumber = preg_replace(
-                '/[^0-9]/',
-                '',
-                (string)$sqlRow['account_number']
-            );
-
-            $branchCode = preg_replace(
-                '/[^0-9]/',
-                '',
-                (string)$sqlRow['branch_code']
-            );
+            $branchCode = preg_replace('/[^0-9]/', '', (string)$sqlRow['branch_code']);
 
             $accountType = null;
 
             if ($sqlRow['bank_account_type_code'] === 'CACC') {
                 $accountType = 1;
-            } elseif ($sqlRow['bank_account_type_code'] === 'SACC') {
+            } else if ($sqlRow['bank_account_type_code'] === 'SACC') {
                 $accountType = 2;
             }
 
-            $accountHolderName = trim(
-                $sqlRow['full_names'] . ' ' . $sqlRow['last_name']
-            );
+            $accountHolderName = trim((string)$sqlRow['full_names'] . ' ' . (string)$sqlRow['last_name']);
 
             if ($accountHolderName === '') {
-                $accountHolderName = trim($sqlRow['alias']);
+                $accountHolderName = trim((string)$sqlRow['alias']);
             }
 
-            /*
-            * Convert the amount to cents before calculating totals and hashes.
-            * The API amount is later formatted back to two decimal places.
-            */
-            $amountCents = (int)round(
-                ((float)$sqlRow['nett_income']) * 100
-            );
-
-            if ($sqlRow['employee_bank_details_id'] === null) {
-                $localErrors[] = 'No bank details have been captured.';
-            }
-
-            if ($accountNumber === '') {
-                $localErrors[] = 'No bank account number has been captured.';
-            }
-
-            if ($branchCode === '') {
-                $localErrors[] = 'No branch code has been captured.';
-            } elseif (strlen($branchCode) !== 6) {
-                $localErrors[] = 'The branch code must contain six digits.';
-            }
-
-            if ($accountType === null) {
-                $localErrors[] = 'The bank account type is not supported.';
-            }
-
-            if ($accountHolderName === '') {
-                $localErrors[] = 'No bank account holder name is available.';
-            }
-
-            if ($amountCents <= 0) {
-                $localErrors[] = 'The net pay amount must be greater than zero.';
-            }
-
-            $localCheckIsValid = count($localErrors) === 0;
-
-            if (!$localCheckIsValid) {
-                $batchIsReady = false;
-            }
-
-            /*
-            * Only add valid monetary values to the preview totals.
-            * If any row is invalid, the batch hash is returned as null below.
-            */
-            if ($amountCents > 0) {
-                $totalAmountCents += $amountCents;
-            }
-
-            if (
-                $accountNumber !== '' &&
-                $amountCents > 0
-            ) {
-                $accountNumberModulo = $decimalStringModulo($accountNumber);
-
-                $transactionHash = $multiplyModulo(
-                    $accountNumberModulo,
-                    $amountCents
-                );
-
-                $hashCalculation = (
-                    $hashCalculation + $transactionHash
-                ) % $hashModulus;
-            }
+            $amountCents = (int)round(((float)$sqlRow['nett_income']) * 100);
 
             $transactions[] = [
                 'payslipId' => (int)$sqlRow['payslip_id'],
@@ -12341,6 +12095,8 @@ class Payrun extends Controller
                 'employeeCode' => $sqlRow['employee_code'],
                 'employeeAlias' => $sqlRow['alias'],
                 'employeeSurname' => $sqlRow['last_name'],
+
+                'hasBankDetails' => ($sqlRow['employee_bank_details_id'] !== null),
 
                 'bankAccountHoldersName' => $accountHolderName,
                 'bankName' => $sqlRow['financial_institution_name'],
@@ -12351,21 +12107,300 @@ class Payrun extends Controller
 
                 'emailAddress' => $sqlRow['email_address'],
                 'reference' => $paymentReference,
-                'amount' => number_format(
-                    $amountCents / 100,
-                    2,
-                    '.',
-                    ''
-                ),
 
-                'localCheck' => [
-                    'valid' => $localCheckIsValid,
-                    'message' => $localCheckIsValid
-                        ? 'Ready'
-                        : implode(' ', $localErrors),
-                    'errors' => $localErrors
-                ]
+                // Retained internally for exact total and hash calculations.
+                'amountCents' => $amountCents,
+
+                'amount' => number_format($amountCents / 100, 2, '.', '')
             ];
+        }
+
+        return [
+            'ok' => true,
+            'transactions' => $transactions
+        ];
+
+    }
+
+    //Helper function related to Payaccsys Payments Validate panel - local checks per transaction
+    // Applies the local required-field checks to one transaction.
+    private function validatePaymentTransaction($transaction)
+    {
+        $localErrors = [];
+
+        if ($transaction['hasBankDetails'] !== true) {
+            $localErrors[] = 'No bank details have been captured.';
+        }
+
+        if ($transaction['bankAccountNumber'] === '') {
+            $localErrors[] = 'No bank account number has been captured.';
+        } else if (strlen($transaction['bankAccountNumber']) >20){
+            $localErrors[] = 'The bank account number may not exceed 20 digits.';
+        }
+
+        if ($transaction['bankBranchCode'] === '') {
+            $localErrors[] = 'No branch code has been captured.';
+        } else if (strlen($transaction['bankBranchCode']) !== 6) {
+            $localErrors[] = 'The branch code must contain six digits.';
+        }
+
+        if ($transaction['bankAccountType'] === null) {
+            $localErrors[] = 'The bank account type is not supported.';
+        }
+
+        if ($transaction['bankAccountHoldersName'] === '') {
+            $localErrors[] = 'No bank account holder name is available.';
+        }
+
+        if ($transaction['amountCents'] <= 0) {
+            $localErrors[] = 'The net pay amount must be greater than zero.';
+        }
+
+        $transaction['localCheck'] = [
+            'valid' => count($localErrors) === 0,
+            'message' => count($localErrors) === 0 ? 'Ready' : implode(' ', $localErrors), 'errors' => $localErrors
+        ];
+
+        return $transaction;
+    }
+
+    //Helper function related to Payaccsys Payments Validate panel
+    //Calculates the 12-digit hash value for the batch of transactions
+    private function calculatePaymentsHashValue($transactions)
+    {
+        $hashModulus = 1000000000000;
+
+        /*
+        * Returns the value of a potentially long decimal string modulo 1,000,000,000,000 without converting the entire value to an integer.
+        */
+        $decimalStringModulo = function ($value) use ($hashModulus) {
+            $result = 0;
+            $digits = preg_replace(
+                '/[^0-9]/',
+                '',
+                (string)$value
+            );
+
+            for ($i = 0; $i < strlen($digits); $i++) {
+                $result = (
+                    ($result * 10) + (int)$digits[$i]
+                ) % $hashModulus;
+            }
+
+            return $result;
+        };
+
+        /*
+        * Multiplies two values modulo 1,000,000,000,000 without allowing the intermediate multiplication to overflow.
+        */
+        $multiplyModulo = function ($left, $right) use ($hashModulus) {
+            $result = 0;
+            $left = $left % $hashModulus;
+            $right = (int)$right;
+
+            while ($right > 0) {
+                if (($right % 2) === 1) {
+                    $result = (
+                        $result + $left
+                    ) % $hashModulus;
+                }
+
+                $left = (
+                    $left * 2
+                ) % $hashModulus;
+
+                $right = intdiv($right, 2);
+            }
+
+            return $result;
+        };
+
+        $hashCalculation = 0;
+        $totalAmountCents = 0;
+
+        foreach ($transactions as $transaction) {
+            $accountNumberModulo = $decimalStringModulo(
+                $transaction['bankAccountNumber']
+            );
+
+            $transactionHash = $multiplyModulo(
+                $accountNumberModulo,
+                $transaction['amountCents']
+            );
+
+            $hashCalculation = (
+                $hashCalculation + $transactionHash
+            ) % $hashModulus;
+
+            $totalAmountCents += $transaction['amountCents'];
+        }
+
+        // Add the total batch amount in cents.
+        $hashCalculation = (
+            $hashCalculation +
+            ($totalAmountCents % $hashModulus)
+        ) % $hashModulus;
+
+        return str_pad(
+            (string)$hashCalculation,
+            12,
+            '0',
+            STR_PAD_LEFT
+        );
+    }
+
+    // Returns the documented Spendl payslip API responses during frontend development.
+    public function testApiResponse($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        echo (json_encode([
+            'ok' => true,
+            'responses' => [
+                [
+                    'code' => 201,
+                    'type' => 'created',
+                    'when' => 'A new payslip was created. Spendl returns the payslip ID, user ID and awaiting_document status.'
+                ],
+                [
+                    'code' => 200,
+                    'type' => 'replay',
+                    'when' => 'The same idempotency key and payload were submitted again, so Spendl returned the original result.'
+                ],
+                [
+                    'code' => 404,
+                    'type' => 'USER_NOT_FOUND',
+                    'when' => 'No Spendl user was found for the tenant with the supplied email address.'
+                ],
+                [
+                    'code' => 409,
+                    'type' => 'IDENTITY_MISMATCH',
+                    'when' => 'The email belongs to a Spendl user whose ID number does not match the supplied ID number.'
+                ],
+                [
+                    'code' => 409,
+                    'type' => 'IDEMPOTENCY_KEY_REUSED',
+                    'when' => 'The idempotency key was previously used with a different request body.'
+                ],
+                [
+                    'code' => 422,
+                    'type' => 'VALIDATION_ERROR',
+                    'when' => 'Required fields are missing or malformed, or the payslip totals do not reconcile.'
+                ],
+                [
+                    'code' => 422,
+                    'type' => 'IDEMPOTENCY_KEY_MISMATCH / MISSING_IDEMPOTENCY_KEY',
+                    'when' => 'The body and header idempotency keys differ, or the required idempotency key was not supplied.'
+                ],
+                [
+                    'code' => 401,
+                    'type' => 'INVALID_TOKEN',
+                    'when' => 'The access token is invalid or expired and must be replaced before retrying.'
+                ]
+            ]
+        ]));
+        return true;
+    }
+
+    // Public endpoint used by the Validate panel - validates request and payrun
+    // Returns a preview of the Payaccsys Payments batch for a processed payrun for display in the Validate panel.
+    //
+    // Required Parameters
+    // payrunId    The processed payrun to preview
+    public function getPaymentsBatchPreview($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        $defaults = [];
+        Json::copy($defaults, $data);
+
+        $validationResult = Json::validate($data, [
+            'payrunId' => [
+                'type' => Json::TYPE_INT,
+                'required' => true,
+                'nullable' => false
+            ]
+        ]);
+
+        if ($validationResult !== true) {
+            echo json_encode([
+                'ok' => false,
+                'error' => $validationResult
+            ]);
+            return false;
+        }
+
+        if (!isset($user['companyId']) || $user['companyId'] === null) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'No company is selected.'
+            ]);
+            return false;
+        }
+
+        $payrunId = $data['payrunId'];
+
+        // Confirm that the payrun exists and has been processed.
+        $sqlQuery =
+            'SELECT ' .
+            'payruns.id, ' .
+            'payruns.description, ' .
+            'payruns.to_date, ' .
+            'payruns.processed_on ' .
+            'FROM ' .
+            'payruns ' .
+            'WHERE ' .
+            'payruns.id = $1;';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [$payrunId]);
+
+        if (!$sqlResult->isValid()) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Database error.'
+            ]);
+            return false;
+        }
+
+        if ($sqlResult->getRowCount() !== 1) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Payrun \'' . $payrunId . '\' not found.'
+            ]);
+            return false;
+        }
+
+        $payrunRow = $sqlResult->fetchAssociative();
+
+        if ($payrunRow['processed_on'] === null) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'The specified payrun has not been processed.'
+            ]);
+            return false;
+        }
+
+        // Load the active payment transactions.
+        $loadResult = $this->loadPaymentsBatchPreview($payrunId, $user, $db);
+
+        if ($loadResult['ok'] !== true) {
+            echo json_encode($loadResult);
+            return false;
+        }
+
+        $transactions = [];
+        $totalAmountCents = 0;
+        $batchIsReady = true;
+
+        foreach ($loadResult['transactions'] as $transaction) {
+            $transaction = $this->validatePaymentTransaction($transaction);
+
+            if ($transaction['localCheck']['valid'] !== true) {
+                $batchIsReady = false;
+            }
+
+            $totalAmountCents += $transaction['amountCents'];
+            $transactions[] = $transaction;
         }
 
         $records = count($transactions);
@@ -12375,25 +12410,24 @@ class Payrun extends Controller
         }
 
         /*
-        * Complete the documented hash:
-        *
-        * sum(account number × amount in cents)
-        * + total batch amount in cents
-        *
-        * Only the 12 least significant digits are returned.
+        * Only calculate a usable hash when every transaction has passed the
+        * local checks. An invalid preview must not be sent to the API.
         */
-        $hashCalculation = (
-            $hashCalculation + ($totalAmountCents % $hashModulus)
-        ) % $hashModulus;
+        $hashValue = null;
 
-        $hashValue = $batchIsReady
-            ? str_pad(
-                (string)$hashCalculation,
-                12,
-                '0',
-                STR_PAD_LEFT
-            )
-            : null;
+        if ($batchIsReady) {
+            $hashValue = $this->calculatePaymentsHashValue($transactions);
+        }
+
+        /*
+        * amountCents is useful internally but is not part of the panel or
+        * external API data, so remove it from the public response.
+        */
+        foreach ($transactions as &$transaction) {
+            unset($transaction['amountCents']);
+            unset($transaction['hasBankDetails']);
+        }
+        unset($transaction);
 
         $response = [
             'ok' => true,
@@ -12401,19 +12435,21 @@ class Payrun extends Controller
                 'payrunId' => $payrunId,
                 'description' => $payrunRow['description'],
 
-                // Initial default. This can later become an editable date field.
+                // Initial default; this can become editable in the panel later.
                 'actionDate' => $payrunRow['to_date'],
 
-                // Temporary value pending confirmation/configuration.
+                // Temporary value pending configuration.
                 'paymentType' => 'SSVS',
 
                 'records' => $records,
+
                 'totalAmount' => number_format(
                     $totalAmountCents / 100,
                     2,
                     '.',
                     ''
                 ),
+
                 'hashValue' => $hashValue,
                 'ready' => $batchIsReady,
                 'transactions' => $transactions
