@@ -11994,4 +11994,433 @@ class Payrun extends Controller
         ]));
         return true;
     }
+
+    // Returns a preview of the Payaccsys Payments batch for a processed payrun.
+    //
+    // Required Parameters
+    // payrunId    The processed payrun to preview
+    public function getPaymentsBatchPreview($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        $defaults = [];
+        Json::copy($defaults, $data);
+
+        $validationResult = Json::validate($data, [
+            'payrunId' => [
+                'type' => Json::TYPE_INT,
+                'required' => true,
+                'nullable' => false
+            ]
+        ]);
+
+        if ($validationResult !== true) {
+            echo json_encode([
+                'ok' => false,
+                'error' => $validationResult
+            ]);
+            return false;
+        }
+
+        if (!isset($user['companyId']) || $user['companyId'] === null) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'No company is selected.'
+            ]);
+            return false;
+        }
+
+        $payrunId = $data['payrunId'];
+
+        // Confirm that the payrun exists and has been processed.
+        $sqlQuery =
+            'SELECT ' .
+            'payruns.id, ' .
+            'payruns.description, ' .
+            'payruns.to_date, ' .
+            'payruns.processed_on ' .
+            'FROM ' .
+            'payruns ' .
+            'WHERE ' .
+            'payruns.id = $1;';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [$payrunId]);
+
+        if (!$sqlResult->isValid()) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Database error.'
+            ]);
+            return false;
+        }
+
+        if ($sqlResult->getRowCount() !== 1) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Payrun \'' . $payrunId . '\' not found.'
+            ]);
+            return false;
+        }
+
+        $payrunRow = $sqlResult->fetchAssociative();
+
+        if ($payrunRow['processed_on'] === null) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'The specified payrun has not been processed.'
+            ]);
+            return false;
+        }
+
+        /*
+        * Load active payslips and calculate net pay using the same formula
+        * currently used by the payment-export functionality:
+        *
+        * income - deductions + allowances + included fringe benefits
+        */
+        $sqlQuery =
+            'WITH payment_details AS ( ' .
+
+                'SELECT ' .
+                'payslips.id AS payslip_id, ' .
+                'payslips.employee_id, ' .
+
+                'COALESCE(SUM(CASE ' .
+                    'WHEN payslip_item_types.payslip_category_code = \'INCO\' ' .
+                    'THEN payslip_items.total ' .
+                    'ELSE 0 ' .
+                'END), 0) AS total_income, ' .
+
+                'COALESCE(SUM(CASE ' .
+                    'WHEN payslip_item_types.payslip_category_code = \'DEDU\' ' .
+                    'THEN payslip_items.total ' .
+                    'ELSE 0 ' .
+                'END), 0) AS total_deductions, ' .
+
+                'COALESCE(SUM(CASE ' .
+                    'WHEN payslip_item_types.payslip_category_code = \'ALLO\' ' .
+                    'THEN payslip_items.total ' .
+                    'ELSE 0 ' .
+                'END), 0) AS total_allowances, ' .
+
+                'COALESCE(SUM(CASE ' .
+                    'WHEN payslip_item_types.payslip_category_code = \'FBEN\' ' .
+                    'AND payslip_items.include_in_nett_pay = TRUE ' .
+                    'THEN payslip_items.total ' .
+                    'ELSE 0 ' .
+                'END), 0) AS included_fringe_benefits ' .
+
+                'FROM ' .
+                'payslips ' .
+
+                'LEFT JOIN ' .
+                'payslip_items ON payslip_items.payslip_id = payslips.id ' .
+
+                'LEFT JOIN ' .
+                'payslip_item_types ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
+
+                'WHERE ' .
+                'payslips.payrun_id = $1 AND ' .
+                'payslips.status_code = \'ACTI\' ' .
+
+                'GROUP BY ' .
+                'payslips.id, ' .
+                'payslips.employee_id ' .
+
+            ') ' .
+
+            'SELECT ' .
+            'payslips.id AS payslip_id, ' .
+            'payslips.employee_id, ' .
+            'employees.code AS employee_code, ' .
+            'employees.full_names, ' .
+            'employees.last_name, ' .
+            'employees.alias, ' .
+            'employees.email_address, ' .
+
+            'employee_bank_details.id AS employee_bank_details_id, ' .
+            'employee_bank_details.account_number, ' .
+            'employee_bank_details.branch_code, ' .
+            'employee_bank_details.bank_account_type_code, ' .
+
+            'financial_institutions.name AS financial_institution_name, ' .
+            'bank_account_types.name AS bank_account_type_name, ' .
+
+            'CAST( ' .
+                'payment_details.total_income - ' .
+                'payment_details.total_deductions + ' .
+                'payment_details.total_allowances + ' .
+                'payment_details.included_fringe_benefits ' .
+            'AS NUMERIC(15, 2)) AS nett_income ' .
+
+            'FROM ' .
+            'payslips ' .
+
+            'INNER JOIN ' .
+            'payment_details ON payment_details.payslip_id = payslips.id ' .
+
+            'INNER JOIN ' .
+            'employees ON employees.id = payslips.employee_id ' .
+
+            'LEFT JOIN ' .
+            'employee_bank_details ON employee_bank_details.employee_id = employees.id ' .
+
+            'LEFT JOIN ' .
+            'financial_institutions ON financial_institutions.code = employee_bank_details.financial_institution_code ' .
+
+            'LEFT JOIN ' .
+            'bank_account_types ON bank_account_types.code = employee_bank_details.bank_account_type_code ' .
+
+            'WHERE ' .
+            'payslips.payrun_id = $1 AND ' .
+            'payslips.status_code = \'ACTI\' ' .
+
+            'ORDER BY ' .
+            'employees.alias ASC, ' .
+            'payslips.id ASC;';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [$payrunId]);
+
+        if (!$sqlResult->isValid()) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Database error.'
+            ]);
+            return false;
+        }
+
+        /*
+        * The hash only needs the last 12 digits.
+        *
+        * These helpers perform the calculation modulo 1,000,000,000,000,
+        * avoiding precision problems when account number × amount becomes
+        * larger than PHP's safe integer range.
+        */
+        $hashModulus = 1000000000000;
+
+        $decimalStringModulo = function ($value) use ($hashModulus) {
+            $result = 0;
+            $digits = preg_replace('/[^0-9]/', '', (string)$value);
+
+            for ($i = 0; $i < strlen($digits); $i++) {
+                $result = (($result * 10) + (int)$digits[$i]) % $hashModulus;
+            }
+
+            return $result;
+        };
+
+        $multiplyModulo = function ($left, $right) use ($hashModulus) {
+            $result = 0;
+            $left = $left % $hashModulus;
+            $right = (int)$right;
+
+            while ($right > 0) {
+                if (($right % 2) === 1) {
+                    $result = ($result + $left) % $hashModulus;
+                }
+
+                $left = ($left * 2) % $hashModulus;
+                $right = intdiv($right, 2);
+            }
+
+            return $result;
+        };
+
+        // Temporary payment reference until company-level configuration exists.
+        $companyAlias = isset($user['companyAlias'])
+            ? trim($user['companyAlias'])
+            : 'Company';
+
+        $paymentReference = trim(
+            preg_replace('/[^A-Za-z0-9 ]/', '', $companyAlias . ' Salary')
+        );
+
+        $transactions = [];
+        $totalAmountCents = 0;
+        $hashCalculation = 0;
+        $batchIsReady = true;
+
+        while ($sqlRow = $sqlResult->fetchAssociative()) {
+            $localErrors = [];
+
+            $accountNumber = preg_replace(
+                '/[^0-9]/',
+                '',
+                (string)$sqlRow['account_number']
+            );
+
+            $branchCode = preg_replace(
+                '/[^0-9]/',
+                '',
+                (string)$sqlRow['branch_code']
+            );
+
+            $accountType = null;
+
+            if ($sqlRow['bank_account_type_code'] === 'CACC') {
+                $accountType = 1;
+            } elseif ($sqlRow['bank_account_type_code'] === 'SACC') {
+                $accountType = 2;
+            }
+
+            $accountHolderName = trim(
+                $sqlRow['full_names'] . ' ' . $sqlRow['last_name']
+            );
+
+            if ($accountHolderName === '') {
+                $accountHolderName = trim($sqlRow['alias']);
+            }
+
+            /*
+            * Convert the amount to cents before calculating totals and hashes.
+            * The API amount is later formatted back to two decimal places.
+            */
+            $amountCents = (int)round(
+                ((float)$sqlRow['nett_income']) * 100
+            );
+
+            if ($sqlRow['employee_bank_details_id'] === null) {
+                $localErrors[] = 'No bank details have been captured.';
+            }
+
+            if ($accountNumber === '') {
+                $localErrors[] = 'No bank account number has been captured.';
+            }
+
+            if ($branchCode === '') {
+                $localErrors[] = 'No branch code has been captured.';
+            } elseif (strlen($branchCode) !== 6) {
+                $localErrors[] = 'The branch code must contain six digits.';
+            }
+
+            if ($accountType === null) {
+                $localErrors[] = 'The bank account type is not supported.';
+            }
+
+            if ($accountHolderName === '') {
+                $localErrors[] = 'No bank account holder name is available.';
+            }
+
+            if ($amountCents <= 0) {
+                $localErrors[] = 'The net pay amount must be greater than zero.';
+            }
+
+            $localCheckIsValid = count($localErrors) === 0;
+
+            if (!$localCheckIsValid) {
+                $batchIsReady = false;
+            }
+
+            /*
+            * Only add valid monetary values to the preview totals.
+            * If any row is invalid, the batch hash is returned as null below.
+            */
+            if ($amountCents > 0) {
+                $totalAmountCents += $amountCents;
+            }
+
+            if (
+                $accountNumber !== '' &&
+                $amountCents > 0
+            ) {
+                $accountNumberModulo = $decimalStringModulo($accountNumber);
+
+                $transactionHash = $multiplyModulo(
+                    $accountNumberModulo,
+                    $amountCents
+                );
+
+                $hashCalculation = (
+                    $hashCalculation + $transactionHash
+                ) % $hashModulus;
+            }
+
+            $transactions[] = [
+                'payslipId' => (int)$sqlRow['payslip_id'],
+                'employeeId' => (int)$sqlRow['employee_id'],
+                'employeeCode' => $sqlRow['employee_code'],
+                'employeeAlias' => $sqlRow['alias'],
+                'employeeSurname' => $sqlRow['last_name'],
+
+                'bankAccountHoldersName' => $accountHolderName,
+                'bankName' => $sqlRow['financial_institution_name'],
+                'bankAccountNumber' => $accountNumber,
+                'bankBranchCode' => $branchCode,
+                'bankAccountType' => $accountType,
+                'bankAccountTypeName' => $sqlRow['bank_account_type_name'],
+
+                'emailAddress' => $sqlRow['email_address'],
+                'reference' => $paymentReference,
+                'amount' => number_format(
+                    $amountCents / 100,
+                    2,
+                    '.',
+                    ''
+                ),
+
+                'localCheck' => [
+                    'valid' => $localCheckIsValid,
+                    'message' => $localCheckIsValid
+                        ? 'Ready'
+                        : implode(' ', $localErrors),
+                    'errors' => $localErrors
+                ]
+            ];
+        }
+
+        $records = count($transactions);
+
+        if ($records === 0) {
+            $batchIsReady = false;
+        }
+
+        /*
+        * Complete the documented hash:
+        *
+        * sum(account number × amount in cents)
+        * + total batch amount in cents
+        *
+        * Only the 12 least significant digits are returned.
+        */
+        $hashCalculation = (
+            $hashCalculation + ($totalAmountCents % $hashModulus)
+        ) % $hashModulus;
+
+        $hashValue = $batchIsReady
+            ? str_pad(
+                (string)$hashCalculation,
+                12,
+                '0',
+                STR_PAD_LEFT
+            )
+            : null;
+
+        $response = [
+            'ok' => true,
+            'batch' => [
+                'payrunId' => $payrunId,
+                'description' => $payrunRow['description'],
+
+                // Initial default. This can later become an editable date field.
+                'actionDate' => $payrunRow['to_date'],
+
+                // Temporary value pending confirmation/configuration.
+                'paymentType' => 'SSVS',
+
+                'records' => $records,
+                'totalAmount' => number_format(
+                    $totalAmountCents / 100,
+                    2,
+                    '.',
+                    ''
+                ),
+                'hashValue' => $hashValue,
+                'ready' => $batchIsReady,
+                'transactions' => $transactions
+            ]
+        ];
+
+        echo json_encode($response);
+        return true;
+    }
 }

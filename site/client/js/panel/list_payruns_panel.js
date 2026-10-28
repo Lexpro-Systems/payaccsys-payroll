@@ -442,6 +442,7 @@ app.panel.ListPayruns = function (config) {
             { name: '<i class="fas fa-fw fa-envelope" style="margin: 0px 15px 0px 0px;"></i>Email Payslips', value: 'email_payslips' },
             { name: '<i class="fas fa-fw fa-wallet" style="margin: 0px 15px 0px 0px;"></i>Send Payslips to Spendl Wallet', value: 'send_to_wallet' },
             { name: '<i class="fas fa-fw fa-eye" style="margin: 0px 15px 0px 0px;"></i>View Spendl Wallet Status', value: 'view_wallet_status' },
+            { name: '<i class="fas fa-fw fa-paper-plane" style="margin: 0px 15px 0px 0px;"></i>Send Transactions to Payaccsys Payments', value: 'send_to_payments' },
             // {name: '<i class="fas fa-fw fa-external-link-alt" style="margin: 0px 15px 0px 0px;"></i>Post to Lexpro Accounting', value: 'lexpro_post'},
             { name: '<i class="fas fa-fw fa-file-export" style="margin: 0px 15px 0px 0px;"></i>Bank Payments Export', value: 'bank_payments_export' },
             { name: '<i class="fas fa-fw fa-undo" style="margin: 0px 15px 0px 0px;"></i>Undo Processing', value: 'undo_processing' },
@@ -894,6 +895,79 @@ app.panel.ListPayruns = function (config) {
                         state.modal.destroy();
                 });
                 sendPayslipsModal.show();
+                activePanel.focus();
+        }
+
+        else if (clickEvent.value === 'send_to_payments') {
+
+            var payrun = payrunsGrid.getRow(clickEvent.rowIndex);
+
+            // Has the payrun not been processed?
+            if (payrun.isProcessed !== 'Yes') {
+                new lx.component.Messagebox({
+                    title: 'Send Transactions to Payaccsys Payments',
+                    message: 'The transactions cannot be sent because the specified payrun has not been processed.'
+                });
+                return;
+            }
+
+            var payrunId = parseInt(payrun.id);
+            var activePanel = null;
+
+            // Create a modal window
+            var sendTransactionsModal = new lx.component.ModalWindow({
+                margin: '40px',
+                maxWidth: '1300px',
+                maxHeight: '100%'
+            });
+
+            function closeModal(){
+                app.route.popState();
+            }
+
+            function showStatusPanel(results){
+                //Remove send panel data, but keep the modal and route
+                if(activePanel !== null){ 
+                    activePanel.destroy();
+                    activePanel = null;
+                }
+
+                activePanel = new app.panel.SendTransactionStatus({
+                    renderTo: sendTransactionsModal.getContainer(),
+                    show: true,
+                    payrunId: payrunId,
+                    deliveryResults: results || null,
+
+                    onCancel: closeModal
+                });
+
+                activePanel.focus();
+            }
+
+            activePanel = new app.panel.SendTransactions({
+                renderTo: sendTransactionsModal.getContainer(),
+                show: true,
+                payrunId: payrunId,
+
+                onSend: function (event) {
+                    showStatusPanel(event.results);
+                },
+                onCancel: closeModal
+            });
+
+            sendTransactionsModal.addEventListener('destroy', function () {
+                if(activePanel !== null){
+                    activePanel.destroy();
+                    activePanel = null;
+                }
+            });
+
+            app.route.pushState({
+                        modal: sendTransactionsModal
+                    }, function (state) {
+                        state.modal.destroy();
+                });
+                sendTransactionsModal.show();
                 activePanel.focus();
         }
 
