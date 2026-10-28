@@ -2230,12 +2230,13 @@ class Employee extends Controller
         $employmentStartDate = $sqlRow['employment_start_date'];
 
         $sqlQuery =
-            'INSERT INTO wallet_subscriptions (employee_id, subscribed, updated_on) ' .
-            'VALUES ($1, $2, $3);';
+            'INSERT INTO wallet_subscriptions (employee_id, subscribed, updated_on, updated_by_user_id) ' .
+            'VALUES ($1, $2, $3, $4);';
         $sqlResult = $db->paramQuery($sqlQuery, [
             $employeeId,                    // employee_id
             $data['walletSubscribed'],      // subscribed
-            gmdate('Y-m-d\TH:i:s\Z')       // updated_on
+            gmdate('Y-m-d\TH:i:s\Z'),      // updated_on
+            $user['id']                     // updated_by_user_id
         ]);
 
         if (!$sqlResult->isValid()) {
@@ -3206,13 +3207,13 @@ class Employee extends Controller
             'SELECT id FROM employees WHERE id = $1 ' .
             '), updated_subscription AS ( ' .
             'UPDATE wallet_subscriptions ' .
-            'SET subscribed = $2, updated_on = $3 ' .
+            'SET subscribed = $2, updated_on = $3, updated_by_user_id = $4 ' .
             'WHERE employee_id = $1 ' .
             'AND EXISTS (SELECT 1 FROM target_employee) ' .
             'RETURNING employee_id ' .
             '), inserted_subscription AS ( ' .
-            'INSERT INTO wallet_subscriptions (employee_id, subscribed, updated_on) ' .
-            'SELECT target_employee.id, $2, $3 FROM target_employee ' .
+            'INSERT INTO wallet_subscriptions (employee_id, subscribed, updated_on, updated_by_user_id) ' .
+            'SELECT target_employee.id, $2, $3, $4 FROM target_employee ' .
             'WHERE NOT EXISTS (SELECT 1 FROM updated_subscription) ' .
             'RETURNING employee_id ' .
             ') ' .
@@ -3222,7 +3223,8 @@ class Employee extends Controller
         $sqlResult = $db->paramQuery($sqlQuery, [
             $data['employeeId'],
             $data['subscribed'],
-            gmdate('Y-m-d\TH:i:s\Z')
+            gmdate('Y-m-d\TH:i:s\Z'),
+            $user['id']
         ]);
 
         if (!$sqlResult->isValid()) {

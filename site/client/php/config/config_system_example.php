@@ -63,4 +63,5 @@
     
     define('CONF_LEXPRO_API_URL', 'https://www.lexproonline.co.za/api/v1/request.php');
     define('CONF_LEXPRO_API_ACCESS_KEY', '');
+    define('CONF_SPENDL_ACCESS_TOKEN', '');
 ?>

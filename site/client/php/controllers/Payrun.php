@@ -10513,13 +10513,20 @@ class Payrun extends Controller
         $payrunId = $data['payrunId'];
         $payloadResult = $this->buildWalletPayloads($payrunId, (int)$user['companyId'], $db);
         if ($payloadResult['ok'] !== true) {
+            $this->logSpendlApiEvent('payloads.error', $payloadResult);
             echo (json_encode($payloadResult));
             return false;
         }
 
+        $this->logSpendlApiEvent('payloads.created', [
+            'payrunId' => $payrunId,
+            'count' => count($payloadResult['payloads']),
+            'payloads' => $payloadResult['payloads']
+        ]);
+
         # Checks if any employee opted to send their payslips to spendl
         if (count($payloadResult['payloads']) === 0) {
-            echo (json_encode([
+            $batchResult = [
                 'ok' => true,
                 'payrunId' => $payrunId,
                 'summary' => [
@@ -10528,37 +10535,60 @@ class Payrun extends Controller
                     'failed' => 0
                 ],
                 'results' => []
-            ]));
+            ];
+            $this->logSpendlApiEvent('batch.complete', $batchResult);
+            echo (json_encode($batchResult));
             return true;
         }
 
         # Loads spendl's API infromation(api_url, api_key, api_secrets).
         $spendlConfiguration = $this->getSpendlApiConfiguration();
         if ($spendlConfiguration['ok'] !== true) {
+            $this->logSpendlApiEvent('configuration.error', $spendlConfiguration);
             echo (json_encode($spendlConfiguration));
             return false;
         }
+        $this->logSpendlApiEvent('configuration.loaded', [
+            'baseUrl' => $spendlConfiguration['baseUrl'],
+            'authenticationMode' => $spendlConfiguration['apiSecret'] === '' ? 'pre_issued_access_token' : 'api_key_secret',
+            'apiKeyConfigured' => $spendlConfiguration['apiKey'] !== '',
+            'apiSecretConfigured' => $spendlConfiguration['apiSecret'] !== '',
+            'accessTokenConfigured' => $spendlConfiguration['accessToken'] !== ''
+        ]);
 
         # Authenticate an employee as a spendle user once for the complete payrun send operation.
         $tokenResult = $this->requestSpendlAccessToken($spendlConfiguration);
         if ($tokenResult['ok'] !== true) {
+            $this->logSpendlApiEvent('authentication.error', $tokenResult);
             echo (json_encode($tokenResult));
             return false;
         }
+        $this->logSpendlApiEvent('authentication.ready', [
+            'preIssued' => isset($tokenResult['preIssued']) && $tokenResult['preIssued'] === true,
+            'expiresIn' => isset($tokenResult['expiresIn']) ? $tokenResult['expiresIn'] : null
+        ]);
 
         $accessToken = $tokenResult['accessToken'];
         $deliveryResults = [];
         $successfulDeliveries = 0;
         $failedDeliveries = 0;
+        $pdfContext = null;
 
         # Each payslip is sent separately because every payload has its own idempotency key and response.
-        foreach ($payloadResult['payloads'] as $payload) {
+        foreach ($payloadResult['payloads'] as $walletPayload) {
+
+            # Local identifiers are kept outside the payload sent to Spendl so the response can be linked to PayAccSys records.
+            $payload = $walletPayload['payload'];
 
             # Sends the Json payload to spendle and return the status result.
             $requestResult = $this->sendSpendlPayslip($spendlConfiguration['baseUrl'], $accessToken, $payload);
 
             # A token can expire while a large payrun is being sent. Refresh it once and retry only this payslip.
-            if ($requestResult['httpStatus'] === 401 && $this->getSpendlErrorType($requestResult) === 'INVALID_TOKEN') {
+            if (
+                $spendlConfiguration['apiSecret'] !== '' &&
+                $requestResult['httpStatus'] === 401 &&
+                $this->getSpendlErrorType($requestResult) === 'INVALID_TOKEN'
+            ) {
                 $tokenResult = $this->requestSpendlAccessToken($spendlConfiguration);
                 if ($tokenResult['ok'] === true) {
                     $accessToken = $tokenResult['accessToken'];
@@ -10568,6 +10598,161 @@ class Payrun extends Controller
 
             # Formats the send request response into a structured delivery result.
             $deliveryResult = $this->formatSpendlDeliveryResult($payload, $requestResult);
+
+            # Save the Spendl user returned by the first successful match for future payslip deliveries.
+            if ($deliveryResult['ok'] === true) {
+                $spendlUserResult = $this->storeSpendlUserId(
+                    (int)$walletPayload['employeeId'],
+                    $payload['recipient']['spendlUserId'],
+                    $deliveryResult['spendlUserId'],
+                    $db
+                );
+                if ($spendlUserResult['ok'] !== true) {
+                    $deliveryResult['ok'] = false;
+                    $deliveryResult['status'] = 'failed';
+                    $deliveryResult['errorType'] = 'SPENDL_USER_STORAGE_ERROR';
+                    $deliveryResult['error'] = $spendlUserResult['error'];
+                }
+            }
+
+            # Stores every structured payslip API result, including failed requests, before continuing to the next employee.
+            $historyResult = $this->storeWalletHistory((int)$payrunId, (int)$walletPayload['payslipId'], (int)$walletPayload['employeeId'], $payload, $requestResult, $deliveryResult, $db);
+            if ($historyResult['ok'] !== true) {
+                $deliveryResult['ok'] = false;
+                $deliveryResult['status'] = 'failed';
+                $deliveryResult['errorType'] = 'HISTORY_STORAGE_ERROR';
+                $deliveryResult['error'] = $historyResult['error'];
+            } else if ($deliveryResult['ok'] === true) {
+                $structuredStatus = strtolower(trim((string)$deliveryResult['status']));
+
+                # An idempotent replay can already be delivered. In that case Spendl does not need the document again.
+                if ($structuredStatus === 'delivered') {
+                    $deliveryResult['document'] = [
+                        'ok' => true,
+                        'status' => 'delivered',
+                        'skipped' => true,
+                        'reason' => 'Spendl already reports this payslip as delivered.'
+                    ];
+                } else if ($structuredStatus !== 'awaiting_document') {
+                    $deliveryResult['ok'] = false;
+                    $deliveryResult['status'] = 'failed';
+                    $deliveryResult['errorType'] = 'INVALID_DOCUMENT_STATUS';
+                    $deliveryResult['error'] = 'Spendl did not return an awaiting_document status for the payslip.';
+                } else if ($deliveryResult['payslipId'] === null || trim((string)$deliveryResult['payslipId']) === '') {
+                    $deliveryResult['ok'] = false;
+                    $deliveryResult['status'] = 'failed';
+                    $deliveryResult['errorType'] = 'MISSING_SPENDL_PAYSLIP_ID';
+                    $deliveryResult['error'] = 'Spendl did not return the payslip ID required for the document upload.';
+                } else {
+                    # Template and company presentation data are shared by every PDF in this payrun.
+                    if ($pdfContext === null) {
+                        $pdfContext = $this->loadWalletPayslipPdfContext($db);
+                    }
+
+                    if ($pdfContext['ok'] !== true) {
+                        $this->logSpendlApiEvent('document.preparation_error', [
+                            'payslipId' => $walletPayload['payslipId'],
+                            'error' => $pdfContext['error']
+                        ]);
+                        $documentRequestResult = [
+                            'transportOk' => false,
+                            'httpStatus' => 0,
+                            'response' => null,
+                            'error' => $pdfContext['error']
+                        ];
+                        $documentResult = $this->formatSpendlDocumentResult(
+                            $documentRequestResult,
+                            'PDF_GENERATION_ERROR'
+                        );
+                    } else {
+                        $pdfResult = $this->generateWalletPayslipPdf(
+                            (int)$walletPayload['payslipId'],
+                            $pdfContext,
+                            $user,
+                            $db
+                        );
+
+                        if ($pdfResult['ok'] !== true) {
+                            $this->logSpendlApiEvent('document.preparation_error', [
+                                'payslipId' => $walletPayload['payslipId'],
+                                'error' => $pdfResult['error']
+                            ]);
+                            $documentRequestResult = [
+                                'transportOk' => false,
+                                'httpStatus' => 0,
+                                'response' => null,
+                                'error' => $pdfResult['error']
+                            ];
+                            $documentResult = $this->formatSpendlDocumentResult(
+                                $documentRequestResult,
+                                'PDF_GENERATION_ERROR'
+                            );
+                        } else {
+                            $this->logSpendlApiEvent('document.created', [
+                                'payslipId' => $walletPayload['payslipId'],
+                                'fileName' => $pdfResult['fileName'],
+                                'mimeType' => 'application/pdf',
+                                'fileSize' => $pdfResult['fileSize']
+                            ]);
+                            try {
+                                $documentRequestResult = $this->sendSpendlPayslipDocument(
+                                    $spendlConfiguration['baseUrl'],
+                                    $accessToken,
+                                    (string)$deliveryResult['payslipId'],
+                                    $pdfResult['path']
+                                );
+
+                                # Refresh an expired token once and retry the same PDF without regenerating it.
+                                if (
+                                    $spendlConfiguration['apiSecret'] !== '' &&
+                                    $documentRequestResult['httpStatus'] === 401 &&
+                                    $this->getSpendlErrorType($documentRequestResult) === 'INVALID_TOKEN'
+                                ) {
+                                    $tokenResult = $this->requestSpendlAccessToken($spendlConfiguration);
+                                    if ($tokenResult['ok'] === true) {
+                                        $accessToken = $tokenResult['accessToken'];
+                                        $documentRequestResult = $this->sendSpendlPayslipDocument(
+                                            $spendlConfiguration['baseUrl'],
+                                            $accessToken,
+                                            (string)$deliveryResult['payslipId'],
+                                            $pdfResult['path']
+                                        );
+                                    }
+                                }
+
+                                $documentResult = $this->formatSpendlDocumentResult(
+                                    $documentRequestResult,
+                                    'DOCUMENT_UPLOAD_ERROR'
+                                );
+                            } finally {
+                                $this->cleanupWalletPayslipPdf($pdfResult);
+                            }
+                        }
+                    }
+
+                    $documentHistoryResult = $this->storeWalletDocumentResult(
+                        (int)$historyResult['walletHistoryId'],
+                        $documentRequestResult,
+                        $documentResult,
+                        $db
+                    );
+                    if ($documentHistoryResult['ok'] !== true) {
+                        $documentResult['ok'] = false;
+                        $documentResult['status'] = 'failed';
+                        $documentResult['errorType'] = 'DOCUMENT_HISTORY_STORAGE_ERROR';
+                        $documentResult['error'] = $documentHistoryResult['error'];
+                    }
+
+                    $deliveryResult['document'] = $documentResult;
+                    $deliveryResult['ok'] = $documentResult['ok'];
+                    $deliveryResult['status'] = $documentResult['status'];
+                    if ($documentResult['ok'] !== true) {
+                        $deliveryResult['errorType'] = $documentResult['errorType'];
+                        $deliveryResult['error'] = $documentResult['error'];
+                    }
+                }
+            }
+
             $deliveryResults[] = $deliveryResult;
 
             if ($deliveryResult['ok'] === true) {
@@ -10577,7 +10762,7 @@ class Payrun extends Controller
             }
         }
 
-        echo (json_encode([
+        $batchResult = [
             'ok' => true,
             'payrunId' => $payrunId,
             'summary' => [
@@ -10586,7 +10771,9 @@ class Payrun extends Controller
                 'failed' => $failedDeliveries
             ],
             'results' => $deliveryResults
-        ]));
+        ];
+        $this->logSpendlApiEvent('batch.complete', $batchResult);
+        echo (json_encode($batchResult));
         return true;
     }
 
@@ -10612,7 +10799,7 @@ class Payrun extends Controller
         }
 
         # Load the employer details required by every structured payslip request.
-        $sqlQuery = 'SELECT name, paye_reference_number FROM company_details ORDER BY id DESC LIMIT 1;';
+        $sqlQuery = 'SELECT name, registration_number, paye_reference_number FROM company_details ORDER BY id DESC LIMIT 1;';
         $sqlResult = $db->paramQuery($sqlQuery, []);
         if (!$sqlResult->isValid()) {
             return ['ok' => false, 'error' => 'Database error.'];
@@ -10623,6 +10810,24 @@ class Payrun extends Controller
         }
 
         $companyRow = $sqlResult->fetchAssociative();
+
+        # The selected company schema is loaded from the session company ID before this controller runs.
+        # Build a stable, header-safe company identifier from that company's name and registration number.
+        $companyName = trim((string)$companyRow['name']);
+        $companyRegistrationNumber = trim((string)$companyRow['registration_number']);
+        if ($companyName === '' || $companyRegistrationNumber === '') {
+            return ['ok' => false, 'error' => 'Company name and registration number are required for Spendl delivery.'];
+        }
+
+        $companyIdentifier = preg_replace(
+            '/[^A-Za-z0-9._-]+/',
+            '-',
+            $companyName . '-' . $companyRegistrationNumber
+        );
+        $companyIdentifier = trim((string)$companyIdentifier, '-');
+        if ($companyIdentifier === '') {
+            return ['ok' => false, 'error' => 'Unable to build the Spendl company identifier.'];
+        }
 
         /******************************************************
           Retrieving Employee, Payslip & Subscription Details
@@ -10648,7 +10853,8 @@ class Payrun extends Controller
             'employees.first_period_payment_day, ' .
             'employees.second_period_end, ' .
             'employees.second_period_payment_day, ' .
-            'wallet_subscriptions.updated_on ' .
+            'wallet_subscriptions.updated_on, ' .
+            'wallet_subscriptions.spendl_user_id ' .
             'FROM payslips ' .
             'INNER JOIN employees ON employees.id = payslips.employee_id ' .
             'INNER JOIN wallet_subscriptions ON wallet_subscriptions.employee_id = employees.id ' .
@@ -10803,7 +11009,8 @@ class Payrun extends Controller
                 'payslip_items.description, ' .
                 'payslip_items.units, ' .
                 'payslip_items.rate, ' .
-                'payslip_items.total ' .
+                'payslip_items.total, ' .
+                'payslip_items.include_in_nett_pay ' .
                 'FROM payslip_items ' .
                 'INNER JOIN payslip_item_types ' .
                 'ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
@@ -10839,11 +11046,15 @@ class Payrun extends Controller
                     'amount' => $amount
                 ];
 
-                if ($itemRow['payslip_category_code'] === 'INCO') {
-                    if ($itemRow['units'] !== null) {
+                $isIncome = $itemRow['payslip_category_code'] === 'INCO';
+                $isAllowance = $itemRow['payslip_category_code'] === 'ALLO';
+                $isNettPayFringeBenefit = $itemRow['payslip_category_code'] === 'FBEN' && $itemRow['include_in_nett_pay'] === true;
+
+                if ($isIncome || $isAllowance || $isNettPayFringeBenefit) {
+                    if ($isIncome && $itemRow['units'] !== null) {
                         $item['hours'] = round((float)$itemRow['units'], 2);
                     }
-                    if ($itemRow['rate'] !== null) {
+                    if ($isIncome && $itemRow['rate'] !== null) {
                         $item['rate'] = (int)round((float)$itemRow['rate'] * 100);
                     }
 
@@ -10858,7 +11069,8 @@ class Payrun extends Controller
             }
 
             $employeeCode = 'EMP' . $payslipRow['employee_code'];
-            $idempotencyKey = 'payaccsys:' . $companyId . ':' . $payrunId . ':' . $employeeCode;
+            $idempotencyKey = 'payaccsys:' . $companyIdentifier . ':' . $payrunId . ':' . $employeeCode;
+            $spendlUserId = trim((string)$payslipRow['spendl_user_id']);
 
             if (strlen($idempotencyKey) > 200) {
                 return [
@@ -10868,33 +11080,37 @@ class Payrun extends Controller
             }
 
             $payloads[] = [
-                'idempotencyKey' => $idempotencyKey,
-                'source' => 'payaccsys',
-                'recipient' => [
-                    'email' => $payslipRow['email_address'],
-                    'idNumber' => $payslipRow['id_number'],
-                    'employeeCode' => $employeeCode,
-                    'spendlUserId' => null
-                ],
-                'consent' => [
-                    'optedInAt' => $consentDate->format('Y-m-d\TH:i:s\Z')
-                ],
-                'employer' => [
-                    'name' => $companyRow['name'],
-                    'payeReference' => $companyRow['paye_reference_number']
-                ],
-                'payslip' => [
-                    'payrunId' => (string)$payslipRow['payrun_id'],
-                    'periodStart' => $payslipRow['from_date'],
-                    'periodEnd' => $payslipRow['to_date'],
-                    'payDate' => $payDate->format('Y-m-d'),
-                    'currency' => 'ZAR',
-                    'grossPay' => $grossPay,
-                    'totalDeductions' => $totalDeductions,
-                    'netPay' => $grossPay - $totalDeductions,
-                    'earnings' => $earnings,
-                    'deductions' => $deductions,
-                    'employerContributions' => $employerContributions
+                'payslipId' => (int)$payslipRow['id'],
+                'employeeId' => (int)$payslipRow['employee_id'],
+                'payload' => [
+                    'idempotencyKey' => $idempotencyKey,
+                    'source' => 'payaccsys',
+                    'recipient' => [
+                        'email' => $payslipRow['email_address'],
+                        'idNumber' => $payslipRow['id_number'],
+                        'employeeCode' => $employeeCode,
+                        'spendlUserId' => $spendlUserId === '' ? null : $spendlUserId
+                    ],
+                    'consent' => [
+                        'optedInAt' => $consentDate->format('Y-m-d\TH:i:s\Z')
+                    ],
+                    'employer' => [
+                        'name' => $companyRow['name'],
+                        'payeReference' => $companyRow['paye_reference_number']
+                    ],
+                    'payslip' => [
+                        'payrunId' => (string)$payslipRow['payrun_id'],
+                        'periodStart' => $payslipRow['from_date'],
+                        'periodEnd' => $payslipRow['to_date'],
+                        'payDate' => $payDate->format('Y-m-d'),
+                        'currency' => 'ZAR',
+                        'grossPay' => $grossPay,
+                        'totalDeductions' => $totalDeductions,
+                        'netPay' => $grossPay - $totalDeductions,
+                        'earnings' => $earnings,
+                        'deductions' => $deductions,
+                        'employerContributions' => $employerContributions
+                    ]
                 ]
             ];
         }
@@ -10909,11 +11125,16 @@ class Payrun extends Controller
     private function getSpendlApiConfiguration(): array
     {
         $baseUrl = defined('CONF_SPENDL_API_URL') ? CONF_SPENDL_API_URL : 'https://ingest.staging.spendl.money';
-        $apiKey = defined('CONF_SPENDL_API_KEY') ? CONF_SPENDL_API_KEY : 'SPENDL_API_KEY_PLACEHOLDER';
-        $apiSecret = defined('CONF_SPENDL_API_SECRET') ? CONF_SPENDL_API_SECRET : 'SPENDL_API_SECRET_PLACEHOLDER';
+        $apiKey = defined('CONF_SPENDL_API_KEY') ? trim((string)CONF_SPENDL_API_KEY) : '';
+        $apiSecret = defined('CONF_SPENDL_API_SECRET') ? trim((string)CONF_SPENDL_API_SECRET) : '';
+        $accessToken = defined('CONF_SPENDL_ACCESS_TOKEN') ? trim((string)CONF_SPENDL_ACCESS_TOKEN) : '';
+
+        if ($apiKey === 'SPENDL_API_KEY_PLACEHOLDER') $apiKey = '';
+        if ($apiSecret === 'SPENDL_API_SECRET_PLACEHOLDER') $apiSecret = '';
+        if ($accessToken === 'SPENDL_ACCESS_TOKEN_PLACEHOLDER') $accessToken = '';
 
         # Prevent an accidental external request while the temporary credentials are still placeholders.
-        if ($apiKey === 'SPENDL_API_KEY_PLACEHOLDER' || $apiSecret === 'SPENDL_API_SECRET_PLACEHOLDER') {
+        if ($apiKey === '' || ($apiSecret === '' && $accessToken === '')) {
             return [
                 'ok' => false,
                 'error' => 'Spendl API credentials have not been configured.',
@@ -10925,13 +11146,23 @@ class Payrun extends Controller
             'ok' => true,
             'baseUrl' => rtrim($baseUrl, '/'),
             'apiKey' => $apiKey,
-            'apiSecret' => $apiSecret
+            'apiSecret' => $apiSecret,
+            'accessToken' => $accessToken
         ];
     }
 
-    // Exchanges the Spendl API key and secret for a one-hour access token.
+    // Uses a configured testing token when no API secret is available; otherwise requests a one-hour token.
     private function requestSpendlAccessToken(array $configuration): array
     {
+        if ($configuration['apiSecret'] === '') {
+            return [
+                'ok' => true,
+                'accessToken' => $configuration['accessToken'],
+                'expiresIn' => null,
+                'preIssued' => true
+            ];
+        }
+
         $requestResult = $this->sendSpendlJsonRequest(
             $configuration['baseUrl'] . '/auth/token',
             [
@@ -11000,23 +11231,29 @@ class Payrun extends Controller
     // Sends a JSON POST request while preserving the HTTP response for the calling function.
     private function sendSpendlJsonRequest(string $url, array $payload, array $additionalHeaders = []): array
     {
+        $eventType = substr($url, -11) === '/auth/token' ? 'authentication' : 'payslip';
+
         if (!function_exists('curl_init')) {
-            return [
+            $result = [
                 'transportOk' => false,
                 'httpStatus' => 0,
                 'response' => null,
                 'error' => 'The PHP cURL extension is not available.'
             ];
+            $this->logSpendlApiEvent($eventType . '.response', $result);
+            return $result;
         }
 
         $jsonPayload = json_encode($payload);
         if ($jsonPayload === false) {
-            return [
+            $result = [
                 'transportOk' => false,
                 'httpStatus' => 0,
                 'response' => null,
                 'error' => 'Unable to encode the Spendl request as JSON.'
             ];
+            $this->logSpendlApiEvent($eventType . '.response', $result);
+            return $result;
         }
 
         $headers = array_merge([
@@ -11024,6 +11261,13 @@ class Payrun extends Controller
             'Content-Type: application/json',
             'Content-Length: ' . strlen($jsonPayload)
         ], $additionalHeaders);
+
+        $this->logSpendlApiEvent($eventType . '.request', [
+            'method' => 'POST',
+            'url' => $url,
+            'headers' => $headers,
+            'body' => $payload
+        ]);
 
         $curlHandle = curl_init();
         curl_setopt($curlHandle, CURLOPT_URL, $url);
@@ -11043,34 +11287,40 @@ class Payrun extends Controller
             $error = curl_error($curlHandle);
             @curl_close($curlHandle);
 
-            return [
+            $result = [
                 'transportOk' => false,
                 'httpStatus' => $httpStatus,
                 'response' => null,
                 'error' => $error
             ];
+            $this->logSpendlApiEvent($eventType . '.response', $result);
+            return $result;
         }
 
         @curl_close($curlHandle);
 
         $decodedResponse = json_decode($responseBody, true);
         if ($decodedResponse === null && trim($responseBody) !== '' && strtolower(trim($responseBody)) !== 'null') {
-            return [
+            $result = [
                 'transportOk' => true,
                 'httpStatus' => $httpStatus,
                 'response' => null,
                 'rawResponse' => $responseBody,
                 'error' => null
             ];
+            $this->logSpendlApiEvent($eventType . '.response', $result);
+            return $result;
         }
 
-        return [
+        $result = [
             'transportOk' => true,
             'httpStatus' => $httpStatus,
             'response' => $decodedResponse,
             'rawResponse' => null,
             'error' => null
         ];
+        $this->logSpendlApiEvent($eventType . '.response', $result);
+        return $result;
     }
 
     // Converts a Spendl HTTP response into a stable result for the frontend payslip-response grid.
@@ -11097,6 +11347,527 @@ class Payrun extends Controller
         }
 
         return $result;
+    }
+
+    // Saves the Spendl user matched to an employee and prevents an existing mapping from being overwritten.
+    private function storeSpendlUserId(int $employeeId, $storedSpendlUserId, $returnedSpendlUserId, $db): array
+    {
+        if (!is_string($returnedSpendlUserId) && !is_numeric($returnedSpendlUserId)) {
+            return ['ok' => false, 'error' => 'Spendl returned no valid user ID for the employee.'];
+        }
+
+        $returnedSpendlUserId = trim((string)$returnedSpendlUserId);
+        $storedSpendlUserId = trim((string)$storedSpendlUserId);
+        if ($returnedSpendlUserId === '') {
+            return ['ok' => false, 'error' => 'Spendl returned no valid user ID for the employee.'];
+        }
+
+        if ($storedSpendlUserId !== '' && $storedSpendlUserId !== $returnedSpendlUserId) {
+            return ['ok' => false, 'error' => 'Spendl returned a different user ID from the employee\'s saved mapping.'];
+        }
+
+        if ($storedSpendlUserId === $returnedSpendlUserId) {
+            return ['ok' => true];
+        }
+
+        $sqlQuery =
+            'UPDATE wallet_subscriptions SET spendl_user_id = $1 ' .
+            'WHERE employee_id = $2 ' .
+            'AND (spendl_user_id IS NULL OR BTRIM(spendl_user_id) = \'\' OR spendl_user_id = $1) ' .
+            'RETURNING employee_id;';
+        $sqlResult = $db->paramQuery($sqlQuery, [$returnedSpendlUserId, $employeeId]);
+        if (!$sqlResult->isValid() || $sqlResult->getRowCount() !== 1) {
+            return [
+                'ok' => false,
+                'error' => 'Unable to save the employee\'s Spendl user ID because the subscription is missing or its existing mapping differs.'
+            ];
+        }
+
+        return ['ok' => true];
+    }
+
+    // Stores the structured payslip API response against the local PayAccSys records.
+    private function storeWalletHistory(int $payrunId, int $payslipId, int $employeeId, array $payload, array $requestResult, array $deliveryResult, $db): array
+    {
+        $responseBody = null;
+        if (isset($requestResult['response'])) {
+            $responseBody = $requestResult['response'];
+        } else if (isset($requestResult['rawResponse']) && trim((string)$requestResult['rawResponse']) !== '') {
+            $responseBody = ['rawResponse' => $requestResult['rawResponse']];
+        }
+
+        $encodedResponse = $responseBody === null ? null : json_encode($responseBody);
+        if ($responseBody !== null && $encodedResponse === false) {
+            return ['ok' => false, 'error' => 'Unable to encode the Spendl response for wallet history.'];
+        }
+
+        $sqlQuery =
+            'INSERT INTO wallet_histories (' .
+            'payrun_id, payslip_id, employee_id, idempotency_key, http_status, transport_ok, ' .
+            'response_status, spendl_payslip_id, spendl_user_id, idempotent_replay, ' .
+            'error_type, error_message, response_body, created_on' .
+            ') VALUES (' .
+            '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP' .
+            ') RETURNING id;';
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            $payrunId,
+            $payslipId,
+            $employeeId,
+            $payload['idempotencyKey'],
+            isset($requestResult['httpStatus']) ? (int)$requestResult['httpStatus'] : 0,
+            isset($requestResult['transportOk']) && $requestResult['transportOk'] === true,
+            isset($deliveryResult['status']) ? $deliveryResult['status'] : null,
+            isset($deliveryResult['payslipId']) ? $deliveryResult['payslipId'] : null,
+            isset($deliveryResult['spendlUserId']) ? $deliveryResult['spendlUserId'] : null,
+            isset($deliveryResult['idempotentReplay']) && $deliveryResult['idempotentReplay'] === true,
+            isset($deliveryResult['errorType']) ? $deliveryResult['errorType'] : null,
+            isset($deliveryResult['error']) ? $deliveryResult['error'] : null,
+            $encodedResponse
+        ]);
+        if (!$sqlResult->isValid()) {
+            return ['ok' => false, 'error' => 'Unable to store the Spendl response in wallet history.'];
+        }
+
+        $historyRow = $sqlResult->fetchAssociative();
+        if ($historyRow === false || !isset($historyRow['id'])) {
+            return ['ok' => false, 'error' => 'The wallet history insert returned no history ID.'];
+        }
+
+        return [
+            'ok' => true,
+            'walletHistoryId' => (int)$historyRow['id']
+        ];
+    }
+
+    // Loads the template and company presentation data shared by wallet payslip PDFs.
+    private function loadWalletPayslipPdfContext($db): array
+    {
+        System::includeFile('payslip_printing/PayslipPrinterDefault.php');
+
+        $printer = new PayslipPrinter([]);
+        $templateConfig = $printer->getConfigParameters();
+        unset($printer);
+
+        $sqlResult = $db->paramQuery(
+            'SELECT value FROM config WHERE name = \'client_data_dir\';',
+            []
+        );
+        if (!$sqlResult->isValid() || $sqlResult->getRowCount() !== 1) {
+            return ['ok' => false, 'error' => 'Unable to load the payslip image directory configuration.'];
+        }
+
+        $configRow = $sqlResult->fetchAssociative();
+        $imageDir = CONF_CLIENT_DIR . $configRow['value'] . '/payslip_images/';
+
+        $sqlQuery =
+            'SELECT payslip_templates.id, payslip_template_config.name, payslip_template_config.value ' .
+            'FROM payslip_templates ' .
+            'LEFT JOIN payslip_template_config ON payslip_template_id = payslip_templates.id ' .
+            'WHERE payslip_templates.name = \'default\';';
+        $sqlResult = $db->paramQuery($sqlQuery, []);
+        if (!$sqlResult->isValid()) {
+            return ['ok' => false, 'error' => 'Unable to load the default payslip template configuration.'];
+        }
+
+        $config = [];
+        while ($templateRow = $sqlResult->fetchAssociative()) {
+            if ($templateRow['name'] === null || trim((string)$templateRow['name']) === '') {
+                continue;
+            }
+
+            $isImage = false;
+            foreach ($templateConfig as $parameter) {
+                if ($templateRow['name'] === $parameter['name'] && $parameter['type'] === 'image') {
+                    $isImage = true;
+                    $imagePath = $imageDir . $templateRow['value'] . '.png';
+                    if (file_exists($imagePath)) {
+                        $config[$templateRow['name']] = $imagePath;
+                    }
+                    break;
+                }
+            }
+
+            if (!$isImage) {
+                $config[$templateRow['name']] = $templateRow['value'];
+            }
+        }
+
+        $sqlQuery =
+            'SELECT name, postal_address_line_1, postal_address_line_2, postal_address_line_3, ' .
+            'postal_address_code, tel_number, fax_number, email_address ' .
+            'FROM company_details ORDER BY id DESC LIMIT 1;';
+        $sqlResult = $db->paramQuery($sqlQuery, []);
+        if (!$sqlResult->isValid() || $sqlResult->getRowCount() !== 1) {
+            return ['ok' => false, 'error' => 'Unable to load company details for the payslip PDF.'];
+        }
+
+        return [
+            'ok' => true,
+            'config' => $config,
+            'company' => $sqlResult->fetchAssociative()
+        ];
+    }
+
+    // Generates one unencrypted individual payslip PDF for the Spendl document endpoint.
+    private function generateWalletPayslipPdf(int $payslipId, array $pdfContext, $user, $db): array
+    {
+        $payslipQuery =
+            'SELECT DISTINCT ' .
+            'payslips.id, payslips.from_date, payslips.to_date, payslips.employee_id, ' .
+            'employees.full_names, employees.last_name, employees.alias, employees.id_number, ' .
+            'employees.passport_number, employees.income_tax_number, employees.cell_number, ' .
+            'employees.email_address, departments.name AS department_name, employees.employment_position, ' .
+            'employees.employment_start_date, employees.postal_address_line_1, ' .
+            'employees.postal_address_line_2, employees.postal_address_line_3, ' .
+            'employees.postal_address_code, employees.code, employee_bank_details.account_number, ' .
+            'employee_bank_details.branch_code, bank_account_types.name AS bank_account_type, ' .
+            'financial_institutions.name AS financial_institution_name ' .
+            'FROM payslips ' .
+            'LEFT JOIN employees ON employees.id = payslips.employee_id ' .
+            'LEFT JOIN departments ON departments.id = employees.department_id ' .
+            'LEFT JOIN employee_bank_details ON employee_bank_details.employee_id = employees.id ' .
+            'LEFT JOIN bank_account_types ON employee_bank_details.bank_account_type_code = bank_account_types.code ' .
+            'LEFT JOIN financial_institutions ON employee_bank_details.financial_institution_code = financial_institutions.code ' .
+            'WHERE payslips.id = $1 AND payslips.status_code = \'ACTI\' ' .
+            'ORDER BY employees.id ASC;';
+        $payslipResult = $db->paramQuery($payslipQuery, [$payslipId]);
+        if (!$payslipResult->isValid()) {
+            return ['ok' => false, 'error' => 'Unable to load payslip details for the Spendl PDF.'];
+        }
+        if ($payslipResult->getRowCount() === 0) {
+            return ['ok' => false, 'error' => 'The active payslip required for the Spendl PDF was not found.'];
+        }
+
+        $payslipRow = $payslipResult->fetchAssociative();
+        $printer = new PayslipPrinter([]);
+        $printer->clear();
+        $printer->disableEncryption();
+        $printer->setConfig($pdfContext['config']);
+
+        $company = $pdfContext['company'];
+        $printer->setCompanyName((string)$company['name']);
+        $printer->setCompanyAddress(
+            (string)$company['postal_address_line_1'],
+            (string)$company['postal_address_line_2'],
+            (string)$company['postal_address_line_3'],
+            (string)$company['postal_address_code']
+        );
+        $printer->setCompanyTel((string)$company['tel_number']);
+        $printer->setCompanyFaxNumber((string)$company['fax_number']);
+        $printer->setCompanyEmail((string)$company['email_address']);
+        $printer->setCompanyLogo('');
+
+        $printer->setEmployeeFullName(trim((string)$payslipRow['full_names'] . ' ' . (string)$payslipRow['last_name']));
+        $printer->setEmployeeAlias((string)$payslipRow['alias']);
+        $printer->setEmployeeCode((string)$payslipRow['code']);
+        $printer->setEmployeeDepartment((string)$payslipRow['department_name']);
+        $printer->setEmployeePosition((string)$payslipRow['employment_position']);
+        $printer->setEmployeeEmploymentStart((string)$payslipRow['employment_start_date']);
+        $printer->setEmployeeEmail((string)$payslipRow['email_address']);
+        $printer->setEmployeeAddress(
+            (string)$payslipRow['postal_address_line_1'],
+            (string)$payslipRow['postal_address_line_2'],
+            (string)$payslipRow['postal_address_line_3'],
+            (string)$payslipRow['postal_address_code']
+        );
+        $printer->setEmployeeCell((string)$payslipRow['cell_number']);
+        $printer->setEmployeeIdNumber((string)$payslipRow['id_number']);
+        $printer->setEmployeePassportNumber((string)$payslipRow['passport_number']);
+        $printer->setEmployeeIncomeTaxNumber((string)$payslipRow['income_tax_number']);
+        $printer->setEmployeeBankType((string)$payslipRow['bank_account_type']);
+        $printer->setEmployeeBankName((string)$payslipRow['financial_institution_name']);
+        $printer->setEmployeeAccountNumber((string)$payslipRow['account_number']);
+        $printer->setEmployeeBankCode((string)$payslipRow['branch_code']);
+        $printer->setEmployeePeriod($payslipRow['from_date'] . ' - ' . $payslipRow['to_date']);
+        $printer->setPayslipToDate((string)$payslipRow['to_date']);
+
+        $itemQuery =
+            'SELECT DISTINCT payslip_items.id, payslip_items.payslip_item_type_code, ' .
+            'payslip_item_types.payslip_item_unit_code, payslip_item_types.payslip_category_code, ' .
+            'payslip_categories.name AS payslip_category_name, payslip_items.description, ' .
+            'payslip_items.units, payslip_items.rate, payslip_items.total, ' .
+            'payslip_items.include_in_nett_pay ' .
+            'FROM payslip_items ' .
+            'LEFT JOIN payslip_item_types ON payslip_item_types.code = payslip_items.payslip_item_type_code ' .
+            'LEFT JOIN payslip_categories ON payslip_categories.code = payslip_item_types.payslip_category_code ' .
+            'WHERE payslip_items.payslip_id = $1 ' .
+            'ORDER BY payslip_categories.name DESC;';
+        $itemResult = $db->paramQuery($itemQuery, [$payslipId]);
+        if (!$itemResult->isValid()) {
+            unset($printer);
+            return ['ok' => false, 'error' => 'Unable to load payslip items for the Spendl PDF.'];
+        }
+
+        $hoursWorked = null;
+        $daysWorked = null;
+        while ($itemRow = $itemResult->fetchAssociative()) {
+            if ($itemRow['payslip_item_unit_code'] === 'PHOU') {
+                $hoursWorked = $itemRow['units'];
+            } else if ($itemRow['payslip_item_unit_code'] === 'PDAY') {
+                $daysWorked = $itemRow['units'];
+            }
+
+            $amount = $itemRow['total'];
+            if ($itemRow['units'] !== null && $itemRow['rate'] !== null) {
+                $amount = doubleval($itemRow['units']) * doubleval($itemRow['rate']);
+            }
+
+            $description = (string)$itemRow['description'];
+            if ($itemRow['payslip_item_type_code'] == '1005' || $itemRow['payslip_item_type_code'] == '5008' || $itemRow['payslip_item_type_code'] == '5009') {
+                $description .= ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+            }
+            if ($itemRow['payslip_item_type_code'] == '1001') {
+                $description .= ' (' . $hoursWorked . ' hours @ ' . $itemRow['rate'] . ' per hour)';
+            }
+            if ($itemRow['payslip_item_type_code'] == '1002') {
+                $description .= ' (' . $daysWorked . ' days @ ' . $itemRow['rate'] . ' per day)';
+            }
+
+            $printer->addPayslipItem(
+                (string)$itemRow['payslip_category_name'],
+                $description,
+                (string)$amount,
+                (string)$itemRow['include_in_nett_pay']
+            );
+        }
+
+        $leaveData = \LeaveUtil\calculateLeaveBalances(
+            $payslipRow['employee_id'],
+            $payslipRow['from_date'],
+            $payslipRow['to_date'],
+            $user,
+            $db
+        );
+        foreach ($leaveData as $name => $leaveItem) {
+            $printer->addLeaveItem(
+                (string)$name,
+                (string)$leaveItem['adjustment'],
+                (string)$leaveItem['accrued'],
+                (string)$leaveItem['taken'],
+                (string)$leaveItem['balance'],
+                (string)$leaveItem['unit']
+            );
+        }
+
+        try {
+            $randomName = bin2hex(random_bytes(16));
+        } catch (Exception $exception) {
+            unset($printer);
+            return ['ok' => false, 'error' => 'Unable to create a secure temporary PDF filename.'];
+        }
+
+        $directory = rtrim(CONF_TEMP_DIR, '/\\') . DIRECTORY_SEPARATOR . 'spendl_' . $randomName . DIRECTORY_SEPARATOR;
+        if (!@mkdir($directory, 0777, true) && !is_dir($directory)) {
+            unset($printer);
+            return ['ok' => false, 'error' => 'Unable to create the temporary Spendl PDF directory.'];
+        }
+
+        $pdfPath = $directory . 'payslip_' . $payslipId . '.pdf';
+        if (!$printer->printPayslip() || !$printer->saveToFile($pdfPath) || !is_file($pdfPath)) {
+            unset($printer);
+            $this->cleanupWalletPayslipPdf(['path' => $pdfPath, 'directory' => $directory]);
+            return ['ok' => false, 'error' => 'Unable to generate the Spendl payslip PDF.'];
+        }
+        unset($printer);
+
+        $fileSize = filesize($pdfPath);
+        if ($fileSize === false || $fileSize <= 0) {
+            $this->cleanupWalletPayslipPdf(['path' => $pdfPath, 'directory' => $directory]);
+            return ['ok' => false, 'error' => 'The generated Spendl payslip PDF is empty.'];
+        }
+        if ($fileSize > (5 * 1024 * 1024)) {
+            $this->cleanupWalletPayslipPdf(['path' => $pdfPath, 'directory' => $directory]);
+            return ['ok' => false, 'error' => 'The generated Spendl payslip PDF exceeds the 5 MB limit.'];
+        }
+
+        $fileHandle = @fopen($pdfPath, 'rb');
+        $signature = $fileHandle === false ? false : fread($fileHandle, 5);
+        if ($fileHandle !== false) {
+            fclose($fileHandle);
+        }
+        if ($signature !== '%PDF-') {
+            $this->cleanupWalletPayslipPdf(['path' => $pdfPath, 'directory' => $directory]);
+            return ['ok' => false, 'error' => 'The generated Spendl document is not a valid PDF file.'];
+        }
+
+        return [
+            'ok' => true,
+            'path' => $pdfPath,
+            'directory' => $directory,
+            'fileName' => basename($pdfPath),
+            'fileSize' => $fileSize
+        ];
+    }
+
+    // Uploads one generated PDF to the Spendl payslip document endpoint.
+    private function sendSpendlPayslipDocument(string $baseUrl, string $accessToken, string $spendlPayslipId, string $pdfPath): array
+    {
+        if (!function_exists('curl_init') || !class_exists('CURLFile')) {
+            $result = [
+                'transportOk' => false,
+                'httpStatus' => 0,
+                'response' => null,
+                'error' => 'The PHP cURL file-upload support is not available.'
+            ];
+            $this->logSpendlApiEvent('document.response', $result);
+            return $result;
+        }
+        if (!is_file($pdfPath)) {
+            $result = [
+                'transportOk' => false,
+                'httpStatus' => 0,
+                'response' => null,
+                'error' => 'The generated payslip PDF could not be found for upload.'
+            ];
+            $this->logSpendlApiEvent('document.response', $result);
+            return $result;
+        }
+
+        $url = rtrim($baseUrl, '/') . '/api/payslips/' . rawurlencode($spendlPayslipId) . '/document';
+        $headers = [
+            'Accept: application/json',
+            'Authorization: Bearer ' . $accessToken
+        ];
+        $this->logSpendlApiEvent('document.request', [
+            'method' => 'POST',
+            'url' => $url,
+            'headers' => $headers,
+            'body' => [
+                'file' => [
+                    'name' => basename($pdfPath),
+                    'mimeType' => 'application/pdf',
+                    'size' => filesize($pdfPath)
+                ]
+            ]
+        ]);
+
+        $curlHandle = curl_init();
+        curl_setopt($curlHandle, CURLOPT_URL, $url);
+        curl_setopt($curlHandle, CURLOPT_POST, true);
+        curl_setopt($curlHandle, CURLOPT_POSTFIELDS, [
+            'file' => new CURLFile($pdfPath, 'application/pdf', basename($pdfPath))
+        ]);
+        curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curlHandle, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($curlHandle, CURLOPT_TIMEOUT, 60);
+        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($curlHandle, CURLOPT_HTTPHEADER, $headers);
+
+        $responseBody = curl_exec($curlHandle);
+        $httpStatus = (int)curl_getinfo($curlHandle, CURLINFO_HTTP_CODE);
+        if ($responseBody === false) {
+            $error = curl_error($curlHandle);
+            @curl_close($curlHandle);
+            $result = [
+                'transportOk' => false,
+                'httpStatus' => $httpStatus,
+                'response' => null,
+                'error' => $error
+            ];
+            $this->logSpendlApiEvent('document.response', $result);
+            return $result;
+        }
+        @curl_close($curlHandle);
+
+        $decodedResponse = json_decode($responseBody, true);
+        if ($decodedResponse === null && trim($responseBody) !== '' && strtolower(trim($responseBody)) !== 'null') {
+            $result = [
+                'transportOk' => true,
+                'httpStatus' => $httpStatus,
+                'response' => null,
+                'rawResponse' => $responseBody,
+                'error' => null
+            ];
+            $this->logSpendlApiEvent('document.response', $result);
+            return $result;
+        }
+
+        $result = [
+            'transportOk' => true,
+            'httpStatus' => $httpStatus,
+            'response' => $decodedResponse,
+            'rawResponse' => null,
+            'error' => null
+        ];
+        $this->logSpendlApiEvent('document.response', $result);
+        return $result;
+    }
+
+    // Converts the PDF document response into a stable result for the frontend and history table.
+    private function formatSpendlDocumentResult(array $requestResult, ?string $fallbackErrorType = null): array
+    {
+        $httpStatus = isset($requestResult['httpStatus']) ? (int)$requestResult['httpStatus'] : 0;
+        $successful = isset($requestResult['transportOk']) && $requestResult['transportOk'] === true && $httpStatus >= 200 && $httpStatus < 300;
+        $response = isset($requestResult['response']) && is_array($requestResult['response']) ? $requestResult['response'] : [];
+        $result = [
+            'ok' => $successful,
+            'httpStatus' => $httpStatus,
+            'status' => $successful ? (isset($response['status']) ? $response['status'] : 'delivered') : 'failed',
+            'deliveredAt' => isset($response['deliveredAt']) ? $response['deliveredAt'] : null
+        ];
+
+        if ($successful !== true) {
+            $result['errorType'] = $this->getSpendlErrorType($requestResult);
+            if ($result['errorType'] === null) {
+                $result['errorType'] = $fallbackErrorType;
+            }
+            $result['error'] = $this->getSpendlErrorMessage(
+                $requestResult,
+                'Unable to upload the payslip PDF to Spendl.'
+            );
+        }
+
+        return $result;
+    }
+
+    // Stores the document API result on the same wallet history row as the structured response.
+    private function storeWalletDocumentResult(int $walletHistoryId, array $requestResult, array $documentResult, $db): array
+    {
+        $responseBody = null;
+        if (isset($requestResult['response'])) {
+            $responseBody = $requestResult['response'];
+        } else if (isset($requestResult['rawResponse']) && trim((string)$requestResult['rawResponse']) !== '') {
+            $responseBody = ['rawResponse' => $requestResult['rawResponse']];
+        }
+
+        $encodedResponse = $responseBody === null ? null : json_encode($responseBody);
+        if ($responseBody !== null && $encodedResponse === false) {
+            return ['ok' => false, 'error' => 'Unable to encode the Spendl document response for wallet history.'];
+        }
+
+        $sqlQuery =
+            'UPDATE wallet_histories SET ' .
+            'document_http_status = $1, document_transport_ok = $2, document_status = $3, ' .
+            'document_error_type = $4, document_error_message = $5, document_response_body = $6, ' .
+            'document_uploaded_on = CASE WHEN $7::boolean IS TRUE THEN CURRENT_TIMESTAMP ELSE NULL END ' .
+            'WHERE id = $8 RETURNING id;';
+        $sqlResult = $db->paramQuery($sqlQuery, [
+            isset($requestResult['httpStatus']) ? (int)$requestResult['httpStatus'] : 0,
+            isset($requestResult['transportOk']) && $requestResult['transportOk'] === true,
+            isset($documentResult['status']) ? $documentResult['status'] : null,
+            isset($documentResult['errorType']) ? $documentResult['errorType'] : null,
+            isset($documentResult['error']) ? $documentResult['error'] : null,
+            $encodedResponse,
+            isset($documentResult['ok']) && $documentResult['ok'] === true,
+            $walletHistoryId
+        ]);
+        if (!$sqlResult->isValid() || $sqlResult->getRowCount() !== 1) {
+            return ['ok' => false, 'error' => 'Unable to store the Spendl document response in wallet history.'];
+        }
+
+        return ['ok' => true];
+    }
+
+    // Removes the generated PDF and its dedicated temporary directory.
+    private function cleanupWalletPayslipPdf(array $pdfResult): void
+    {
+        if (isset($pdfResult['path']) && is_file($pdfResult['path'])) {
+            @unlink($pdfResult['path']);
+        }
+        if (isset($pdfResult['directory']) && is_dir($pdfResult['directory'])) {
+            @rmdir($pdfResult['directory']);
+        }
     }
 
     // Reads the stable Spendl error type from its standard error envelope.
@@ -11134,6 +11905,41 @@ class Payrun extends Controller
         }
 
         return $defaultMessage;
+    }
+
+    // Writes test diagnostics without exposing Spendl credentials or bearer tokens.
+    private function logSpendlApiEvent(string $event, array $context): void
+    {
+        $logContext = $this->redactSpendlLogData($context);
+        $encodedContext = json_encode($logContext, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($encodedContext === false) {
+            $encodedContext = '{"logEncodingError":true}';
+        }
+
+        error_log('[Spendl API][' . $event . '] ' . $encodedContext);
+    }
+
+    private function redactSpendlLogData($value)
+    {
+        if (is_array($value)) {
+            $redacted = [];
+            foreach ($value as $key => $item) {
+                $normalizedKey = is_string($key) ? strtolower($key) : '';
+                if (in_array($normalizedKey, ['apikey', 'apisecret', 'accesstoken', 'authorization'], true)) {
+                    $redacted[$key] = '[REDACTED]';
+                } else {
+                    $redacted[$key] = $this->redactSpendlLogData($item);
+                }
+            }
+            return $redacted;
+        }
+
+        if (is_string($value)) {
+            $value = preg_replace('/(Authorization:\s*Bearer\s+)[^\s,]+/i', '$1[REDACTED]', $value);
+            return preg_replace('/("(?:apiKey|apiSecret|accessToken)"\s*:\s*")[^"]*(")/i', '$1[REDACTED]$2', $value);
+        }
+
+        return $value;
     }
 
     // Returns the documented Spendl payslip API responses during frontend development.
