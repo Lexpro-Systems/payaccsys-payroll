@@ -11942,6 +11942,108 @@ class Payrun extends Controller
         return $value;
     }
 
+    // Function to build payment batch data required for frontend preview and Payaccsys Payments API
+    private function buildPaymentsBatch($payrunId, $user, $db)
+    {
+        // Confirm that the payrun exists and has been processed.
+        $sqlQuery =
+            'SELECT ' .
+            'payruns.id, ' .
+            'payruns.description, ' .
+            'payruns.to_date, ' .
+            'payruns.processed_on ' .
+            'FROM ' .
+            'payruns ' .
+            'WHERE ' .
+            'payruns.id = $1;';
+
+        $sqlResult = $db->paramQuery($sqlQuery, [$payrunId]);
+
+        if (!$sqlResult->isValid()) {
+           return [
+                'ok' => false,
+                'error' => 'Database error.'
+            ];
+        }
+
+        if ($sqlResult->getRowCount() !== 1) {
+            return [
+                'ok' => false,
+                'error' => 'Payrun \'' . $payrunId . '\' not found.'
+            ];
+        }
+
+        $payrunRow = $sqlResult->fetchAssociative();
+
+        if ($payrunRow['processed_on'] === null) {
+            return [
+                'ok' => false,
+                'error' => 'The specified payrun has not been processed.'
+            ];
+        }
+
+        // Load the active payment transactions.
+        $loadResult = $this->loadPaymentsBatchPreview($payrunId, $user, $db);
+
+        if ($loadResult['ok'] !== true) {
+            return $loadResult;
+        }
+
+        $transactions = [];
+        $totalAmountCents = 0;
+        $batchIsReady = true;
+
+        foreach ($loadResult['transactions'] as $transaction) {
+            $transaction = $this->validatePaymentTransaction($transaction);
+
+            if ($transaction['localCheck']['valid'] !== true) {
+                $batchIsReady = false;
+            }
+
+            $totalAmountCents += $transaction['amountCents'];
+            $transactions[] = $transaction;
+        }
+
+        $records = count($transactions);
+
+        if ($records === 0) {
+            $batchIsReady = false;
+        }
+
+        /*
+        * Only calculate a usable hash when every transaction has passed the local checks. An invalid preview must not be sent to the API.
+        */
+        $hashValue = null;
+
+        if ($batchIsReady) {
+            $hashValue = $this->calculatePaymentsHashValue($transactions);
+        }
+
+        $response = [
+            'ok' => true,
+            'batch' => [
+                'payrunId' => $payrunId,
+                'description' => $payrunRow['description'],
+
+                // Initial default; this can become editable in the panel later.
+                'actionDate' => $payrunRow['to_date'],
+
+                // Temporary value pending configuration.
+                'paymentType' => 'SSVS',
+
+                'records' => $records,
+
+                'totalAmount' => number_format($totalAmountCents / 100, 2, '.', ''),
+
+                'hashValue' => $hashValue,
+                'ready' => $batchIsReady,
+                'transactions' => $transactions
+            ]
+        ];
+
+        return $response;
+    }
+
     //Helper function related to Payaccsys Payments Validate panel - returns normalised transactions
     //Loads the processed payrun and its active payment transactions
     private function loadPaymentsBatchPreview($payrunId, $user, $db){
@@ -12314,6 +12416,8 @@ class Payrun extends Controller
         $defaults = [];
         Json::copy($defaults, $data);
 
+        $payrunId = $data['payrunId'];
+
         $validationResult = Json::validate($data, [
             'payrunId' => [
                 'type' => Json::TYPE_INT,
@@ -12338,125 +12442,26 @@ class Payrun extends Controller
             return false;
         }
 
-        $payrunId = $data['payrunId'];
+        $batchResult = $this->buildPaymentsBatch($data['payrunId'], $user, $db);
 
-        // Confirm that the payrun exists and has been processed.
-        $sqlQuery =
-            'SELECT ' .
-            'payruns.id, ' .
-            'payruns.description, ' .
-            'payruns.to_date, ' .
-            'payruns.processed_on ' .
-            'FROM ' .
-            'payruns ' .
-            'WHERE ' .
-            'payruns.id = $1;';
-
-        $sqlResult = $db->paramQuery($sqlQuery, [$payrunId]);
-
-        if (!$sqlResult->isValid()) {
-            echo json_encode([
-                'ok' => false,
-                'error' => 'Database error.'
-            ]);
+        if ($batchResult['ok'] !== true) {
+            echo json_encode($batchResult);
             return false;
-        }
-
-        if ($sqlResult->getRowCount() !== 1) {
-            echo json_encode([
-                'ok' => false,
-                'error' => 'Payrun \'' . $payrunId . '\' not found.'
-            ]);
-            return false;
-        }
-
-        $payrunRow = $sqlResult->fetchAssociative();
-
-        if ($payrunRow['processed_on'] === null) {
-            echo json_encode([
-                'ok' => false,
-                'error' => 'The specified payrun has not been processed.'
-            ]);
-            return false;
-        }
-
-        // Load the active payment transactions.
-        $loadResult = $this->loadPaymentsBatchPreview($payrunId, $user, $db);
-
-        if ($loadResult['ok'] !== true) {
-            echo json_encode($loadResult);
-            return false;
-        }
-
-        $transactions = [];
-        $totalAmountCents = 0;
-        $batchIsReady = true;
-
-        foreach ($loadResult['transactions'] as $transaction) {
-            $transaction = $this->validatePaymentTransaction($transaction);
-
-            if ($transaction['localCheck']['valid'] !== true) {
-                $batchIsReady = false;
-            }
-
-            $totalAmountCents += $transaction['amountCents'];
-            $transactions[] = $transaction;
-        }
-
-        $records = count($transactions);
-
-        if ($records === 0) {
-            $batchIsReady = false;
         }
 
         /*
-        * Only calculate a usable hash when every transaction has passed the
-        * local checks. An invalid preview must not be sent to the API.
+        * the amount in Cents (amountCents) is necessary for internal calculations but is not part of the panel or external API data, so remove it from the public response.
+        * hasBankDetails is also not required for the panel or external API data, so remove it from the public response.
         */
-        $hashValue = null;
-
-        if ($batchIsReady) {
-            $hashValue = $this->calculatePaymentsHashValue($transactions);
-        }
-
-        /*
-        * amountCents is useful internally but is not part of the panel or
-        * external API data, so remove it from the public response.
-        */
-        foreach ($transactions as &$transaction) {
+        foreach ($batchResult['batch']['transactions'] as &$transaction) {
             unset($transaction['amountCents']);
             unset($transaction['hasBankDetails']);
         }
+        //Remove the reference to the original array to avoid accidental modifications after the loop.
         unset($transaction);
 
-        $response = [
-            'ok' => true,
-            'batch' => [
-                'payrunId' => $payrunId,
-                'description' => $payrunRow['description'],
+        echo json_encode($batchResult);
 
-                // Initial default; this can become editable in the panel later.
-                'actionDate' => $payrunRow['to_date'],
-
-                // Temporary value pending configuration.
-                'paymentType' => 'SSVS',
-
-                'records' => $records,
-
-                'totalAmount' => number_format(
-                    $totalAmountCents / 100,
-                    2,
-                    '.',
-                    ''
-                ),
-
-                'hashValue' => $hashValue,
-                'ready' => $batchIsReady,
-                'transactions' => $transactions
-            ]
-        ];
-
-        echo json_encode($response);
         return true;
     }
 }

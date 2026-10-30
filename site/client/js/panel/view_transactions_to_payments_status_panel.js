@@ -1,7 +1,7 @@
 /* globals app, lx */
 'use strict';
 
-// SEND PAYSLIPS TO SPENDL WALLET PANEL
+// VIEW STATUS OF TRANSACTIONS SENT TO PAYACCSYS PAYMENTS
 //
 // Config:
 //  renderTo:           The parent DOM object of this object
