@@ -6639,6 +6639,120 @@ class Payrun extends Controller
         return true;
     }
 
+    // Returns the documented Spendl payslip API responses during frontend development.
+    public function testApiResponse($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        echo (json_encode([
+            'ok' => true,
+            'responses' => [
+                [
+                    'code' => 201,
+                    'type' => 'created',
+                    'when' => 'A new payslip was created. Spendl returns the payslip ID, user ID and awaiting_document status.'
+                ],
+                [
+                    'code' => 200,
+                    'type' => 'replay',
+                    'when' => 'The same idempotency key and payload were submitted again, so Spendl returned the original result.'
+                ],
+                [
+                    'code' => 404,
+                    'type' => 'USER_NOT_FOUND',
+                    'when' => 'No Spendl user was found for the tenant with the supplied email address.'
+                ],
+                [
+                    'code' => 409,
+                    'type' => 'IDENTITY_MISMATCH',
+                    'when' => 'The email belongs to a Spendl user whose ID number does not match the supplied ID number.'
+                ],
+                [
+                    'code' => 409,
+                    'type' => 'IDEMPOTENCY_KEY_REUSED',
+                    'when' => 'The idempotency key was previously used with a different request body.'
+                ],
+                [
+                    'code' => 422,
+                    'type' => 'VALIDATION_ERROR',
+                    'when' => 'Required fields are missing or malformed, or the payslip totals do not reconcile.'
+                ],
+                [
+                    'code' => 422,
+                    'type' => 'IDEMPOTENCY_KEY_MISMATCH / MISSING_IDEMPOTENCY_KEY',
+                    'when' => 'The body and header idempotency keys differ, or the required idempotency key was not supplied.'
+                ],
+                [
+                    'code' => 401,
+                    'type' => 'INVALID_TOKEN',
+                    'when' => 'The access token is invalid or expired and must be replaced before retrying.'
+                ]
+            ]
+        ]));
+        return true;
+    }
+
+    // Public endpoint used by the send_transactions_to_payaccsys_payments_panel - validates request and payrun
+    // Returns a preview of the transactions batch for a processed payrun.
+    //
+    // Required Parameters
+    // payrunId    The processed payrun to preview
+    public function getPaymentsBatchPreview($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        $defaults = [];
+        Json::copy($defaults, $data);
+
+        $payrunId = $data['payrunId'];
+
+        $validationResult = Json::validate($data, [
+            'payrunId' => [
+                'type' => Json::TYPE_INT,
+                'required' => true,
+                'nullable' => false
+            ]
+        ]);
+
+        if ($validationResult !== true) {
+            echo json_encode([
+                'ok' => false,
+                'error' => $validationResult
+            ]);
+            return false;
+        }
+
+        if (!isset($user['companyId']) || $user['companyId'] === null) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'No company is selected.'
+            ]);
+            return false;
+        }
+
+        $batchResult = $this->buildPaymentsBatch($data['payrunId'], $user, $db);
+
+        if ($batchResult['ok'] !== true) {
+            echo json_encode($batchResult);
+            return false;
+        }
+
+        /*
+        * the amount in Cents (amountCents) is necessary for internal calculations but is not part of the panel or external API data, so remove it from the public response.
+        * hasBankDetails is also not required for the panel or external API data, so remove it from the public response.
+        */
+        foreach ($batchResult['batch']['transactions'] as &$transaction) {
+            unset($transaction['amountCents']);
+            unset($transaction['hasBankDetails']);
+        }
+        //Remove the reference to the original array to avoid accidental modifications after the loop.
+        unset($transaction);
+
+        echo json_encode($batchResult);
+
+        return true;
+    }
+
 
     //
     // PRIVATE FUNTIONS
@@ -11982,7 +12096,7 @@ class Payrun extends Controller
             ];
         }
 
-        // Load the active payment transactions.
+        // Load the active payment transactions
         $loadResult = $this->loadPaymentsBatchPreview($payrunId, $user, $db);
 
         if ($loadResult['ok'] !== true) {
@@ -12025,7 +12139,7 @@ class Payrun extends Controller
                 'payrunId' => $payrunId,
                 'description' => $payrunRow['description'],
 
-                // Initial default; this can become editable in the panel later.
+                // Initial default
                 'actionDate' => $payrunRow['to_date'],
 
                 // Temporary value pending configuration.
@@ -12044,7 +12158,7 @@ class Payrun extends Controller
         return $response;
     }
 
-    //Helper function related to Payaccsys Payments Validate panel - returns normalised transactions
+    //Helper function related to Payaccsys Payments Send/Validate functionality - returns normalised transactions
     //Loads the processed payrun and its active payment transactions
     private function loadPaymentsBatchPreview($payrunId, $user, $db){
 
@@ -12224,7 +12338,7 @@ class Payrun extends Controller
 
     }
 
-    //Helper function related to Payaccsys Payments Validate panel - local checks per transaction
+    //Helper function related to Payaccsys Payments Send/Validate functionality - local checks per transaction
     // Applies the local required-field checks to one transaction.
     private function validatePaymentTransaction($transaction)
     {
@@ -12266,7 +12380,7 @@ class Payrun extends Controller
         return $transaction;
     }
 
-    //Helper function related to Payaccsys Payments Validate panel
+    //Helper function related to Payaccsys Payments Send/Validate functionality
     //Calculates the 12-digit hash value for the batch of transactions
     private function calculatePaymentsHashValue($transactions)
     {
@@ -12277,16 +12391,10 @@ class Payrun extends Controller
         */
         $decimalStringModulo = function ($value) use ($hashModulus) {
             $result = 0;
-            $digits = preg_replace(
-                '/[^0-9]/',
-                '',
-                (string)$value
-            );
+            $digits = preg_replace('/[^0-9]/', '', (string)$value);
 
             for ($i = 0; $i < strlen($digits); $i++) {
-                $result = (
-                    ($result * 10) + (int)$digits[$i]
-                ) % $hashModulus;
+                $result = (($result * 10) + (int)$digits[$i]) % $hashModulus;
             }
 
             return $result;
@@ -12302,14 +12410,10 @@ class Payrun extends Controller
 
             while ($right > 0) {
                 if (($right % 2) === 1) {
-                    $result = (
-                        $result + $left
-                    ) % $hashModulus;
+                    $result = ($result + $left) % $hashModulus;
                 }
 
-                $left = (
-                    $left * 2
-                ) % $hashModulus;
+                $left = ($left * 2) % $hashModulus;
 
                 $right = intdiv($right, 2);
             }
@@ -12321,147 +12425,19 @@ class Payrun extends Controller
         $totalAmountCents = 0;
 
         foreach ($transactions as $transaction) {
-            $accountNumberModulo = $decimalStringModulo(
-                $transaction['bankAccountNumber']
-            );
 
-            $transactionHash = $multiplyModulo(
-                $accountNumberModulo,
-                $transaction['amountCents']
-            );
+            $accountNumberModulo = $decimalStringModulo($transaction['bankAccountNumber']);
 
-            $hashCalculation = (
-                $hashCalculation + $transactionHash
-            ) % $hashModulus;
+            $transactionHash = $multiplyModulo($accountNumberModulo, $transaction['amountCents']);
+
+            $hashCalculation = ($hashCalculation + $transactionHash) % $hashModulus;
 
             $totalAmountCents += $transaction['amountCents'];
         }
 
         // Add the total batch amount in cents.
-        $hashCalculation = (
-            $hashCalculation +
-            ($totalAmountCents % $hashModulus)
-        ) % $hashModulus;
+        $hashCalculation = ($hashCalculation + ($totalAmountCents % $hashModulus)) % $hashModulus;
 
-        return str_pad(
-            (string)$hashCalculation,
-            12,
-            '0',
-            STR_PAD_LEFT
-        );
-    }
-
-    // Returns the documented Spendl payslip API responses during frontend development.
-    public function testApiResponse($data, $user, $db)
-    {
-        header('Content-Type: application/json');
-
-        echo (json_encode([
-            'ok' => true,
-            'responses' => [
-                [
-                    'code' => 201,
-                    'type' => 'created',
-                    'when' => 'A new payslip was created. Spendl returns the payslip ID, user ID and awaiting_document status.'
-                ],
-                [
-                    'code' => 200,
-                    'type' => 'replay',
-                    'when' => 'The same idempotency key and payload were submitted again, so Spendl returned the original result.'
-                ],
-                [
-                    'code' => 404,
-                    'type' => 'USER_NOT_FOUND',
-                    'when' => 'No Spendl user was found for the tenant with the supplied email address.'
-                ],
-                [
-                    'code' => 409,
-                    'type' => 'IDENTITY_MISMATCH',
-                    'when' => 'The email belongs to a Spendl user whose ID number does not match the supplied ID number.'
-                ],
-                [
-                    'code' => 409,
-                    'type' => 'IDEMPOTENCY_KEY_REUSED',
-                    'when' => 'The idempotency key was previously used with a different request body.'
-                ],
-                [
-                    'code' => 422,
-                    'type' => 'VALIDATION_ERROR',
-                    'when' => 'Required fields are missing or malformed, or the payslip totals do not reconcile.'
-                ],
-                [
-                    'code' => 422,
-                    'type' => 'IDEMPOTENCY_KEY_MISMATCH / MISSING_IDEMPOTENCY_KEY',
-                    'when' => 'The body and header idempotency keys differ, or the required idempotency key was not supplied.'
-                ],
-                [
-                    'code' => 401,
-                    'type' => 'INVALID_TOKEN',
-                    'when' => 'The access token is invalid or expired and must be replaced before retrying.'
-                ]
-            ]
-        ]));
-        return true;
-    }
-
-    // Public endpoint used by the Validate panel - validates request and payrun
-    // Returns a preview of the Payaccsys Payments batch for a processed payrun for display in the Validate panel.
-    //
-    // Required Parameters
-    // payrunId    The processed payrun to preview
-    public function getPaymentsBatchPreview($data, $user, $db)
-    {
-        header('Content-Type: application/json');
-
-        $defaults = [];
-        Json::copy($defaults, $data);
-
-        $payrunId = $data['payrunId'];
-
-        $validationResult = Json::validate($data, [
-            'payrunId' => [
-                'type' => Json::TYPE_INT,
-                'required' => true,
-                'nullable' => false
-            ]
-        ]);
-
-        if ($validationResult !== true) {
-            echo json_encode([
-                'ok' => false,
-                'error' => $validationResult
-            ]);
-            return false;
-        }
-
-        if (!isset($user['companyId']) || $user['companyId'] === null) {
-            echo json_encode([
-                'ok' => false,
-                'error' => 'No company is selected.'
-            ]);
-            return false;
-        }
-
-        $batchResult = $this->buildPaymentsBatch($data['payrunId'], $user, $db);
-
-        if ($batchResult['ok'] !== true) {
-            echo json_encode($batchResult);
-            return false;
-        }
-
-        /*
-        * the amount in Cents (amountCents) is necessary for internal calculations but is not part of the panel or external API data, so remove it from the public response.
-        * hasBankDetails is also not required for the panel or external API data, so remove it from the public response.
-        */
-        foreach ($batchResult['batch']['transactions'] as &$transaction) {
-            unset($transaction['amountCents']);
-            unset($transaction['hasBankDetails']);
-        }
-        //Remove the reference to the original array to avoid accidental modifications after the loop.
-        unset($transaction);
-
-        echo json_encode($batchResult);
-
-        return true;
+        return str_pad((string)$hashCalculation, 12, '0', STR_PAD_LEFT);
     }
 }
