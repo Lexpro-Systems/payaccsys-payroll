@@ -64,4 +64,13 @@
     define('CONF_LEXPRO_API_URL', 'https://www.lexproonline.co.za/api/v1/request.php');
     define('CONF_LEXPRO_API_ACCESS_KEY', '');
     define('CONF_SPENDL_ACCESS_TOKEN', '');
+
+    //
+    // PAYACCSYS INTEGRATED API CONFIG (PAYMENTS)
+    //
+    
+    define('CONF_PAYMENTSINTEGRATED_API_URL', '');
+    define('CONF_PAYMENTSINTEGRATED_API_KEY', '');
+    define('CONF_PAYMENTSINTEGRATED_API_ACCESS_TOKEN', '');
+    define('CONF_PAYMENTSINTEGRATED_API_SECRET', '');
 ?>

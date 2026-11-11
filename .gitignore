@@ -39,3 +39,6 @@
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# Local Codex agent instructions
+/AGENTS.md

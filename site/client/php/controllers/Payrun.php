@@ -6753,6 +6753,78 @@ class Payrun extends Controller
         return true;
     }
 
+    // Build and send the selected payrun's nett pay and employee's banking details to the Payments Integrated API.
+    //
+    // Required Parameters
+    // payrunId        The selected, processed payrun of which employees must be paid through the external API
+    //
+    // Returns one response result per employee for display in the frontend grid.
+    public function paymentsIntegratedApiCaller($data, $user, $db)
+    {
+        header('Content-Type: application/json');
+
+        # Validates the provided payrunId.
+        $defaults = [];
+        Json::copy($defaults, $data);
+        $validationResult = Json::validate($data, [
+            'payrunId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
+        ]);
+        if ($validationResult !== true) {
+            echo (json_encode(['ok' => false, 'error' => $validationResult]));
+            return false;
+        }
+
+        # Checks if a company exists.
+        if (!isset($user['companyId']) || $user['companyId'] === null) {
+            echo (json_encode(['ok' => false, 'error' => 'No company is selected.']));
+            return false;
+        }
+
+        # Calls the method to build the JSON payments integrated payloads.
+        $payrunId = (int)$data['payrunId'];
+
+        $payloadResult = $this->buildPaymentsIntegratedPayloads($payrunId, $user, $db);
+        if ($payloadResult['ok'] !== true) {
+            echo json_encode($payloadResult);
+            return false;
+        }
+
+        # Loads payments integrated API information(api_url, api_key, api_secrets).
+        $paymentsIntegratedConfiguration = $this->getPaymentsIntegratedApiConfiguration();
+        if ($paymentsIntegratedConfiguration['ok'] !== true) {
+            echo (json_encode($paymentsIntegratedConfiguration));
+            return false;
+        }
+
+        # Creates a JWT token for the payments integrated API call.
+        $jwtResult = $this->createPaymentsIntegratedJwt($paymentsIntegratedConfiguration);
+        if ($jwtResult['ok'] !== true) {
+            echo json_encode($jwtResult);
+            return false;
+        }
+
+        $requestPayload = [
+            'token' => $jwtResult['token'],
+            'payments' => $payloadResult['payments']
+        ];
+
+        # Check that there is at least one payment
+        if (!isset($payloadResult['payments']) || !is_array($payloadResult['payments']) || count($payloadResult['payments']) === 0) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'No payments are available for this payrun.'
+            ]);
+
+            return false;
+        }
+
+        # Send HTTP POST request and receive response
+        $requestResult = $this->sendPaymentsIntegratedRequest(
+            $paymentsIntegratedConfiguration['paymentsIntegratedUrl'],
+            $requestPayload
+        );
+    }
+
 
     //
     // PRIVATE FUNTIONS
@@ -12129,9 +12201,9 @@ class Payrun extends Controller
         */
         $hashValue = null;
 
-        if ($batchIsReady) {
-            $hashValue = $this->calculatePaymentsHashValue($transactions);
-        }
+        // if ($batchIsReady) {
+        //     $hashValue = $this->calculatePaymentsHashValue($transactions);
+        // }
 
         $response = [
             'ok' => true,
@@ -12149,7 +12221,7 @@ class Payrun extends Controller
 
                 'totalAmount' => number_format($totalAmountCents / 100, 2, '.', ''),
 
-                'hashValue' => $hashValue,
+                //'hashValue' => $hashValue,
                 'ready' => $batchIsReady,
                 'transactions' => $transactions
             ]
@@ -12380,64 +12452,209 @@ class Payrun extends Controller
         return $transaction;
     }
 
-    //Helper function related to Payaccsys Payments Send/Validate functionality
-    //Calculates the 12-digit hash value for the batch of transactions
-    private function calculatePaymentsHashValue($transactions)
+    // //Helper function related to Payaccsys Payments Online Send/Validate functionality
+    // //Calculates the 12-digit hash value for the batch of transactions
+    // private function calculatePaymentsHashValue($transactions)
+    // {
+    //     $hashModulus = 1000000000000;
+
+    //     /*
+    //     * Returns the value of a potentially long decimal string modulo 1,000,000,000,000 without converting the entire value to an integer.
+    //     */
+    //     $decimalStringModulo = function ($value) use ($hashModulus) {
+    //         $result = 0;
+    //         $digits = preg_replace('/[^0-9]/', '', (string)$value);
+
+    //         for ($i = 0; $i < strlen($digits); $i++) {
+    //             $result = (($result * 10) + (int)$digits[$i]) % $hashModulus;
+    //         }
+
+    //         return $result;
+    //     };
+
+    //     /*
+    //     * Multiplies two values modulo 1,000,000,000,000 without allowing the intermediate multiplication to overflow.
+    //     */
+    //     $multiplyModulo = function ($left, $right) use ($hashModulus) {
+    //         $result = 0;
+    //         $left = $left % $hashModulus;
+    //         $right = (int)$right;
+
+    //         while ($right > 0) {
+    //             if (($right % 2) === 1) {
+    //                 $result = ($result + $left) % $hashModulus;
+    //             }
+
+    //             $left = ($left * 2) % $hashModulus;
+
+    //             $right = intdiv($right, 2);
+    //         }
+
+    //         return $result;
+    //     };
+
+    //     $hashCalculation = 0;
+    //     $totalAmountCents = 0;
+
+    //     foreach ($transactions as $transaction) {
+
+    //         $accountNumberModulo = $decimalStringModulo($transaction['bankAccountNumber']);
+
+    //         $transactionHash = $multiplyModulo($accountNumberModulo, $transaction['amountCents']);
+
+    //         $hashCalculation = ($hashCalculation + $transactionHash) % $hashModulus;
+
+    //         $totalAmountCents += $transaction['amountCents'];
+    //     }
+
+    //     // Add the total batch amount in cents.
+    //     $hashCalculation = ($hashCalculation + ($totalAmountCents % $hashModulus)) % $hashModulus;
+
+    //     return str_pad((string)$hashCalculation, 12, '0', STR_PAD_LEFT);
+    // }
+
+    // Returns the temporary Payaccsys Integrated API configuration used during the build phase.
+    private function getPaymentsIntegratedApiConfiguration(): array
     {
-        $hashModulus = 1000000000000;
+        $paymentsIntegratedUrl = defined('CONF_PAYMENTSINTEGRATED_API_URL') ? trim((string)CONF_PAYMENTSINTEGRATED_API_URL) : '';
+        $paymentsIntegratedApiKey = defined('CONF_PAYMENTSINTEGRATED_API_KEY') ? trim((string)CONF_PAYMENTSINTEGRATED_API_KEY) : '';
+        $paymentsIntegratedApiSecret = defined('CONF_PAYMENTSINTEGRATED_API_SECRET') ? trim((string)CONF_PAYMENTSINTEGRATED_API_SECRET) : '';
+        $paymentsIntegratedAccessToken = defined('CONF_PAYMENTSINTEGRATED_API_ACCESS_TOKEN') ? trim((string)CONF_PAYMENTSINTEGRATED_API_ACCESS_TOKEN) : '';
 
-        /*
-        * Returns the value of a potentially long decimal string modulo 1,000,000,000,000 without converting the entire value to an integer.
-        */
-        $decimalStringModulo = function ($value) use ($hashModulus) {
-            $result = 0;
-            $digits = preg_replace('/[^0-9]/', '', (string)$value);
+        if ($paymentsIntegratedUrl === 'PAYMENTSINTEGRATED_API_URL_PLACEHOLDER') $paymentsIntegratedUrl = '';
+        if ($paymentsIntegratedApiKey === 'PAYMENTS_API_KEY_PLACEHOLDER') $paymentsIntegratedApiKey = '';
+        if ($paymentsIntegratedApiSecret === 'PAYMENTS_API_SECRET_PLACEHOLDER') $paymentsIntegratedApiSecret = '';
+        if ($paymentsIntegratedAccessToken === 'PAYMENTS_ACCESS_TOKEN_PLACEHOLDER') $paymentsIntegratedAccessToken = '';
 
-            for ($i = 0; $i < strlen($digits); $i++) {
-                $result = (($result * 10) + (int)$digits[$i]) % $hashModulus;
-            }
-
-            return $result;
-        };
-
-        /*
-        * Multiplies two values modulo 1,000,000,000,000 without allowing the intermediate multiplication to overflow.
-        */
-        $multiplyModulo = function ($left, $right) use ($hashModulus) {
-            $result = 0;
-            $left = $left % $hashModulus;
-            $right = (int)$right;
-
-            while ($right > 0) {
-                if (($right % 2) === 1) {
-                    $result = ($result + $left) % $hashModulus;
-                }
-
-                $left = ($left * 2) % $hashModulus;
-
-                $right = intdiv($right, 2);
-            }
-
-            return $result;
-        };
-
-        $hashCalculation = 0;
-        $totalAmountCents = 0;
-
-        foreach ($transactions as $transaction) {
-
-            $accountNumberModulo = $decimalStringModulo($transaction['bankAccountNumber']);
-
-            $transactionHash = $multiplyModulo($accountNumberModulo, $transaction['amountCents']);
-
-            $hashCalculation = ($hashCalculation + $transactionHash) % $hashModulus;
-
-            $totalAmountCents += $transaction['amountCents'];
+        # Prevent an accidental external request while the temporary credentials are still placeholders.
+        if ($paymentsIntegratedUrl === '' || $paymentsIntegratedApiKey === '' ||  $paymentsIntegratedAccessToken === '') {
+            return [
+                'ok' => false,
+                'error' => 'Payments Integrated API configuration is incomplete.',
+                'configurationRequired' => true
+            ];
         }
 
-        // Add the total batch amount in cents.
-        $hashCalculation = ($hashCalculation + ($totalAmountCents % $hashModulus)) % $hashModulus;
+        return [
+            'ok' => true,
+            'paymentsIntegratedUrl' => $paymentsIntegratedUrl,
+            'paymentsIntegratedApiKey' => $paymentsIntegratedApiKey,
+            'paymentsIntegratedApiSecret' => $paymentsIntegratedApiSecret,
+            'paymentsIntegratedAccessToken' => $paymentsIntegratedAccessToken
+        ];
+    }
 
-        return str_pad((string)$hashCalculation, 12, '0', STR_PAD_LEFT);
+    // Loads the payrun data and returns the structured payments integrated payloads.
+    private function buildPaymentsIntegratedPayloads(int $payrunId, array $user, $db): array
+    {
+        $batchResult = $this->buildPaymentsBatch($payrunId, $user, $db);
+
+        if ($batchResult['ok'] !== true) {
+            return $batchResult;
+        }
+
+        $payments = [];
+
+        foreach ($batchResult['batch']['transactions'] as $transaction) {
+            $employeeCode = trim((string)$transaction['employeeCode']);
+
+                $payments[] = [
+                    // Temporary until the employee/supplier mapping table exists.
+                    'supplierCode' => null,
+
+                    'amount' => (float)$transaction['amount'],
+                    'paymentDate' => $batchResult['batch']['actionDate'],
+                    'reference' => $transaction['reference'],
+
+                    // Temporary correlation value until its provider rules are confirmed.
+                    'uniqueReference' => $employeeCode,
+
+                    'sendPaymentAdvice' => false,
+                    'immediatePayment' => false,
+                    'oneDayPayment' => false,
+                    'custom' => null
+                ];
+        }
+
+        return [
+            'ok' => true,
+            'payrunId' => $payrunId,
+            'payments' => $payments
+        ];
+    }
+
+    private function base64UrlEncode(string $value): string
+    {
+        return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+
+    // Helper function to create a JWT for the Payments Integrated API using the provided configuration.
+    private function createPaymentsIntegratedJwt(array $configuration): array {
+
+        if (!isset($configuration['paymentsIntegratedApiKey']) || trim((string)$configuration['paymentsIntegratedApiKey']) === '' || !isset($configuration['paymentsIntegratedAccessToken']) || trim((string)$configuration['paymentsIntegrateAccessToken']) === '' || !isset($configuration['paymentsIntegratedApiSecret']) || trim((string)$configuration['paymentsIntegratedApiSecret']) === '') {
+            return [
+                'ok' => false,
+                'error' => 'The Payments Integrated JWT configuration is incomplete.',
+                'configurationRequired' => true
+            ];
+        }
+        // Generate a secure random JWT ID (jti) for the token.
+        try {
+            $jti = bin2hex(random_bytes(16));
+        } catch (Exception $exception) {
+            return [
+                'ok' => false,
+                'error' => 'Unable to generate a secure JWT ID.'
+            ];
+        }
+
+        $issuedAt = time();
+        //One hour lifetime
+        $expiresAt = $issuedAt + 3600;
+
+        $jwtHeader = [
+            'typ' => 'JWT',
+            'alg' => 'HS256'
+        ];
+
+        $claims = [
+            'apiKey' => $configuration['paymentsIntegratedApiKey'],
+            'accessToken' => $configuration['paymentsIntegratedAccessToken'],
+            'jti' => $jti,
+            'iat' => $issuedAt,
+            'exp' => $expiresAt
+        ];
+
+        $encodedJwtHeader = json_encode($jwtHeader);
+        $encodedClaims = json_encode($claims);
+
+        if ($encodedJwtHeader === false || $encodedClaims === false) {
+            return [
+                'ok' => false,
+                'error' => 'Unable to encode the Payments Integrated JWT.'
+            ];
+        }
+
+        $encodedJwtHeader = $this->base64UrlEncode($encodedJwtHeader);
+        $encodedClaims = $this->base64UrlEncode($encodedClaims);
+
+        $signingInput = $encodedJwtHeader . '.' . $encodedClaims;
+
+        $signature = hash_hmac(
+            'sha256',
+            $signingInput,
+            $configuration['paymentsIntegratedApiSecret'],
+            true
+        );
+
+        $jwt = $signingInput . '.' . $this->base64UrlEncode($signature);
+
+        return [
+            'ok' => true,
+            'token' => $jwt,
+            'jti' => $jti,
+            'issuedAt' => $issuedAt,
+            'expiresAt' => $expiresAt
+        ];
     }
 }
