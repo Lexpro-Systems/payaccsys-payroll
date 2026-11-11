@@ -6780,12 +6780,30 @@ class Payrun extends Controller
             return false;
         }
 
-        # Calls the method to build the JSON payments integrated payloads.
         $payrunId = (int)$data['payrunId'];
 
+        # Calls the method to build the JSON payments integrated payloads.
         $payloadResult = $this->buildPaymentsIntegratedPayloads($payrunId, $user, $db);
         if ($payloadResult['ok'] !== true) {
             echo json_encode($payloadResult);
+            return false;
+        }
+
+        # Check that there is at least one payment
+        if (!isset($payloadResult['payments']) || !is_array($payloadResult['payments']) || count($payloadResult['payments']) === 0) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'No payments are available for this payrun.'
+            ]);
+            return false;
+        }
+
+        # Validate batchDescription
+        if (!isset($payloadResult['batchDescription']) || trim((string)$payloadResult['batchDescription']) === '') {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'A batch description is required.'
+            ]);
             return false;
         }
 
@@ -6805,18 +6823,9 @@ class Payrun extends Controller
 
         $requestPayload = [
             'token' => $jwtResult['token'],
+            'batchDescription' => $payloadResult['batchDescription'],
             'payments' => $payloadResult['payments']
         ];
-
-        # Check that there is at least one payment
-        if (!isset($payloadResult['payments']) || !is_array($payloadResult['payments']) || count($payloadResult['payments']) === 0) {
-            echo json_encode([
-                'ok' => false,
-                'error' => 'No payments are available for this payrun.'
-            ]);
-
-            return false;
-        }
 
         # Send HTTP POST request and receive response
         $requestResult = $this->sendPaymentsIntegratedRequest(
@@ -11414,98 +11423,19 @@ class Payrun extends Controller
         );
     }
 
-    // Sends a JSON POST request while preserving the HTTP response for the calling function.
+    // Sends a JSON POST request to Spendl
     private function sendSpendlJsonRequest(string $url, array $payload, array $additionalHeaders = []): array
     {
         $eventType = substr($url, -11) === '/auth/token' ? 'authentication' : 'payslip';
 
-        if (!function_exists('curl_init')) {
-            $result = [
-                'transportOk' => false,
-                'httpStatus' => 0,
-                'response' => null,
-                'error' => 'The PHP cURL extension is not available.'
-            ];
-            $this->logSpendlApiEvent($eventType . '.response', $result);
-            return $result;
-        }
+        $loggedHeaders = array_merge(['Accept: application/json', 'Content-Type: application/json'], $additionalHeaders);
 
-        $jsonPayload = json_encode($payload);
-        if ($jsonPayload === false) {
-            $result = [
-                'transportOk' => false,
-                'httpStatus' => 0,
-                'response' => null,
-                'error' => 'Unable to encode the Spendl request as JSON.'
-            ];
-            $this->logSpendlApiEvent($eventType . '.response', $result);
-            return $result;
-        }
+        $this->logSpendlApiEvent($eventType . '.request', ['method' => 'POST', 'url' => $url, 'headers' => $loggedHeaders, 'body' => $payload]);
 
-        $headers = array_merge([
-            'Accept: application/json',
-            'Content-Type: application/json',
-            'Content-Length: ' . strlen($jsonPayload)
-        ], $additionalHeaders);
+        $result = $this->sendJsonPostRequest($url, $payload, $additionalHeaders);
 
-        $this->logSpendlApiEvent($eventType . '.request', [
-            'method' => 'POST',
-            'url' => $url,
-            'headers' => $headers,
-            'body' => $payload
-        ]);
-
-        $curlHandle = curl_init();
-        curl_setopt($curlHandle, CURLOPT_URL, $url);
-        curl_setopt($curlHandle, CURLOPT_POST, true);
-        curl_setopt($curlHandle, CURLOPT_POSTFIELDS, $jsonPayload);
-        curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curlHandle, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($curlHandle, CURLOPT_TIMEOUT, 30);
-        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYHOST, 2);
-        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($curlHandle, CURLOPT_HTTPHEADER, $headers);
-
-        $responseBody = curl_exec($curlHandle);
-        $httpStatus = (int)curl_getinfo($curlHandle, CURLINFO_HTTP_CODE);
-
-        if ($responseBody === false) {
-            $error = curl_error($curlHandle);
-            @curl_close($curlHandle);
-
-            $result = [
-                'transportOk' => false,
-                'httpStatus' => $httpStatus,
-                'response' => null,
-                'error' => $error
-            ];
-            $this->logSpendlApiEvent($eventType . '.response', $result);
-            return $result;
-        }
-
-        @curl_close($curlHandle);
-
-        $decodedResponse = json_decode($responseBody, true);
-        if ($decodedResponse === null && trim($responseBody) !== '' && strtolower(trim($responseBody)) !== 'null') {
-            $result = [
-                'transportOk' => true,
-                'httpStatus' => $httpStatus,
-                'response' => null,
-                'rawResponse' => $responseBody,
-                'error' => null
-            ];
-            $this->logSpendlApiEvent($eventType . '.response', $result);
-            return $result;
-        }
-
-        $result = [
-            'transportOk' => true,
-            'httpStatus' => $httpStatus,
-            'response' => $decodedResponse,
-            'rawResponse' => null,
-            'error' => null
-        ];
         $this->logSpendlApiEvent($eventType . '.response', $result);
+
         return $result;
     }
 
@@ -12513,7 +12443,7 @@ class Payrun extends Controller
     //     return str_pad((string)$hashCalculation, 12, '0', STR_PAD_LEFT);
     // }
 
-    // Returns the temporary Payaccsys Integrated API configuration used during the build phase.
+    // Loads and validates the server-side Payments Integrated API configuration
     private function getPaymentsIntegratedApiConfiguration(): array
     {
         $paymentsIntegratedUrl = defined('CONF_PAYMENTSINTEGRATED_API_URL') ? trim((string)CONF_PAYMENTSINTEGRATED_API_URL) : '';
@@ -12521,13 +12451,8 @@ class Payrun extends Controller
         $paymentsIntegratedApiSecret = defined('CONF_PAYMENTSINTEGRATED_API_SECRET') ? trim((string)CONF_PAYMENTSINTEGRATED_API_SECRET) : '';
         $paymentsIntegratedAccessToken = defined('CONF_PAYMENTSINTEGRATED_API_ACCESS_TOKEN') ? trim((string)CONF_PAYMENTSINTEGRATED_API_ACCESS_TOKEN) : '';
 
-        if ($paymentsIntegratedUrl === 'PAYMENTSINTEGRATED_API_URL_PLACEHOLDER') $paymentsIntegratedUrl = '';
-        if ($paymentsIntegratedApiKey === 'PAYMENTS_API_KEY_PLACEHOLDER') $paymentsIntegratedApiKey = '';
-        if ($paymentsIntegratedApiSecret === 'PAYMENTS_API_SECRET_PLACEHOLDER') $paymentsIntegratedApiSecret = '';
-        if ($paymentsIntegratedAccessToken === 'PAYMENTS_ACCESS_TOKEN_PLACEHOLDER') $paymentsIntegratedAccessToken = '';
-
-        # Prevent an accidental external request while the temporary credentials are still placeholders.
-        if ($paymentsIntegratedUrl === '' || $paymentsIntegratedApiKey === '' ||  $paymentsIntegratedAccessToken === '') {
+        # Prevent an external request if credentials are incomplete
+        if ($paymentsIntegratedUrl === '' || $paymentsIntegratedApiKey === '' || $paymentsIntegratedApiSecret === '' || $paymentsIntegratedAccessToken === '') {
             return [
                 'ok' => false,
                 'error' => 'Payments Integrated API configuration is incomplete.',
@@ -12579,6 +12504,7 @@ class Payrun extends Controller
         return [
             'ok' => true,
             'payrunId' => $payrunId,
+            'batchDescription' => trim((string)$batchResult['batch']['description']),
             'payments' => $payments
         ];
     }
@@ -12591,7 +12517,7 @@ class Payrun extends Controller
     // Helper function to create a JWT for the Payments Integrated API using the provided configuration.
     private function createPaymentsIntegratedJwt(array $configuration): array {
 
-        if (!isset($configuration['paymentsIntegratedApiKey']) || trim((string)$configuration['paymentsIntegratedApiKey']) === '' || !isset($configuration['paymentsIntegratedAccessToken']) || trim((string)$configuration['paymentsIntegrateAccessToken']) === '' || !isset($configuration['paymentsIntegratedApiSecret']) || trim((string)$configuration['paymentsIntegratedApiSecret']) === '') {
+        if (!isset($configuration['paymentsIntegratedApiKey']) || trim((string)$configuration['paymentsIntegratedApiKey']) === '' || !isset($configuration['paymentsIntegratedAccessToken']) || trim((string)$configuration['paymentsIntegratedAccessToken']) === '' || !isset($configuration['paymentsIntegratedApiSecret']) || trim((string)$configuration['paymentsIntegratedApiSecret']) === '') {
             return [
                 'ok' => false,
                 'error' => 'The Payments Integrated JWT configuration is incomplete.',
@@ -12655,6 +12581,110 @@ class Payrun extends Controller
             'jti' => $jti,
             'issuedAt' => $issuedAt,
             'expiresAt' => $expiresAt
+        ];
+    }
+
+    // Sends a JSON request to Payments Integrated API
+    private function sendPaymentsIntegratedRequest(string $url, array $payload): array {
+        
+        return $this->sendJsonPostRequest($url, $payload);
+    
+    }
+
+    // Reusable helper for sending JSON POST requests and preserving the HTTP response
+    private function sendJsonPostRequest(string $url, array $payload, array $additionalHeaders = []): array {
+
+    if (!function_exists('curl_init')) {
+            return [
+                'transportOk' => false,
+                'httpStatus' => 0,
+                'response' => null,
+                'rawResponse' => null,
+                'error' => 'The PHP cURL extension is not available.'
+            ];
+        }
+
+        $jsonPayload = json_encode($payload);
+        if ($jsonPayload === false) {
+            return [
+                'transportOk' => false,
+                'httpStatus' => 0,
+                'response' => null,
+                'rawResponse' => null,
+                'error' => 'Unable to encode the request as JSON.'
+            ];
+        }
+
+        $headers = array_merge(['Accept: application/json', 'Content-Type: application/json', 'Content-Length: ' . strlen($jsonPayload)], $additionalHeaders);
+
+        $curlHandle = curl_init($url);
+
+        if ($curlHandle === false) {
+            return [
+                'transportOk' => false,
+                'httpStatus' => 0,
+                'response' => null,
+                'rawResponse' => null,
+                'error' => 'Unable to initialise the HTTP request.'
+            ];
+        }
+
+        curl_setopt($curlHandle, CURLOPT_POST, true);
+        curl_setopt($curlHandle, CURLOPT_POSTFIELDS, $jsonPayload);
+        curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curlHandle, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($curlHandle, CURLOPT_TIMEOUT, 30);
+        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($curlHandle, CURLOPT_HTTPHEADER, $headers);
+
+        $responseBody = curl_exec($curlHandle);
+        $httpStatus = (int)curl_getinfo(
+            $curlHandle,
+            CURLINFO_HTTP_CODE
+        );
+
+        if ($responseBody === false) {
+            $curlError = curl_error($curlHandle);
+
+            if (PHP_VERSION_ID < 80000) {
+                curl_close($curlHandle);
+            }
+            $curlHandle = null;
+
+            return [
+                'transportOk' => false,
+                'httpStatus' => $httpStatus,
+                'response' => null,
+                'rawResponse' => null,
+                'error' => $curlError !== '' ? $curlError : 'The HTTP request failed.'
+            ];
+        }
+
+        if (PHP_VERSION_ID < 80000) {
+            curl_close($curlHandle);
+        }
+
+        $curlHandle = null;
+
+        $decodedResponse = json_decode($responseBody, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return [
+                'transportOk' => true,
+                'httpStatus' => $httpStatus,
+                'response' => null,
+                'rawResponse' => $responseBody,
+                'error' => null
+            ];
+        }
+
+        return [
+            'transportOk' => true,
+            'httpStatus' => $httpStatus,
+            'response' => $decodedResponse,
+            'rawResponse' => null,
+            'error' => null
         ];
     }
 }
