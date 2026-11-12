@@ -6828,10 +6828,13 @@ class Payrun extends Controller
         ];
 
         # Send HTTP POST request and receive response
-        $requestResult = $this->sendPaymentsIntegratedRequest(
-            $paymentsIntegratedConfiguration['paymentsIntegratedUrl'],
-            $requestPayload
-        );
+        $requestResult = $this->sendPaymentsIntegratedRequest($paymentsIntegratedConfiguration['paymentsIntegratedUrl'], $requestPayload);
+
+        $responseResult = $this->formatPaymentsIntegratedResponse($requestResult, $jwtResult, $payloadResult);
+
+        echo json_encode($responseResult);
+
+        return $responseResult['ok'] === true;
     }
 
 
@@ -12589,6 +12592,277 @@ class Payrun extends Controller
         
         return $this->sendJsonPostRequest($url, $payload);
     
+    }
+    
+    // Formats a Payments Integrated loadBatch response into a stable frontend result.
+    private function formatPaymentsIntegratedResponse(array $requestResult, array $jwtResult, array $payloadResult): array {
+    
+        $httpStatus = isset($requestResult['httpStatus']) ? (int)$requestResult['httpStatus'] : 0;
+        
+        # A transport failure means no usable HTTP response was received.
+        if (!isset($requestResult['transportOk']) || $requestResult['transportOk'] !== true) {
+            $transportError = isset($requestResult['error']) && trim((string)$requestResult['error']) !== '' ? trim((string)$requestResult['error']) : 'Unable to contact the Payments Integrated API.';
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'TRANSPORT_ERROR',
+                'error' => $transportError
+            ];
+        }
+
+        $response = isset($requestResult['response']) && is_array($requestResult['response']) ? $requestResult['response'] : null;
+
+        # The provider was reached but returned a non-success HTTP status.
+        if ($httpStatus < 200 || $httpStatus >= 300) {
+            $apiError = null;
+
+            if (is_array($response) && isset($response['error']) && trim((string)$response['error']) !== '') {
+                $apiError = trim((string)$response['error']);
+            } else if (is_array($response) && isset($response['message']) && trim((string)$response['message']) !== '') {
+                $apiError = trim((string)$response['message']);
+            }
+
+            if ($apiError === null) {
+                $apiError = 'The Payments Integrated API rejected the request with HTTP status ' . $httpStatus . '.';
+            }
+
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'API_ERROR',
+                'error' => $apiError
+            ];
+        }
+
+        # A successful HTTP response must still contain valid JSON.
+        if ($response === null) {
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'INVALID_RESPONSE',
+                'error' => 'The Payments Integrated API returned an invalid JSON response.'
+            ];
+        }
+
+        # Validate the required top-level loadBatch response fields. array_key_exists() is used because isset() treats null as missing.
+        $requiredResponseFields = [
+            'jti',
+            'status',
+            'availableBalance',
+            'totalFees',
+            'totalDeductions',
+            'payments'
+        ];
+
+        $missingResponseFields = [];
+
+        foreach ($requiredResponseFields as $requiredField) {
+            if (!array_key_exists($requiredField, $response)) {
+                $missingResponseFields[] = $requiredField;
+            }
+        }
+
+        if (count($missingResponseFields) > 0) {
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'INVALID_RESPONSE',
+                'error' => 'The Payments Integrated API response is missing required fields: ' . implode(', ', $missingResponseFields) . '.'
+            ];
+        }
+
+        if (!is_array($response['payments'])) {
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'INVALID_RESPONSE',
+                'error' => 'The Payments Integrated API response contains an invalid payments field.'
+            ];
+        }
+
+        $requestJti = isset($jwtResult['jti']) ? trim((string)$jwtResult['jti']) : '';
+        $responseJti = trim((string)$response['jti']);
+        $jtiMatches = $requestJti !== '' && hash_equals($requestJti, $responseJti);
+        $responseStatus = trim((string)$response['status']);
+
+        if ($responseJti === '' || $responseStatus === '' || $jtiMatches !== true) {
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'INVALID_RESPONSE',
+                'error' => 'The Payments Integrated API response contains an invalid jti or status.'
+            ];
+        }
+
+        if (!is_numeric($response['availableBalance']) || !is_numeric($response['totalFees']) || !is_numeric($response['totalDeductions'])) {
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'INVALID_RESPONSE',
+                'error' => 'The Payments Integrated API response contains invalid monetary totals.'
+            ];
+        }
+
+        # Build reference counts for submitted payments.
+        # A reference is safe for automatic correlation only when it occurs exactly once in both the request and response.
+        $submittedPayments = isset($payloadResult['payments']) && is_array($payloadResult['payments']) ? $payloadResult['payments'] : [];
+
+        $submittedReferenceCounts = [];
+
+        foreach ($submittedPayments as $submittedPayment) {
+            $submittedReference = isset($submittedPayment['uniqueReference']) ? trim((string)$submittedPayment['uniqueReference']) : '';
+
+            if ($submittedReference === '') {
+                continue;
+            }
+
+            if (!isset($submittedReferenceCounts[$submittedReference])) {
+                $submittedReferenceCounts[$submittedReference] = 0;
+            }
+
+            $submittedReferenceCounts[$submittedReference]++;
+        }
+
+        # Count returned references before processing the results so duplicate response references are not treated as safe matches.
+        $returnedReferenceCounts = [];
+
+        foreach ($response['payments'] as $returnedPayment) {
+            if (!is_array($returnedPayment)) {
+                continue;
+            }
+
+            $returnedReference = isset($returnedPayment['uniqueReference']) ? trim((string)$returnedPayment['uniqueReference']) : '';
+
+            if ($returnedReference === '') {
+                continue;
+            }
+
+            if (!isset($returnedReferenceCounts[$returnedReference])) {
+                $returnedReferenceCounts[$returnedReference] = 0;
+            }
+
+            $returnedReferenceCounts[$returnedReference]++;
+        }
+
+        $paymentResults = [];
+        $successfulPayments = 0;
+        $failedPayments = 0;
+        $unmatchedPayments = 0;
+        $malformedPayments = 0;
+
+        foreach ($response['payments'] as $paymentIndex => $returnedPayment) {
+            if (!is_array($returnedPayment)) {
+                $malformedPayments++;
+                $failedPayments++;
+                $unmatchedPayments++;
+
+                $paymentResults[] = [
+                    'ok' => false,
+                    'index' => $paymentIndex,
+                    'matched' => false,
+                    'supplierCode' => null,
+                    'status' => 'Failed',
+                    'paymentReference' => null,
+                    'amount' => null,
+                    'fee' => null,
+                    'message' => 'The provider returned an invalid payment result.',
+                    'uniqueReference' => null,
+                    'custom' => null
+                ];
+
+                continue;
+            }
+
+            $supplierCode = isset($returnedPayment['supplierCode']) ? trim((string)$returnedPayment['supplierCode']) : '';
+
+            $paymentStatus = isset($returnedPayment['status']) ? trim((string)$returnedPayment['status']) : '';
+
+            $uniqueReference = isset($returnedPayment['uniqueReference']) ? trim((string)$returnedPayment['uniqueReference']) : '';
+
+            $requiredPaymentFieldsValid = $supplierCode !== '' && $paymentStatus !== '';
+
+            $submittedReferenceCount = $uniqueReference !== '' && isset($submittedReferenceCounts[$uniqueReference]) ? $submittedReferenceCounts[$uniqueReference] : 0;
+
+            $returnedReferenceCount = $uniqueReference !== '' && isset($returnedReferenceCounts[$uniqueReference]) ? $returnedReferenceCounts[$uniqueReference] : 0;
+
+            $matched = $submittedReferenceCount === 1 && $returnedReferenceCount === 1;
+
+            if ($matched !== true) {
+                $unmatchedPayments++;
+            }
+
+            $paymentSuccessful = $requiredPaymentFieldsValid && strcasecmp($paymentStatus, 'Success') === 0;
+
+            if ($paymentSuccessful) {
+                $successfulPayments++;
+            } else {
+                $failedPayments++;
+            }
+
+            if (!$requiredPaymentFieldsValid) {
+                $malformedPayments++;
+            }
+
+            $paymentMessage = isset($returnedPayment['message']) && trim((string)$returnedPayment['message']) !== '' ? trim((string)$returnedPayment['message']) : null;
+
+            if (!$requiredPaymentFieldsValid && $paymentMessage === null) {
+                $paymentMessage = 'The provider response is missing the payment status or supplier code.';
+            }
+
+            $paymentResults[] = [
+                'ok' => $paymentSuccessful,
+                'index' => $paymentIndex,
+                'matched' => $matched,
+                'supplierCode' => $supplierCode !== '' ? $supplierCode : null,
+                'status' => $paymentStatus !== '' ? $paymentStatus : 'Failed',
+                'paymentReference' => isset($returnedPayment['paymentReference']) ? $returnedPayment['paymentReference'] : null,
+                'amount' => isset($returnedPayment['amount']) && is_numeric($returnedPayment['amount']) ? (float)$returnedPayment['amount'] : null,
+                'fee' => isset($returnedPayment['fee']) && is_numeric($returnedPayment['fee']) ? (float)$returnedPayment['fee'] : null,
+                'message' => $paymentMessage,
+                'uniqueReference' => $uniqueReference !== '' ? $uniqueReference : null,
+                'custom' => isset($returnedPayment['custom']) ? $returnedPayment['custom'] : null
+            ];
+        }
+
+        $submittedCount = count($submittedPayments);
+        $returnedCount = count($paymentResults);
+
+        # Warnings describe inconsistencies that should be shown or logged, but do not automatically invalidate an otherwise valid response
+        $warnings = [];
+
+        if ($returnedCount !== $submittedCount) {
+            $warnings[] = 'The provider returned ' . $returnedCount . ' payment results for ' . $submittedCount . ' submitted payments.';
+        }
+
+        if ($unmatchedPayments > 0) {
+            $warnings[] = $unmatchedPayments . ' returned payment result(s) could not be matched uniquely by uniqueReference.';
+        }
+
+        if ($malformedPayments > 0) {
+            $warnings[] = $malformedPayments . ' returned payment result(s) were missing required fields or had an invalid structure.';
+        }
+
+        return [
+            # ok means a structurally valid loadBatch response was received. Individual payment failures are represented below.
+            'ok' => true,
+            'httpStatus' => $httpStatus,
+            'jti' => $responseJti,
+            'jtiMatches' => $jtiMatches,
+            'status' => $responseStatus,
+            'availableBalance' => (float)$response['availableBalance'],
+            'totalFees' => (float)$response['totalFees'],
+            'totalDeductions' => (float)$response['totalDeductions'],
+            'summary' => [
+                'submitted' => $submittedCount,
+                'returned' => $returnedCount,
+                'successful' => $successfulPayments,
+                'failed' => $failedPayments,
+                'unmatched' => $unmatchedPayments,
+                'malformed' => $malformedPayments
+            ],
+            'payments' => $paymentResults,
+            'warnings' => $warnings
+        ];
     }
 
     // Reusable helper for sending JSON POST requests and preserving the HTTP response
