@@ -12285,7 +12285,7 @@ class Payrun extends Controller
         // Temporary payment reference until company-level configuration exists.
         $companyAlias = isset($user['companyAlias']) ? trim($user['companyAlias']) : 'Company';
 
-        $paymentReference = trim(preg_replace('/[^A-Za-z0-9 ]/', '', $companyAlias . ' Salary'));
+        $paymentReference = trim(preg_replace('/[^A-Za-z0-9 ]/', '', $companyAlias));
 
         $transactions = [];
 
@@ -12308,6 +12308,11 @@ class Payrun extends Controller
                 $accountHolderName = trim((string)$sqlRow['alias']);
             }
 
+            $emailAddress = trim((string)$sqlRow['email_address']);
+            if( $emailAddress === ''){
+                $emailAddress = null;
+            }
+
             $amountCents = (int)round(((float)$sqlRow['nett_income']) * 100);
 
             $transactions[] = [
@@ -12315,6 +12320,7 @@ class Payrun extends Controller
                 'employeeId' => (int)$sqlRow['employee_id'],
                 'employeeCode' => $sqlRow['employee_code'],
                 'employeeAlias' => $sqlRow['alias'],
+                'employeeFullNames' => $sqlRow['full_names'],
                 'employeeSurname' => $sqlRow['last_name'],
 
                 'hasBankDetails' => ($sqlRow['employee_bank_details_id'] !== null),
@@ -12325,8 +12331,7 @@ class Payrun extends Controller
                 'bankBranchCode' => $branchCode,
                 'bankAccountType' => $accountType,
                 'bankAccountTypeName' => $sqlRow['bank_account_type_name'],
-
-                'emailAddress' => $sqlRow['email_address'],
+                'emailAddress' => $emailAddress,
                 'reference' => $paymentReference,
 
                 // Retained internally for exact total and hash calculations.
@@ -12482,25 +12487,57 @@ class Payrun extends Controller
         }
 
         $payments = [];
+        $paymentContexts = [];
+        $seenPayslipIds = [];
 
         foreach ($batchResult['batch']['transactions'] as $transaction) {
+            if (!isset($transaction['payslipId']) || !is_numeric($transaction['payslipId']) || (int)$transaction['payslipId'] <= 0) {
+                return [
+                    'ok' => false,
+                    'error' => 'A valid payslip ID is required for every payment.'
+                ];
+            }
+            $payslipId = (int)$transaction['payslipId'];
+
+            if (isset($seenPayslipIds[$payslipId])) {
+                return [
+                    'ok' => false,
+                    'error' => 'Duplicate payment found for payslip \'' . $payslipId . '\'.'
+                ];
+            }
+
+            $seenPayslipIds[$payslipId] = true;
+
+            $paymentCustom = 'PAYSLIP-' . $payslipId;
             $employeeCode = trim((string)$transaction['employeeCode']);
+            $employeeFullNames = trim((string)$transaction['employeeFullNames']);
+            $employeeSurname = trim((string)$transaction['employeeSurname']);
+            $employeeEmail = $transaction['emailAddress'];
+            $sendPaymentAdvice = isset($employeeEmail);
 
                 $payments[] = [
-                    // Temporary until the employee/supplier mapping table exists.
-                    'supplierCode' => null,
-
-                    'amount' => (float)$transaction['amount'],
-                    'paymentDate' => $batchResult['batch']['actionDate'],
-                    'reference' => $transaction['reference'],
-
-                    // Temporary correlation value until its provider rules are confirmed.
                     'uniqueReference' => $employeeCode,
-
-                    'sendPaymentAdvice' => false,
+                    'supplierType' => '',
+                    'name' => $employeeFullNames,
+                    'lastName' => $employeeSurname,
+                    'emailAddress' => $employeeEmail,
+                    'bank' => (string)$transaction['bankName'],
+                    'accountType' => (int)$transaction['bankAccountType'],
+                    'accountNumber' => (string)$transaction['bankAccountNumber'],
+                    'branchCode' => (string)$transaction['bankBranchCode'],
+                    'amount' => (float)$transaction['amount'],
+                    'paymentDate' => null,
+                    'payeeReference' => $transaction['reference'],
+                    'sendPaymentAdvice' => $sendPaymentAdvice,
                     'immediatePayment' => false,
                     'oneDayPayment' => false,
-                    'custom' => null
+                    'custom' => $paymentCustom
+                ];
+
+                $paymentContexts[$paymentCustom] = [
+                    'payslipId' => $payslipId,
+                    'employeeId' => (int)$transaction['employeeId'],
+                    'employeeCode' => $employeeCode
                 ];
         }
 
@@ -12508,7 +12545,8 @@ class Payrun extends Controller
             'ok' => true,
             'payrunId' => $payrunId,
             'batchDescription' => trim((string)$batchResult['batch']['description']),
-            'payments' => $payments
+            'payments' => $payments,
+            'paymentContexts' => $paymentContexts
         ];
     }
 
@@ -12685,12 +12723,30 @@ class Payrun extends Controller
         $jtiMatches = $requestJti !== '' && hash_equals($requestJti, $responseJti);
         $responseStatus = trim((string)$response['status']);
 
-        if ($responseJti === '' || $responseStatus === '' || $jtiMatches !== true) {
+        if ($requestJti === '') {
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'MISSING_REQUEST_JTI',
+                'error' => 'The submitted JWT ID is unavailable for response validation.'
+            ];
+        }
+
+        if ($responseJti === '' || !hash_equals($requestJti, $responseJti)) {
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'JTI_MISMATCH',
+                'error' => 'The response JWT ID does not match the submitted request.'
+            ];
+        }
+
+        if ($responseStatus === '') {
             return [
                 'ok' => false,
                 'httpStatus' => $httpStatus,
                 'errorType' => 'INVALID_RESPONSE',
-                'error' => 'The Payments Integrated API response contains an invalid jti or status.'
+                'error' => 'The Payments Integrated API response has no status.'
             ];
         }
 
@@ -12703,45 +12759,45 @@ class Payrun extends Controller
             ];
         }
 
-        # Build reference counts for submitted payments.
-        # A reference is safe for automatic correlation only when it occurs exactly once in both the request and response.
+        $paymentContexts = isset($payloadResult['paymentContexts']) && is_array($payloadResult['paymentContexts']) ? $payloadResult['paymentContexts'] : [];
         $submittedPayments = isset($payloadResult['payments']) && is_array($payloadResult['payments']) ? $payloadResult['payments'] : [];
-
-        $submittedReferenceCounts = [];
+        $submittedCustomCounts = [];
 
         foreach ($submittedPayments as $submittedPayment) {
-            $submittedReference = isset($submittedPayment['uniqueReference']) ? trim((string)$submittedPayment['uniqueReference']) : '';
-
-            if ($submittedReference === '') {
+            if (!is_array($submittedPayment)) {
                 continue;
             }
 
-            if (!isset($submittedReferenceCounts[$submittedReference])) {
-                $submittedReferenceCounts[$submittedReference] = 0;
+            $submittedCustom = isset($submittedPayment['custom']) ? trim((string)$submittedPayment['custom']) : '';
+            if ($submittedCustom === '') {
+                continue;
             }
 
-            $submittedReferenceCounts[$submittedReference]++;
+            if (!isset($submittedCustomCounts[$submittedCustom])) {
+                $submittedCustomCounts[$submittedCustom] = 0;
+            }
+
+            $submittedCustomCounts[$submittedCustom]++;
         }
 
-        # Count returned references before processing the results so duplicate response references are not treated as safe matches.
-        $returnedReferenceCounts = [];
+        $returnedCustomCounts = [];
 
         foreach ($response['payments'] as $returnedPayment) {
             if (!is_array($returnedPayment)) {
                 continue;
             }
 
-            $returnedReference = isset($returnedPayment['uniqueReference']) ? trim((string)$returnedPayment['uniqueReference']) : '';
+            $returnedCustom = isset($returnedPayment['custom']) ? trim((string)$returnedPayment['custom']) : '';
 
-            if ($returnedReference === '') {
+            if ($returnedCustom === '') {
                 continue;
             }
 
-            if (!isset($returnedReferenceCounts[$returnedReference])) {
-                $returnedReferenceCounts[$returnedReference] = 0;
+            if (!isset($returnedCustomCounts[$returnedCustom])) {
+                $returnedCustomCounts[$returnedCustom] = 0;
             }
 
-            $returnedReferenceCounts[$returnedReference]++;
+            $returnedCustomCounts[$returnedCustom]++;
         }
 
         $paymentResults = [];
@@ -12779,17 +12835,23 @@ class Payrun extends Controller
 
             $uniqueReference = isset($returnedPayment['uniqueReference']) ? trim((string)$returnedPayment['uniqueReference']) : '';
 
-            $requiredPaymentFieldsValid = $supplierCode !== '' && $paymentStatus !== '';
+            $returnedCustom = isset($returnedPayment['custom']) ? trim((string)$returnedPayment['custom']) : '';
 
-            $submittedReferenceCount = $uniqueReference !== '' && isset($submittedReferenceCounts[$uniqueReference]) ? $submittedReferenceCounts[$uniqueReference] : 0;
+            $submittedCustomCount = $returnedCustom !== '' && isset($submittedCustomCounts[$returnedCustom]) ? $submittedCustomCounts[$returnedCustom] : 0;
 
-            $returnedReferenceCount = $uniqueReference !== '' && isset($returnedReferenceCounts[$uniqueReference]) ? $returnedReferenceCounts[$uniqueReference] : 0;
+            $returnedCustomCount = $returnedCustom !== '' && isset($returnedCustomCounts[$returnedCustom]) ? $returnedCustomCounts[$returnedCustom] : 0;
+        
+            $paymentContext = $returnedCustom !== '' && isset($paymentContexts[$returnedCustom]) && is_array($paymentContexts[$returnedCustom]) ? $paymentContexts[$returnedCustom] : null;
 
-            $matched = $submittedReferenceCount === 1 && $returnedReferenceCount === 1;
+            $matched = ($returnedCustom !== '' && $submittedCustomCount === 1 && $returnedCustomCount === 1 && $paymentContext !== null);
 
             if ($matched !== true) {
                 $unmatchedPayments++;
             }
+
+            $uniqueReferenceMatches = ($matched === true && $uniqueReference !== '' && isset($paymentContext['employeeCode']) && hash_equals((string)$paymentContext['employeeCode'], $uniqueReference));
+            
+            $requiredPaymentFieldsValid = $supplierCode !== '' && $paymentStatus !== '';
 
             $paymentSuccessful = $requiredPaymentFieldsValid && strcasecmp($paymentStatus, 'Success') === 0;
 
@@ -12820,7 +12882,7 @@ class Payrun extends Controller
                 'fee' => isset($returnedPayment['fee']) && is_numeric($returnedPayment['fee']) ? (float)$returnedPayment['fee'] : null,
                 'message' => $paymentMessage,
                 'uniqueReference' => $uniqueReference !== '' ? $uniqueReference : null,
-                'custom' => isset($returnedPayment['custom']) ? $returnedPayment['custom'] : null
+                'custom' => $returnedCustom !== '' ? $returnedCustom : null
             ];
         }
 
@@ -12835,7 +12897,7 @@ class Payrun extends Controller
         }
 
         if ($unmatchedPayments > 0) {
-            $warnings[] = $unmatchedPayments . ' returned payment result(s) could not be matched uniquely by uniqueReference.';
+            $warnings[] = $unmatchedPayments . ' returned payment result(s) could not be matched uniquely to a submitted payslip using custom.';
         }
 
         if ($malformedPayments > 0) {
