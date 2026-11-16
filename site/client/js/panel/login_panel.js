@@ -19,20 +19,20 @@
 //
 //                      srcComponent    The source component for the event.
 //
-app.panel.Login = function(config) {
-    
+app.panel.Login = function (config) {
+
     //
     // PRIVATE VARIABLES
     //
-    
+
     var me = this;
     var confirmDestroy = null;
     var capsLockIsOn = null;
-    
+
     var el = null;
-    
+
     var contentContainerEl = null;
-    
+
     var centeredContainerEl = null;
     var logoContainerEl = null;
     // var logoTextEl = null;
@@ -43,25 +43,25 @@ app.panel.Login = function(config) {
     var loginBtn = null;
     var buttonContainerEl = null;
     var forgotPasswordBtn = null;
-    
-    
+
+
     //
     // OBJECT EXTENSIONS
     //
-    
+
     lx.EventEmitter.call(this);
-    
-    
+
+
     //
     // PRIVATE FUNCTIONS
     //
-    
-    
+
+
     //
     // PUBLIC FUNCTIONS
     //
-    
-    me.init = function( config ) {
+
+    me.init = function (config) {
         // Initialize component config
         var compConfig = {
             renderTo: null,
@@ -70,21 +70,21 @@ app.panel.Login = function(config) {
             flex: '1 1 100%',
             show: false
         };
-        
+
         // Parse user config
-        if( typeof config !== 'undefined' && config !== null ) {
-            for( var property in config ) {
-                if( config.hasOwnProperty(property) ) compConfig[property] = config[property];
+        if (typeof config !== 'undefined' && config !== null) {
+            for (var property in config) {
+                if (config.hasOwnProperty(property)) compConfig[property] = config[property];
             }
         }
-        
+
         // Attach external event handlers
-        if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
-        if( compConfig.hasOwnProperty('onLogin') ) me.addEventListener('onLogin', compConfig.onLogin);
-        
+        if (compConfig.hasOwnProperty('onDestroy')) me.addEventListener('destroy', compConfig.onDestroy);
+        if (compConfig.hasOwnProperty('onLogin')) me.addEventListener('onLogin', compConfig.onLogin);
+
         // Initialize state
         confirmDestroy = false;
-        
+
         // Create root element
         el = lx.createElement('DIV', {
             parent: compConfig.renderTo,
@@ -107,12 +107,12 @@ app.panel.Login = function(config) {
             }
         });
         el.addEventListener('keyup', elKeyUpEventHandler);
-        
-        
+
+
         //
         // CONTENT SECTION
         //
-        
+
         // Create the content container
         contentContainerEl = lx.createElement('DIV', {
             parent: el,
@@ -127,32 +127,32 @@ app.panel.Login = function(config) {
                 padding: '0px'
             }
         });
-        
-        
+
+
         //
         // SPACER SECTION
         //
-        
+
         // Add a spacer element so that lging is displayed in the center of the screen
         new lx.createElement('DIV', {
             parent: contentContainerEl,
-            style : {
+            style: {
                 boxSizing: 'border-box',
                 flex: '1 1 100%',
                 margin: 'auto',
                 // width: '33%'
             }
         });
-        
-        
+
+
         //
         // LOGIN FORM SECTION
         //
-        
+
         // Create centeredContainerEl
         centeredContainerEl = lx.createElement('DIV', {
             parent: contentContainerEl,
-            style : {
+            style: {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'stretch',
@@ -168,7 +168,7 @@ app.panel.Login = function(config) {
                 boxShadow: '3px 3px 6px 2px rgba(0, 0, 0, 0.5)'
             }
         });
-        
+
         // Create logoContianerEl
         logoContainerEl = lx.createElement('DIV', {
             parent: centeredContainerEl,
@@ -180,7 +180,7 @@ app.panel.Login = function(config) {
                 margin: '40px 0px auto 0px'
             }
         });
-        
+
         // Create the logo element
         lx.createElement('DIV', {
             parent: logoContainerEl,
@@ -194,7 +194,7 @@ app.panel.Login = function(config) {
             },
             innerHTML: '<img src="gfx/payaccsys-logo.svg" style="width: 100%" />'
         });
-        
+
         // logoTextEl = lx.createElement('DIV', {
         //     parent: centeredContainerEl,
         //     style: {
@@ -208,29 +208,29 @@ app.panel.Login = function(config) {
         //     },
         //     innerHTML: 'Payroll'
         // });
-        
+
         // Create emailTxt component
         emailTxt = new lx.component.Textbox({
             renderTo: centeredContainerEl,
             margin: '40px 40px 0px 40px',
             label: 'Email',
             width: null,
-            
+
             onBlur: emailTxtBlurEventHandler
         });
-        
+
         // Create passwordTxt
         passwordTxt = new lx.component.Password({
             renderTo: centeredContainerEl,
             margin: '30px 40px 0px 40px',
             label: 'Password',
             width: null,
-            
+
             onKeyUp: passwordTxtKeyUpEventHandler,
             onFocus: passwordTxtFocusEventHandler,
             onBlur: passwordTxtBlurEventHandler
         });
-        
+
         // Create buttonContainerEl
         buttonContainerEl = lx.createElement('DIV', {
             parent: centeredContainerEl,
@@ -243,7 +243,7 @@ app.panel.Login = function(config) {
                 padding: '0px 40px'
             }
         });
-        
+
         // Create capsLockEl element
         capsLockEl = lx.createElement('DIV', {
             parent: buttonContainerEl,
@@ -258,17 +258,17 @@ app.panel.Login = function(config) {
             },
             innerHTML: '<i style="font-size: 11px;" class="fa fa-fw fa-lock"></i> Caps lock is on'
         });
-        
+
         // Create forgotPasswordBtn
         forgotPasswordBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
             label: 'Forgot Password',
             style: 'text',
             fontSize: '12px',
-            
+
             onClick: forgotPasswordBtnClickEventHandler
         });
-        
+
         // Create rememberMeCheck
         rememberMeCheck = new lx.component.Checkbox({
             renderTo: centeredContainerEl,
@@ -277,61 +277,61 @@ app.panel.Login = function(config) {
             labelAlign: 'right',
             width: null,
             // flex: '1 1 100%',
-            
+
             onChange: rememberMeCheckChangeEventHandler
         });
-        
+
         // Create loginBtn
         loginBtn = new lx.component.Button({
             renderTo: centeredContainerEl,
             label: 'Login',
             margin: '40px 40px 0px 40px',
             width: null,
-            
+
             onClick: loginBtnClickEventHandler
         });
-        
-        // Create the signupContainerEl element
-        var signUpContainerEl = lx.createElement('DIV', {
-            parent: centeredContainerEl,
-            style: {
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '14px',
-                margin: '30px 0px 10px 0px'
-            },
-            innerHTML: '<div>Don\'t have an account?&nbsp;</div>'
-        });
-        
-        // Create link to the new company request form
-        lx.createElement('A', {
-            parent: signUpContainerEl,
-            style: {
-                // display: 'inline-block',
-                color: '#EF4E45',
-                fontSize: '14px',
-                // textAlign: 'center',
-                // margin: '30px auto 10px auto',
-                cursor: 'pointer',
-                textDecoration: 'none'
-            },
-            href: "index.html?newCompanyRequest",
-            innerHTML: 'Click here!'
-        });
-        
+
+        // // Create the signupContainerEl element
+        // var signUpContainerEl = lx.createElement('DIV', {
+        //     parent: centeredContainerEl,
+        //     style: {
+        //         display: 'flex',
+        //         flexDirection: 'row',
+        //         alignItems: 'center',
+        //         justifyContent: 'center',
+        //         fontSize: '14px',
+        //         margin: '30px 0px 10px 0px'
+        //     },
+        //     innerHTML: '<div>Don\'t have an account?&nbsp;</div>'
+        // });
+
+        // // Create link to the new company request form
+        // lx.createElement('A', {
+        //     parent: signUpContainerEl,
+        //     style: {
+        //         // display: 'inline-block',
+        //         color: '#EF4E45',
+        //         fontSize: '14px',
+        //         // textAlign: 'center',
+        //         // margin: '30px auto 10px auto',
+        //         cursor: 'pointer',
+        //         textDecoration: 'none'
+        //     },
+        //     href: "index.html?newCompanyRequest",
+        //     innerHTML: 'Click here!'
+        // });
+
         // // Create signUpBtn
         // signUpBtn = new lx.component.Button({
         //     renderTo: signUpContainerEl,
         //     label: 'Sign Up Here!',
         //     margin: '0px 0px 0px 5px',
         //     style: 'text',
-            
+
         //     onClick: signUpBtnClickEventHandler
         // });
-        
-        
+
+
         // Display the POPI message
         lx.createElement('DIV', {
             parent: centeredContainerEl,
@@ -348,31 +348,31 @@ app.panel.Login = function(config) {
             // innerHTML:  
             //     '<a onMouseOver="style.color=\'' + lx.style.global.highlightColor + '\'"  onMouseOut="style.color=\'' + lx.style.global.color + '\'" style="margin: auto 15px; text-decoration: none; color:' + lx.style.global.color + ';" href="https://www.lexpro.co.za/privacy-policy" target="_blank">Privacy Policy</a>' + '&nbsp;|&nbsp;' +
             //     '<a onMouseOver="style.color=\'' + lx.style.global.highlightColor + '\'"  onMouseOut="style.color=\'' + lx.style.global.color + '\'" style="margin: auto 15px; text-decoration: none; color:' + lx.style.global.color + ';" href="https://www.lexpro.co.za/popia" target="_blank">POPIA Manual</a>'
-            
-                // 'To read our Privacy Statement and POPIA manual visit:<br>' +
-                // '<a style="color: #FC8C3A; font-size: 12px;" href="https://www.lexpro.co.za/legal.html" target="_blank">www.lexpro.co.za</a>'
-                // 'Click ' + 
-                // '<a style="color: #FC8C3A; font-size: 12px;" href="https://www.lexpro.co.za/privacy-policy" target="_blank">here</a>' +
-                // ' to read our Privacy Statement.<br>The POPIA manual can be found ' + 
-                // '<a style="color: #FC8C3A; font-size: 12px;" href="https://www.lexpro.co.za/popia" target="_blank">here</a>' +
-                // '.'
+
+            // 'To read our Privacy Statement and POPIA manual visit:<br>' +
+            // '<a style="color: #FC8C3A; font-size: 12px;" href="https://www.lexpro.co.za/legal.html" target="_blank">www.lexpro.co.za</a>'
+            // 'Click ' + 
+            // '<a style="color: #FC8C3A; font-size: 12px;" href="https://www.lexpro.co.za/privacy-policy" target="_blank">here</a>' +
+            // ' to read our Privacy Statement.<br>The POPIA manual can be found ' + 
+            // '<a style="color: #FC8C3A; font-size: 12px;" href="https://www.lexpro.co.za/popia" target="_blank">here</a>' +
+            // '.'
         });
-        
+
         // Check if the 'Remember me' options was set
-        if( localStorage.getItem('payrollLoginEmail') !== null ) {
-            rememberMeCheck.setValue( true );
-            emailTxt.setValue( localStorage.getItem('payrollLoginEmail') );
+        if (localStorage.getItem('payrollLoginEmail') !== null) {
+            rememberMeCheck.setValue(true);
+            emailTxt.setValue(localStorage.getItem('payrollLoginEmail'));
         }
-        
-        
+
+
         //
         // COVER IMAGE SECTION
         //
-        
+
         // Create loginContainerEl
         let coverImagContainerEl = lx.createElement('DIV', {
             parent: contentContainerEl,
-            style : {
+            style: {
                 boxSizing: 'border-box',
                 display: 'flex',
                 flexDirection: 'column',
@@ -382,7 +382,7 @@ app.panel.Login = function(config) {
                 margin: 'auto'
             }
         });
-        
+
         // Create the logo element
         // lx.createElement('DIV', {
         //     parent: coverImagContainerEl,
@@ -402,190 +402,190 @@ app.panel.Login = function(config) {
         //             '<img src="gfx/payments_launch.gif" alt="lexpro.co.za" style="width: 100%; margin: auto;"></img>' +
         //         '</a>'
         // });
-        
+
         // If show is set to true show the panel.
-        if( compConfig.show === true ) me.show();
+        if (compConfig.show === true) me.show();
     };
-    
+
     // Function to set the renderTo target of the panel.
     //
     // renderTo         The new DOM element to render this component to.
-    me.setRenderTarget = function(renderTo) {
+    me.setRenderTarget = function (renderTo) {
         // Remove it from its current target
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
-        
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
+
         // Add it to the new renderTo element
-        renderTo.appendChild( el );
+        renderTo.appendChild(el);
     };
-    
+
     // Function to show the panel
-    me.show = function() {
-        lx.applyStyle(el, {display: 'flex'});
+    me.show = function () {
+        lx.applyStyle(el, { display: 'flex' });
     };
-    
+
     // Function to hide the panel
-    me.hide = function() {
-        lx.applyStyle(el, {display: 'none'});
+    me.hide = function () {
+        lx.applyStyle(el, { display: 'none' });
     };
-    
+
     // Function to set focus to the panel.
-    me.focus = function() {
-        if( emailTxt.getValue() === '' ) emailTxt.focus();
+    me.focus = function () {
+        if (emailTxt.getValue() === '') emailTxt.focus();
         else passwordTxt.focus();
     };
-    
+
     // Function to clear the panels text fields
-    me.clear = function() {
+    me.clear = function () {
         emailTxt.setValue('');
         passwordTxt.setValue('');
     };
-    
+
     // Function to destroy the panel and all its contents.
     //
     // NOTE: Must return true if the panel was destroyed successfully and false if the panel was not destroyed.
-    me.destroy = function() {
+    me.destroy = function () {
         // If there is a onDestroy event run that before destroying the panel
         me.fireEvent('destroy', null);
-        
+
         // Remove the panel from its parent
-        if( el.parentElement !== null ) el.parentElement.removeChild( el );
+        if (el.parentElement !== null) el.parentElement.removeChild(el);
         el = null;
-        
+
         emailTxt.setValue('');
         passwordTxt.setValue('');
-        
+
         emailTxt.destroy();
         passwordTxt.destroy();
         forgotPasswordBtn.destroy();
         loginBtn.destroy();
         rememberMeCheck.destroy();
-        
+
         return true;
     };
-    
-    
+
+
     //
     // EVENT HANDLERS
     //
-    
+
     // el keyup event handler
-    function elKeyUpEventHandler( event ) {
+    function elKeyUpEventHandler(event) {
         capsLockIsOn = event.getModifierState('CapsLock');
-        
-        if( event.keyCode === 13 ){
+
+        if (event.keyCode === 13) {
             loginBtnClickEventHandler();
         }
     }
-    
+
     // emailTxt blur event handler
     function emailTxtBlurEventHandler() {
         emailTxt.hideTooltip();
     }
-    
+
     // passwordTxt focus event handler
     function passwordTxtFocusEventHandler() {
-        if( capsLockIsOn === true ) {
-            lx.applyStyle(capsLockEl, {opacity: 1});
+        if (capsLockIsOn === true) {
+            lx.applyStyle(capsLockEl, { opacity: 1 });
         }
     }
-    
+
     // passwordTxt focus event handler
     function passwordTxtBlurEventHandler() {
-        lx.applyStyle(capsLockEl, {opacity: 0});
+        lx.applyStyle(capsLockEl, { opacity: 0 });
         passwordTxt.hideTooltip();
     }
-    
+
     // passwordTxt keyup event handler
     function passwordTxtKeyUpEventHandler() {
         capsLockIsOn = event.getModifierState('CapsLock');
-        
-        if( capsLockIsOn === true ) lx.applyStyle(capsLockEl, {opacity: 1});
-        else lx.applyStyle(capsLockEl, {opacity: 0});
+
+        if (capsLockIsOn === true) lx.applyStyle(capsLockEl, { opacity: 1 });
+        else lx.applyStyle(capsLockEl, { opacity: 0 });
     }
-    
+
     // rememberMeCheck change event handler
     function rememberMeCheckChangeEventHandler() {
         // If the checkbox was unchecked clear the user details stored there.
-        if( rememberMeCheck.getValue() === false ) localStorage.removeItem('payrollLoginEmail');
+        if (rememberMeCheck.getValue() === false) localStorage.removeItem('payrollLoginEmail');
     }
-    
+
     // loginBtn click event handler
     function loginBtnClickEventHandler() {
         // Check that the user has entered an email address.  If not show a warning.
-        if( emailTxt.getValue() === '' ) {
+        if (emailTxt.getValue() === '') {
             emailTxt.showWarning('Please enter your email address.', true);
             emailTxt.focus();
             passwordTxt.clearWarning();
             return;
         }
-        
+
         // Check that the user has entere a password.  If not show a warning.
-        if( passwordTxt.getValue() === '' ) {
+        if (passwordTxt.getValue() === '') {
             passwordTxt.showWarning('Please enter your password.', true);
             passwordTxt.focus();
             emailTxt.clearWarning();
             return;
         }
-        
+
         // Check if we should save the username
-        if( rememberMeCheck.getValue() === true ) {
+        if (rememberMeCheck.getValue() === true) {
             localStorage.setItem('payrollLoginEmail', emailTxt.getValue());
         }
         else {
             localStorage.removeItem('payrollLoginEmail');
         }
-        
+
         // Clear any existing warnings
         emailTxt.clearWarning();
         passwordTxt.clearWarning();
-        
+
         loginBtn.showLoader();
         loginBtn.disable();
-        
+
         lx.sendJSON({
             url: 'exec.php?c=User&fn=login',
             data: {
                 username: emailTxt.getValue(),
                 password: passwordTxt.getValue()
             },
-            
-            onSuccess: function( responseText ) {
-                var response = JSON.parse( responseText );
-                
+
+            onSuccess: function (responseText) {
+                var response = JSON.parse(responseText);
+
                 // Hide the loader and reanable the login button.
                 loginBtn.hideLoader();
                 loginBtn.enable();
-                
+
                 // Check if an error occurred
-                if( response.ok !== true ) {
+                if (response.ok !== true) {
                     new lx.component.Messagebox({
                         title: 'Login Failed',
                         message: response.error,
                     });
-                    
+
                     return;
                 }
-                
+
                 // Check it the username is valid
-                if( response.loginSuccess !== true ) {
-                    if( response.hasOwnProperty('usernameValid') && response.usernameValid !== true ) {
+                if (response.loginSuccess !== true) {
+                    if (response.hasOwnProperty('usernameValid') && response.usernameValid !== true) {
                         emailTxt.showWarning(
                             'There is no user registered with this email address.  Please check your email address and try again.', true);
                         emailTxt.focus();
                         passwordTxt.clearWarning();
                         return;
                     }
-                    
+
                     // Check it the username is valid
-                    if( response.hasOwnProperty('passwordValid') && response.passwordValid !== true ) {
+                    if (response.hasOwnProperty('passwordValid') && response.passwordValid !== true) {
                         passwordTxt.showWarning('Invalid password entered.  Please check your password and try again.', true);
                         passwordTxt.focus();
                         emailTxt.clearWarning();
                         return;
                     }
-                    
+
                     // Check if the user is inactive
-                    if( response.hasOwnProperty('userActive') && response.userActive !== true ) {
+                    if (response.hasOwnProperty('userActive') && response.userActive !== true) {
                         new lx.component.Messagebox({
                             title: 'Account Inactive',
                             message: 'Your account is no longer active.<br /><br />' +
@@ -593,9 +593,9 @@ app.panel.Login = function(config) {
                         });
                         return;
                     }
-                    
+
                     // Check if the user has been denied access
-                    if( response.hasOwnProperty('payrollAccess') && response.payrollAccess !== true ) {
+                    if (response.hasOwnProperty('payrollAccess') && response.payrollAccess !== true) {
                         new lx.component.Messagebox({
                             title: 'Access Denied',
                             message: 'You do not have access to the Payroll system.<br /><br />' +
@@ -603,56 +603,56 @@ app.panel.Login = function(config) {
                         });
                         return;
                     }
-                    
+
                     emailTxt.clearWarning();
                     passwordTxt.clearWarning();
-                    
+
                     new lx.component.Messagebox({
                         title: 'Login Failed',
                         message: 'Your login attempt failed.  Please make sure your email address and password is correct.<br /><br />' +
                             'Please contact customer support if the problem persists.'
                     });
-                    
+
                     return;
                 }
-                
+
                 emailTxt.clearWarning();
                 passwordTxt.clearWarning();
-                
+
                 // Fires the on login event
                 me.fireEvent('onLogin', {
-                    srcPanel: me, 
-                    isTrial: response.isTrial, 
-                    mustSelectCompany: response.mustSelectCompany, 
-                    setupComplete: response.setupComplete, 
+                    srcPanel: me,
+                    isTrial: response.isTrial,
+                    mustSelectCompany: response.mustSelectCompany,
+                    setupComplete: response.setupComplete,
                     unreadMessages: response.unreadMessages
                 });
             }
         });
     }
-    
+
     // forgotPasswordBtn click event handler    
     function forgotPasswordBtnClickEventHandler() {
         me.hide();
-        
+
         var ResetPasswordPanel = new app.panel.ResetPassword({
             renderTo: document.body,
             show: true,
             email: emailTxt.getValue().trim(),
-            
-            onCancel: function() {
+
+            onCancel: function () {
                 ResetPasswordPanel.hide();
                 me.show();
             }
         });
-        
+
         ResetPasswordPanel.focus();
     }
-    
-    
+
+
     //
     // INITIALIZE OBJECT
     //
-    
-    me.init( config );
+
+    me.init(config);
 };
