@@ -163,7 +163,7 @@ app.panel.SendTransactions = function(config) {
                 borderWidth: '0px 0px 1px 0px',
                 borderColor: '#DFDFDF'
             },
-            innerHTML: 'Send Payrun Transactions to Payaccsys Payments'
+            innerHTML: 'Send Payrun Transactions to Payaccsys Payments Integrated'
         });
         
         // Create the contentEl element
@@ -199,7 +199,7 @@ app.panel.SendTransactions = function(config) {
         
         //
         // TRANSACTION SECTION
-        //
+        // {dataIndex: 'reference', name: 'Payment Reference', width: '160px'},
         
         // Create transactionsGrid component
         transactionsGrid = new lx.component.Grid({
@@ -209,16 +209,16 @@ app.panel.SendTransactions = function(config) {
             borderWidth: '0px',
             
             columns: [
-                {dataIndex: 'employeeCode', name: 'Emp Code', width: '80px'},
+                {dataIndex: 'uniqueReference', name: 'Emp Ref', width: '100px'},
+                {dataIndex: 'supplierType', name: 'Supplier Type', width: '120px'},
                 {dataIndex: 'employeeAlias', name: 'Name', width: '140px'},
                 {dataIndex: 'employeeSurname', name: 'Surname', width: '140px'},
                 {dataIndex: 'emailAddress', name: 'Email Address', width: '180px'},
-                {dataIndex: 'bankAccountHoldersName', name: 'Account Holder', width: '180px'},
                 {dataIndex: 'bankName', name: 'Bank Name', width: '140px'},
-                {dataIndex: 'bankAccountNumber', name: 'Account Number', width: '140px'},
-                {dataIndex: 'bankBranchCode', name: 'Branch Code', width: '100px'},
-                {dataIndex: 'bankAccountTypeName', name: 'Account Type', width: '130px'},
-                {dataIndex: 'reference', name: 'Payment Reference', width: '160px'},
+                {dataIndex: 'accountNumber', name: 'Account Number', width: '140px'},
+                {dataIndex: 'branchCode', name: 'Branch Code', width: '100px'},
+                {dataIndex: 'accountTypeName', name: 'Account Type', width: '130px'},
+                {dataIndex: 'payslipId', name: 'Payslip ID', width: '120px'},
                 {dataIndex: 'amount', name: 'Nett Pay Amount', width: '120px'},
                 {dataIndex: 'localCheckDisplay', name: 'Transaction Status', type: 'html'}
             ],
@@ -386,7 +386,7 @@ app.panel.SendTransactions = function(config) {
                 
                 if( response.ok !== true ) {
                     new lx.component.Messagebox({
-                        title: 'Sending Transactions to Payaccsys Payments for validation failed',
+                        title: 'Sending Transactions to Payaccsys Payments Integrated for validation failed',
                         message: response.error
                     });
                     return;
