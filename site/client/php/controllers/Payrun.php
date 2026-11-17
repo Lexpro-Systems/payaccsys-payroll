@@ -12101,6 +12101,11 @@ class Payrun extends Controller
             ];
         }
 
+        // Temporary payment reference until company-level configuration exists.
+        $companyAlias = isset($user['companyAlias']) ? trim($user['companyAlias']) : 'Company';
+
+        $paymentReference = trim(preg_replace('/[^A-Za-z0-9 ]/', '', $companyAlias));
+
         // Load the active payment transactions
         $loadResult = $this->loadPaymentsBatchPreview($payrunId, $user, $db);
 
@@ -12143,12 +12148,10 @@ class Payrun extends Controller
             'batch' => [
                 'payrunId' => $payrunId,
                 'description' => $payrunRow['description'],
+                'paymentReference' => $paymentReference,
 
                 // Initial default
                 'actionDate' => $payrunRow['to_date'],
-
-                // Temporary value pending configuration.
-                'paymentType' => 'SSVS',
 
                 'records' => $records,
 
@@ -12167,7 +12170,7 @@ class Payrun extends Controller
     //Loads the processed payrun and its active payment transactions
     private function loadPaymentsBatchPreview($payrunId, $user, $db){
 
-        /*
+     /*
         * Load active payslips and calculate net pay using the same formula currently used by the payment-export functionality:
         *
         * income - deductions + allowances + included fringe benefits
@@ -12282,11 +12285,6 @@ class Payrun extends Controller
             ];
         }
 
-        // Temporary payment reference until company-level configuration exists.
-        $companyAlias = isset($user['companyAlias']) ? trim($user['companyAlias']) : 'Company';
-
-        $paymentReference = trim(preg_replace('/[^A-Za-z0-9 ]/', '', $companyAlias));
-
         $transactions = [];
 
         while ($sqlRow = $sqlResult->fetchAssociative()) {
@@ -12335,12 +12333,12 @@ class Payrun extends Controller
                 'accountType' => $accountType,
                 'accountTypeName' => $sqlRow['bank_account_type_name'],
                 'emailAddress' => $emailAddress,
-                'reference' => $paymentReference,
 
                 // Retained internally for exact total and hash calculations.
                 'amountCents' => $amountCents,
 
-                'amount' => number_format($amountCents / 100, 2, '.', '')
+                'amount' => number_format($amountCents / 100, 2, '.', ''),
+                'supplierType' => ''
             ];
         }
 
@@ -12348,7 +12346,6 @@ class Payrun extends Controller
             'ok' => true,
             'transactions' => $transactions
         ];
-
     }
 
     //Helper function related to Payaccsys Payments Send/Validate functionality - local checks per transaction
