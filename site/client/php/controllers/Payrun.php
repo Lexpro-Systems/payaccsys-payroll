@@ -12101,6 +12101,11 @@ class Payrun extends Controller
             ];
         }
 
+        // Temporary payment reference until company-level configuration exists.
+        $companyAlias = isset($user['companyAlias']) ? trim($user['companyAlias']) : 'Company';
+
+        $paymentReference = trim(preg_replace('/[^A-Za-z0-9 ]/', '', $companyAlias));
+
         // Load the active payment transactions
         $loadResult = $this->loadPaymentsBatchPreview($payrunId, $user, $db);
 
@@ -12143,12 +12148,10 @@ class Payrun extends Controller
             'batch' => [
                 'payrunId' => $payrunId,
                 'description' => $payrunRow['description'],
+                'paymentReference' => $paymentReference,
 
                 // Initial default
                 'actionDate' => $payrunRow['to_date'],
-
-                // Temporary value pending configuration.
-                'paymentType' => 'SSVS',
 
                 'records' => $records,
 
@@ -12167,7 +12170,7 @@ class Payrun extends Controller
     //Loads the processed payrun and its active payment transactions
     private function loadPaymentsBatchPreview($payrunId, $user, $db){
 
-        /*
+     /*
         * Load active payslips and calculate net pay using the same formula currently used by the payment-export functionality:
         *
         * income - deductions + allowances + included fringe benefits
@@ -12282,11 +12285,6 @@ class Payrun extends Controller
             ];
         }
 
-        // Temporary payment reference until company-level configuration exists.
-        $companyAlias = isset($user['companyAlias']) ? trim($user['companyAlias']) : 'Company';
-
-        $paymentReference = trim(preg_replace('/[^A-Za-z0-9 ]/', '', $companyAlias));
-
         $transactions = [];
 
         while ($sqlRow = $sqlResult->fetchAssociative()) {
@@ -12314,30 +12312,33 @@ class Payrun extends Controller
             }
 
             $amountCents = (int)round(((float)$sqlRow['nett_income']) * 100);
+            $employeeCode = trim((string)$sqlRow['employee_code']);
+            $uniqueReference = 'EM' . $employeeCode;
 
             $transactions[] = [
                 'payslipId' => (int)$sqlRow['payslip_id'],
                 'employeeId' => (int)$sqlRow['employee_id'],
-                'employeeCode' => $sqlRow['employee_code'],
+                'employeeCode' => $employeeCode,
+                'uniqueReference' => $uniqueReference,
                 'employeeAlias' => $sqlRow['alias'],
                 'employeeFullNames' => $sqlRow['full_names'],
                 'employeeSurname' => $sqlRow['last_name'],
 
                 'hasBankDetails' => ($sqlRow['employee_bank_details_id'] !== null),
 
-                'bankAccountHoldersName' => $accountHolderName,
+                'accountHolderName' => $accountHolderName,
                 'bankName' => $sqlRow['financial_institution_name'],
-                'bankAccountNumber' => $accountNumber,
-                'bankBranchCode' => $branchCode,
-                'bankAccountType' => $accountType,
-                'bankAccountTypeName' => $sqlRow['bank_account_type_name'],
+                'accountNumber' => $accountNumber,
+                'branchCode' => $branchCode,
+                'accountType' => $accountType,
+                'accountTypeName' => $sqlRow['bank_account_type_name'],
                 'emailAddress' => $emailAddress,
-                'reference' => $paymentReference,
 
                 // Retained internally for exact total and hash calculations.
                 'amountCents' => $amountCents,
 
-                'amount' => number_format($amountCents / 100, 2, '.', '')
+                'amount' => number_format($amountCents / 100, 2, '.', ''),
+                'supplierType' => ''
             ];
         }
 
@@ -12345,7 +12346,6 @@ class Payrun extends Controller
             'ok' => true,
             'transactions' => $transactions
         ];
-
     }
 
     //Helper function related to Payaccsys Payments Send/Validate functionality - local checks per transaction
@@ -12358,23 +12358,23 @@ class Payrun extends Controller
             $localErrors[] = 'No bank details have been captured.';
         }
 
-        if ($transaction['bankAccountNumber'] === '') {
+        if ($transaction['accountNumber'] === '') {
             $localErrors[] = 'No bank account number has been captured.';
-        } else if (strlen($transaction['bankAccountNumber']) >20){
+        } else if (strlen($transaction['accountNumber']) >20){
             $localErrors[] = 'The bank account number may not exceed 20 digits.';
         }
 
-        if ($transaction['bankBranchCode'] === '') {
+        if ($transaction['branchCode'] === '') {
             $localErrors[] = 'No branch code has been captured.';
-        } else if (strlen($transaction['bankBranchCode']) !== 6) {
+        } else if (strlen($transaction['branchCode']) !== 6) {
             $localErrors[] = 'The branch code must contain six digits.';
         }
 
-        if ($transaction['bankAccountType'] === null) {
+        if ($transaction['accountType'] === null) {
             $localErrors[] = 'The bank account type is not supported.';
         }
 
-        if ($transaction['bankAccountHoldersName'] === '') {
+        if ($transaction['accountHolderName'] === '') {
             $localErrors[] = 'No bank account holder name is available.';
         }
 
@@ -12514,17 +12514,18 @@ class Payrun extends Controller
             $employeeSurname = trim((string)$transaction['employeeSurname']);
             $employeeEmail = $transaction['emailAddress'];
             $sendPaymentAdvice = isset($employeeEmail);
+            $uniqueReference = trim((string)$transaction['uniqueReference']);
 
                 $payments[] = [
-                    'uniqueReference' => $employeeCode,
+                    'uniqueReference' => $uniqueReference,
                     'supplierType' => '',
                     'name' => $employeeFullNames,
                     'lastName' => $employeeSurname,
                     'emailAddress' => $employeeEmail,
                     'bank' => (string)$transaction['bankName'],
-                    'accountType' => (int)$transaction['bankAccountType'],
-                    'accountNumber' => (string)$transaction['bankAccountNumber'],
-                    'branchCode' => (string)$transaction['bankBranchCode'],
+                    'accountType' => (int)$transaction['accountType'],
+                    'accountNumber' => (string)$transaction['accountNumber'],
+                    'branchCode' => (string)$transaction['branchCode'],
                     'amount' => (float)$transaction['amount'],
                     'paymentDate' => null,
                     'payeeReference' => $transaction['reference'],
@@ -12537,7 +12538,8 @@ class Payrun extends Controller
                 $paymentContexts[$paymentCustom] = [
                     'payslipId' => $payslipId,
                     'employeeId' => (int)$transaction['employeeId'],
-                    'employeeCode' => $employeeCode
+                    'employeeCode' => $employeeCode,
+                    'uniqueReference' => $uniqueReference
                 ];
         }
 
@@ -12801,21 +12803,18 @@ class Payrun extends Controller
         }
 
         $paymentResults = [];
-        $successfulPayments = 0;
-        $failedPayments = 0;
-        $unmatchedPayments = 0;
-        $malformedPayments = 0;
 
         foreach ($response['payments'] as $paymentIndex => $returnedPayment) {
             if (!is_array($returnedPayment)) {
-                $malformedPayments++;
-                $failedPayments++;
-                $unmatchedPayments++;
 
                 $paymentResults[] = [
                     'ok' => false,
                     'index' => $paymentIndex,
                     'matched' => false,
+                    'payslipId' => null,
+                    'employeeId' => null,
+                    'uniqueReferenceMatches' => false,
+                    'canPersist' => false,
                     'supplierCode' => null,
                     'status' => 'Failed',
                     'paymentReference' => null,
@@ -12845,25 +12844,11 @@ class Payrun extends Controller
 
             $matched = ($returnedCustom !== '' && $submittedCustomCount === 1 && $returnedCustomCount === 1 && $paymentContext !== null);
 
-            if ($matched !== true) {
-                $unmatchedPayments++;
-            }
-
-            $uniqueReferenceMatches = ($matched === true && $uniqueReference !== '' && isset($paymentContext['employeeCode']) && hash_equals((string)$paymentContext['employeeCode'], $uniqueReference));
+            $uniqueReferenceMatches = ($matched === true && $uniqueReference !== '' && isset($paymentContext['uniqueReference']) && hash_equals((string)$paymentContext['uniqueReference'], $uniqueReference));
             
             $requiredPaymentFieldsValid = $supplierCode !== '' && $paymentStatus !== '';
 
             $paymentSuccessful = $requiredPaymentFieldsValid && strcasecmp($paymentStatus, 'Success') === 0;
-
-            if ($paymentSuccessful) {
-                $successfulPayments++;
-            } else {
-                $failedPayments++;
-            }
-
-            if (!$requiredPaymentFieldsValid) {
-                $malformedPayments++;
-            }
 
             $paymentMessage = isset($returnedPayment['message']) && trim((string)$returnedPayment['message']) !== '' ? trim((string)$returnedPayment['message']) : null;
 
@@ -12875,6 +12860,10 @@ class Payrun extends Controller
                 'ok' => $paymentSuccessful,
                 'index' => $paymentIndex,
                 'matched' => $matched,
+                'payslipId' => $matched ? (int)$paymentContext['payslipId'] : null,
+                'employeeId' => $matched ? (int)$paymentContext['employeeId'] : null,
+                'uniqueReferenceMatches' => $uniqueReferenceMatches,
+                'canPersist' => ($paymentSuccessful && $matched && $uniqueReferenceMatches),
                 'supplierCode' => $supplierCode !== '' ? $supplierCode : null,
                 'status' => $paymentStatus !== '' ? $paymentStatus : 'Failed',
                 'paymentReference' => isset($returnedPayment['paymentReference']) ? $returnedPayment['paymentReference'] : null,
@@ -12896,14 +12885,6 @@ class Payrun extends Controller
             $warnings[] = 'The provider returned ' . $returnedCount . ' payment results for ' . $submittedCount . ' submitted payments.';
         }
 
-        if ($unmatchedPayments > 0) {
-            $warnings[] = $unmatchedPayments . ' returned payment result(s) could not be matched uniquely to a submitted payslip using custom.';
-        }
-
-        if ($malformedPayments > 0) {
-            $warnings[] = $malformedPayments . ' returned payment result(s) were missing required fields or had an invalid structure.';
-        }
-
         return [
             # ok means a structurally valid loadBatch response was received. Individual payment failures are represented below.
             'ok' => true,
@@ -12916,11 +12897,7 @@ class Payrun extends Controller
             'totalDeductions' => (float)$response['totalDeductions'],
             'summary' => [
                 'submitted' => $submittedCount,
-                'returned' => $returnedCount,
-                'successful' => $successfulPayments,
-                'failed' => $failedPayments,
-                'unmatched' => $unmatchedPayments,
-                'malformed' => $malformedPayments
+                'returned' => $returnedCount
             ],
             'payments' => $paymentResults,
             'warnings' => $warnings

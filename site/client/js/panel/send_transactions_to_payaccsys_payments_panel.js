@@ -33,6 +33,12 @@ app.panel.SendTransactions = function(config) {
     var contentEl = null;
     var gridContainerEl = null;
     var loader = null;
+
+    var batchSettingsEl = null;
+    var batchSettingsHeadingEl = null;
+    var paymentDate = null;
+    var paymentReferenceTxt = null;
+    var paymentOptionSelect = null;
     
     var transactionsGrid = null;
     
@@ -76,6 +82,11 @@ app.panel.SendTransactions = function(config) {
                     });
                     return;
                 }
+                
+                batchSettingsHeadingEl.textContent = 'Batch Settings: Payrun ' + response.batch.description;
+                paymentDate.setValue(response.batch.actionDate);
+                paymentReferenceTxt.setValue(response.batch.paymentReference);
+                paymentOptionSelect.setValue('SAMEDAY', 'Same Day');
                 
                 // Prepare the payment transactions for display in the grid
                 let transactions = response.batch.transactions;
@@ -163,7 +174,7 @@ app.panel.SendTransactions = function(config) {
                 borderWidth: '0px 0px 1px 0px',
                 borderColor: '#DFDFDF'
             },
-            innerHTML: 'Send Payrun Transactions to Payaccsys Payments'
+            innerHTML: 'Send Payrun Transactions to Payaccsys Payments Integrated'
         });
         
         // Create the contentEl element
@@ -175,6 +186,9 @@ app.panel.SendTransactions = function(config) {
                 overflowX: 'auto',
                 overflowY: 'auto',
                 position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
                 flex: '1 1 100%',
                 minWidth: '0px',
                 backgroundColor: '#F4F5F6'
@@ -190,35 +204,131 @@ app.panel.SendTransactions = function(config) {
         gridContainerEl = lx.createElement('DIV', {
             parent: contentEl,
             style: {
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
                 boxSizing: 'border-box',
                 width: '100%',
                 minWidth: '1800px',
-                height: '100%'
+                flex: '1 1 auto',
+                minHeight: '0px'
             }
         });
-        
+
+        //
+        // BATCH SETTINGS SECTION
+        //
+
+        // Create the batch settings heading element
+        batchSettingsHeadingEl = lx.createElement('DIV', {
+            parent: gridContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flex: '0 0 auto',
+                fontSize: '16px',
+                color: '#0F0F0F',
+                margin: '15px'
+            },
+            innerHTML: '<div>Batch Settings</div>'
+        });
+
+        // Create the batchSettingsEl element
+        batchSettingsEl = lx.createElement('DIV', {
+            parent: gridContainerEl,
+            style: {
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+                gap: '15px',
+                boxSizing: 'border-box',
+                width: '100%',
+                maxWidth: '100%',
+                backgroundColor: '#FFFFFF',
+                borderStyle: 'none',
+                margin: '0px',
+                padding: '15px',
+                flex: '0 0 auto'
+            }
+        });
+
+        // Create batch settings components
+        paymentReferenceTxt = new lx.component.Textbox({
+            renderTo: batchSettingsEl,
+            label: 'Payment Ref *',
+            width: '160px'
+        });
+
+        paymentOptionSelect = new lx.component.Selectbox({
+            renderTo: batchSettingsEl,
+            label: 'Payment Option *',
+            width: '160px',
+            items: [
+                {value: 'RTC', text: 'RTC'},
+                {value: 'SAMEDAY', text: 'Same Day'},
+                {value: 'STANDARD', text: 'Standard'}
+            ]
+        });
+
+        paymentDate = new lx.component.DatePicker({
+            renderTo: batchSettingsEl,
+            label: 'Payment Date *',
+            width: '160px'
+        });
+
         //
         // TRANSACTION SECTION
         //
+
+        // Create the payment rows heading element
+        var paymentRowsHeadingEl = lx.createElement('DIV', {
+            parent: gridContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flex: '0 0 auto',
+                fontSize: '16px',
+                color: '#0F0F0F',
+                margin: '15px'
+            },
+            innerHTML: '<div>Payment Rows</div>'
+        });
+
+        var transactionsGridContainerEl = lx.createElement('DIV', {
+            parent: gridContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                width: '100%',
+                flex: '1 1 auto',
+                minHeight: '0px'
+            }
+        });
         
         // Create transactionsGrid component
         transactionsGrid = new lx.component.Grid({
-            renderTo: gridContainerEl,
+            renderTo: transactionsGridContainerEl,
             width: '100%',
             height: '100%',
             borderWidth: '0px',
             
             columns: [
-                {dataIndex: 'employeeCode', name: 'Emp Code', width: '80px'},
+                {dataIndex: 'uniqueReference', name: 'Emp Ref', width: '100px'},
+                {dataIndex: 'supplierType', name: 'Supplier Type', width: '120px'},
                 {dataIndex: 'employeeAlias', name: 'Name', width: '140px'},
                 {dataIndex: 'employeeSurname', name: 'Surname', width: '140px'},
                 {dataIndex: 'emailAddress', name: 'Email Address', width: '180px'},
-                {dataIndex: 'bankAccountHoldersName', name: 'Account Holder', width: '180px'},
                 {dataIndex: 'bankName', name: 'Bank Name', width: '140px'},
-                {dataIndex: 'bankAccountNumber', name: 'Account Number', width: '140px'},
-                {dataIndex: 'bankBranchCode', name: 'Branch Code', width: '100px'},
-                {dataIndex: 'bankAccountTypeName', name: 'Account Type', width: '130px'},
-                {dataIndex: 'reference', name: 'Payment Reference', width: '160px'},
+                {dataIndex: 'accountNumber', name: 'Account Number', width: '140px'},
+                {dataIndex: 'branchCode', name: 'Branch Code', width: '100px'},
+                {dataIndex: 'accountTypeName', name: 'Account Type', width: '130px'},
+                {dataIndex: 'payslipId', name: 'Payslip ID', width: '120px'},
                 {dataIndex: 'amount', name: 'Nett Pay Amount', width: '120px'},
                 {dataIndex: 'localCheckDisplay', name: 'Transaction Status', type: 'html'}
             ],
@@ -376,7 +486,10 @@ app.panel.SendTransactions = function(config) {
         lx.sendJSON({
             url: 'exec.php?c=Payrun&fn=testApiResponse',
             data: {
-                payrunId: payrunId
+                payrunId: payrunId,
+                paymentDate: paymentDate.getValue(),
+                paymentReference: paymentReferenceTxt.getValue(),
+                paymentOption: paymentOptionSelect.getValue()
             },
             onSuccess: function( responseText ) {
                 validateBtn.enable();
@@ -386,7 +499,7 @@ app.panel.SendTransactions = function(config) {
                 
                 if( response.ok !== true ) {
                     new lx.component.Messagebox({
-                        title: 'Sending Transactions to Payaccsys Payments for validation failed',
+                        title: 'Sending Transactions to Payaccsys Payments Integrated for validation failed',
                         message: response.error
                     });
                     return;
