@@ -39,8 +39,6 @@ app.panel.UI19Report = function(config){
 
     var departmentSelect = null;
     var employeeStatusSelect = null;
-    var employmentStartDate = null;
-    var employmentEndDate = null;
     
     var employeesGrid = null;
     
@@ -71,9 +69,7 @@ app.panel.UI19Report = function(config){
                     offset: offset,
                     sortOrder: 'ASC',
                     employeeStatus: employeeStatusSelect.getValue(),
-                    departmentId: departmentSelect.getValue(),
-                    employmentStartDate: employmentStartDate.getValue(),
-                    employmentEndDate: employmentEndDate.getValue()
+                    departmentId: departmentSelect.getValue()
                   },
             onSuccess: function( responseText ) {
                          loader.hide();
@@ -314,7 +310,8 @@ app.panel.UI19Report = function(config){
                 width: '100%',
                 boxSizing: 'border-box',
                 display: 'flex',
-                flexDirection: 'row'
+                flexDirection: 'row',
+                flexWrap: 'wrap'
             }
         });
 
@@ -370,28 +367,6 @@ app.panel.UI19Report = function(config){
         });
         employeeStatusSelect.setValue('dismissed', 'Dismissed Only');
         
-        // Create employeeStatusSelect component
-        employmentStartDate = new lx.component.DatePicker({
-            renderTo: filterSectionEl,
-            maxWidth: '200px',
-            margin: '0px 20px 0px 0px',
-            height: '32px',
-            label: 'Employment Start Date',
-            
-            onChange: filterOnChangeEventHandler//location: this file, line: 486
-        });
-        
-        // Create employeeStatusSelect component
-        employmentEndDate = new lx.component.DatePicker({
-            renderTo: filterSectionEl,
-            maxWidth: '200px',
-            margin: '0px 20px 0px 0px',
-            height: '32px',
-            label: 'Employment End Date',
-            
-            onChange: filterOnChangeEventHandler //location: this file, line: 486
-        });
-
         // Create PdfActionMenu  array
         var PdfActionMenu = [
             {name: '<i class="far fa-fw fa-eye" style="margin: 0px 15px 0px 0px;"></i>View', value: 'view'},
@@ -536,6 +511,7 @@ app.panel.UI19Report = function(config){
             });
         }
     }
+
     // Loads the pdf in the browser when the "view" option is clicked
     function viewUI19Pdf(employeeId){
 

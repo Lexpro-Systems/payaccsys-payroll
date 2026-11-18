@@ -106,6 +106,9 @@ app.panel.MailTo = function(config) {
         else if( config.hasOwnProperty('taxCertificateId') ) {
             heading = 'Email Tax Certificate';
         }
+        else if( config.hasOwnProperty('ui19EmployeeId') ) {
+            heading = 'Email UI-19';
+        }
         
         lx.createElement('DIV', {
             parent: el,
@@ -348,6 +351,29 @@ app.panel.MailTo = function(config) {
                         return; 
                     }
                     
+                    me.fireEvent('send', {srcPanel: me});
+                }
+            });
+        }
+        // Should a UI-19 report be emailed?
+        else if( config.hasOwnProperty('ui19EmployeeId') ) {
+            lx.sendJSON({
+                url: 'exec.php?c=Report&fn=runUI19Details',
+                data: {
+                    employeeId: config.ui19EmployeeId,
+                    emailAddress: emailAddressTxt.getValue(),
+                    mode: 'emailTo'
+                },
+                onSuccess: function( responseText ) {
+                    sendToBtn.hideLoader();
+                    sendToBtn.enable();
+
+                    var response = JSON.parse(responseText);
+                    if( response.ok !== true ) {
+                        sendToBtn.showWarning(response.error);
+                        return;
+                    }
+
                     me.fireEvent('send', {srcPanel: me});
                 }
             });
