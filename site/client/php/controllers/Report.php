@@ -7896,6 +7896,8 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
             "Information to be supplied in terms of Section 56(1&3) read with Regulation 13(1&2)";
         $pdf->MultiCell(115, 3.8, $text, 0, 'R', false);
         $pdf->Rect(250, $formTop + 7, 38, 6);
+        $pdf->SetXY(250, $formTop + 7);
+        $pdf->Cell(38, 6, $reportinfo[0][33] ?? '', 0, 0, 'C');
 
         // =====================================================
         // INSTRUCTION TEXT
@@ -7970,7 +7972,7 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
         // 1.2 PAYE Reference No (right side)
         // -------------------
 
-        $payeRef = $reportinfo[0][12] ?? 'hell'; // PAYE number from array
+        $payeRef = $reportinfo[0][12] ?? ''; // PAYE number from array
         $pdf->SetXY(160, $startY);
         $pdf->Cell(50, $lineHeight, '1.2 PAYE Reference No (If registered with SARS):', 0, 0, 'L');
         $boxX = 218;
@@ -7990,7 +7992,8 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
         $tradingName = $reportinfo[0][13] ?? '';
         drawField($pdf, '1.3 Trading name of business:', $tradingName, $startX, $startY, $startX + 38, $startX + 130);
         $physicalAddress = trim(
-            ($reportinfo[0][15] ?? '') . ' ' .
+            ($reportinfo[0][14] ?? '') . ' ' .
+                ($reportinfo[0][15] ?? '') . ' ' .
                 ($reportinfo[0][16] ?? '') . ' ' .
                 ($reportinfo[0][17] ?? '') . ', ' .
                 ($reportinfo[0][18] ?? '') . ', ' .
@@ -8247,14 +8250,7 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
                 // Column D - Total Gross Remuneration
                 // -------------------
 
-                // Sum last 5 income values (Basic Salary, Bonus, Overtime, Commission, Allowance)
-                $totalIncome = floatval($employee[29])
-                    + floatval($employee[30])
-                    + floatval($employee[31])
-                    + floatval($employee[32])
-                    + floatval($employee[33]);
-
-                $totalIncome = number_format($totalIncome, 2, '.', '');
+                $totalIncome = $employee[29] !== null ? number_format(floatval($employee[29]), 2, '.', '') : '';
 
                 // Insert sum into Column D
                 $pdf->SetXY($colDX + 1, $rowY + 1);
@@ -8263,83 +8259,35 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
                 // -------------------
                 // Column E - Total Hours Worked
                 // -------------------
-                $startDateObj = DateTime::createFromFormat('Y-m-d', $employee[3]);
-                $endDateObj   = DateTime::createFromFormat('Y-m-d', $employee[4]);
+                $startDateObj = DateTime::createFromFormat('!Y-m-d', $employee[3]);
+                $endDateObj = DateTime::createFromFormat('!Y-m-d', $employee[4]);
 
-                // Check if dates are valid
-                if ($startDateObj && $endDateObj) {
-                    // Calculate working days (Mon-Fri)
-                    $period = new DatePeriod(
-                        $startDateObj,
-                        new DateInterval('P1D'),
-                        $endDateObj->modify('+1 day') // include end date
-                    );
+                $hoursWorked = $employee[30] !== null ? number_format(floatval($employee[30]), 2, '.', '') : '';
+                $pdf->SetXY($colEX + 1, $rowY + 1);
+                $pdf->Cell($colWidths[4] - 2, $tableHeight - 2, $hoursWorked, 0, 0, 'C');
 
-                    $workingDays = 0;
-                    foreach ($period as $day) {
-                        $weekday = $day->format('N'); // 1 = Mon, 7 = Sun
-                        if ($weekday <= 5) $workingDays++;
-                    }
-
-                    $hoursWorked = $workingDays * 8;
-
-                    // Column E - Hours Worked
-                    $pdf->SetXY($colEX + 1, $rowY + 1);
-                    $pdf->Cell($colWidths[4] - 2, $tableHeight - 2, $hoursWorked, 0, 0, 'C');
-
-
-                    // Column F - Start Date (DDMMYY)
+                // Column F - Start Date (DDMMYY)
+                if ($startDateObj) {
                     $startDigits = $startDateObj->format('dmy'); // 6 digits
                     for ($i = 0; $i < 6; $i++) {
                         $pdf->SetXY($colFX + $i * $cellWidthF, $rowY + 1);
                         $pdf->Cell($cellWidthF, $tableHeight - 2, $startDigits[$i], 0, 0, 'C');
                     }
+                }
 
-                    // Column G - End Date (DDMMYY)
+                // Column G - End Date (DDMMYY)
+                if ($endDateObj) {
                     $endDigits = $endDateObj->format('dmy'); // 6 digits
                     for ($i = 0; $i < 6; $i++) {
                         $pdf->SetXY($colGX + $i * $cellWidthG, $rowY + 1);
                         $pdf->Cell($cellWidthG, $tableHeight - 2, $endDigits[$i], 0, 0, 'C');
-                    }
-                } else {
-                    // Fallback if date is invalid
-                    $pdf->SetXY($colEX + 1, $rowY + 1);
-                    $pdf->Cell($colWidths[4] - 2, $tableHeight - 2, '-', 0, 0, 'C');
-
-                    for ($i = 0; $i < 6; $i++) {
-                        $pdf->SetXY($colFX + $i * $cellWidthF, $rowY + 1);
-                        $pdf->Cell($cellWidthF, $tableHeight - 2, '-', 0, 0, 'C');
-                        $pdf->SetXY($colGX + $i * $cellWidthG, $rowY + 1);
-                        $pdf->Cell($cellWidthG, $tableHeight - 2, '-', 0, 0, 'C');
                     }
                 }
 
                 // -------------------
                 // Column H - Dismissal Code Mapping
                 // -------------------
-                $dismissalReasons = [
-                    'ABSC' => 13,
-                    'BUCL' => 14,
-                    'CODI' => 7,
-                    'DECE' => 2,
-                    'DISM' => 4,
-                    'EMIN' => 8,
-                    'ENCO' => 5,
-                    'ILLN' => 10,
-                    'RESI' => 6,
-                    'RETR' => 11,
-                    'TRAN' => 12,
-                    'MATE' => 9,
-                    'RETI' => 3,
-                    'DOME' => 15,
-                    'VOLU' => 16,
-                    'REDU' => 17,
-                    'COMM' => 18,
-                    'PARE' => 19
-                ];
-
-                $code = strtoupper(trim($employee[5] ?? ''));
-                $valueH = isset($dismissalReasons[$code]) ? $dismissalReasons[$code] : '-';
+                $valueH = $employee[5] !== '' ? $employee[5] : '-';
 
                 // Insert value centered in Column H
                 $pdf->SetXY($colHX + 1, $rowY + 1);
@@ -8348,15 +8296,11 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
                 // -------------------
                 // Column I - Contributor (YES / NO)
                 // -------------------
-                // $UIFcon = (floatval($employee[34] ?? 0) > 0) ? 'YES' : 'NO';
-                if ($employee[34] === 1) {
-                    $UIFcon = 'Yes';
-                } else {
-                    $UIFcon = 'No';
-                }
+                $UIFcon = floatval($employee[31]) > 0 ? 'Yes' : 'No';
 
                 $pdf->SetXY($colIX + 1, $rowY + 1);
                 $pdf->Cell($colWidths[8] - 2, $tableHeight - 2, $UIFcon, 0, 0, 'C');
+
             }
 
             // next row
@@ -8592,6 +8536,7 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
             'limit' => null,
             'offset' => null,
             'employeeId' => '',
+            'emailAddress' => null,
         ];
         Json::copy($defaults, $data);
 
@@ -8601,7 +8546,8 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
             'searchString' => ['type' => Json::TYPE_STRING, 'required' => false, 'nullable' => false],
             'limit' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
             'offset' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true],
-            'employee' => ['type' => ['type' => Json::TYPE_INT, 'required' => false, 'nullable' => true]],
+            'employeeId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'emailAddress' => ['type' => Json::TYPE_EMAIL, 'required' => false, 'nullable' => true],
         ]);
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
@@ -8650,13 +8596,11 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
                 $employee['registrationNumber'], //index   26
                 $employee['companyTel'], //index   27
                 $employee['Refnumber'], //index   28
-                // Payrun income values (added individually)
-                $employee['Salary'] ?? '0.00', //index   29
-                $employee['Commission']        ?? '0.00', //index   30
-                $employee['Daily Wage']     ?? '0.00', //index   31
-                $employee['Hourly Wage']   ?? '0.00', //index   32
-                $employee['Overtime']    ?? '0.00', //index   33
-                $employee['Employee UIF Contribution'],
+                $employee['totalGrossRemuneration'], //index 29
+                $employee['totalHoursWorked'], //index 30
+                $employee['isContributor'], //index 31
+                '', //index 32 - non-contribution reason intentionally blank
+                $employee['reportMonth'], //index 33
             ];
         }
 
@@ -8682,6 +8626,11 @@ private function calculateEtiFallbackHoursWorked($employeeId, $periodStartDate, 
             $pdf->Output($fileName, 'I'); // browser
             return true;
         } else if ($mode === 'emailTo') {
+
+            if ($data['emailAddress'] === null || $data['emailAddress'] === '') {
+                echo (json_encode(['ok' => false, 'error' => 'Please enter a valid recipient email address.']));
+                return false;
+            }
 
             $emailAddress = $data['emailAddress'];
             // Create a random folder in the temp directory

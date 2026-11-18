@@ -1494,8 +1494,6 @@ function getUifData($data, $user, $db)
             'payslip_status_codes ON payslip_status_codes.code = payslips.status_code ' .
             'LEFT JOIN ' .
             'employees ON employees.id = payslips.employee_id ' .
-            // 'LEFT JOIN ' .
-            //     'payruns ON payruns.id = payslips.payrun_id ' .
             'WHERE ' .
             'payslips.status_code = \'ACTI\' ' .
             $filterClause .
@@ -3936,68 +3934,167 @@ function getPayslipItemSpecifiedData($data, $user, $db)
 
 function getUI19PdfDetailsData($data, $user, $db)
 {
-    $sqlParams = [];
-
-    // Build where clause
-    $whereClause = '';
-
-
-    if (isset($data['employeeId']) && $data['employeeId'] !== '') {
-        if ($whereClause === '')
-            $whereClause = 'WHERE ';
-        else
-            $whereClause = $whereClause . 'AND ';
-        $sqlParams[] = $data['employeeId'];
-        $whereClause = $whereClause . ' employees.id = $' . count($sqlParams);
-    }
-
-    // Process limit offset
-    $limitOffset = '';
-
-    // Load all employees from the employees table
-    $sqlQuery =
-
+    $employeeQuery =
         'SELECT ' .
         'employees.initials, ' .
         'employees.last_name, ' .
         'employees.id_number, ' .
-        'employees.employment_start_date,' .
-        'employees.employment_end_date,' .
-        'employment_history.dismissal_reason,' .
-        'employees.work_address_unit,' .
-        'employees.work_address_complex,' .
-        'employees.work_address_street,' .
-        'employees.work_address_suburb,' .
-        'employees.work_address_city,' .
-        'employees.work_address_postal_code ' .
-        'FROM ' .
-        'employees ' .
-        'LEFT JOIN ' .
-        'employment_history ON employees.id = employment_history.employee_id ' .
-        $whereClause;
-    $sqlResult = $db->paramQuery($sqlQuery, $sqlParams);
-    if (!$sqlResult->isValid()) {
-        return (['ok' => false, 'error' => 'Database error.']);
-    }
-    // Create the result
-    $employees = [];
-    while ($sqlRow = $sqlResult->fetchAssociative()) {
+        'employees.employment_start_date, ' .
+        'employees.employment_end_date, ' .
+        'employees.payment_period_code, ' .
+        'employees.work_address_unit, ' .
+        'employees.work_address_complex, ' .
+        'employees.work_address_street, ' .
+        'employees.work_address_suburb, ' .
+        'employees.work_address_city, ' .
+        'employees.work_address_postal_code, ' .
+        '(SELECT dismissal_reason FROM employment_history ' .
+            'WHERE employment_history.employee_id = employees.id ' .
+            'ORDER BY dismissal_date DESC NULLS LAST, dismissed_on DESC NULLS LAST, id DESC LIMIT 1) AS dismissal_reason, ' .
+        'work_schedules.monday_hours, ' .
+        'work_schedules.tuesday_hours, ' .
+        'work_schedules.wednesday_hours, ' .
+        'work_schedules.thursday_hours, ' .
+        'work_schedules.friday_hours, ' .
+        'work_schedules.saturday_hours, ' .
+        'work_schedules.sunday_hours, ' .
+        'work_schedules.monday_wd, ' .
+        'work_schedules.tuesday_wd, ' .
+        'work_schedules.wednesday_wd, ' .
+        'work_schedules.thursday_wd, ' .
+        'work_schedules.friday_wd, ' .
+        'work_schedules.saturday_wd, ' .
+        'work_schedules.sunday_wd ' .
+        'FROM employees ' .
+        'LEFT JOIN work_schedules ON work_schedules.employee_id = employees.id ' .
+        'WHERE employees.id = $1;';
 
-        $employees[] = [
-            'initials' => $sqlRow['initials'],
-            'lastName' => $sqlRow['last_name'],
-            'idNumber' => $sqlRow['id_number'],
-            'startDate' => $sqlRow['employment_start_date'],
-            'endDate' => $sqlRow['employment_end_date'],
-            "disCode" => $sqlRow['dismissal_reason'],
-            'workUnit' => $sqlRow['work_address_unit'],
-            'workComplex' => $sqlRow['work_address_complex'],
-            'workStreet' => $sqlRow['work_address_street'],
-            'workSuburb' => $sqlRow['work_address_suburb'],
-            'workCity' => $sqlRow['work_address_city'],
-            'workPostalCode' => $sqlRow['work_address_postal_code'],
-        ];
+    $employeeResult = $db->paramQuery($employeeQuery, [$data['employeeId']]);
+    if (!$employeeResult->isValid()) {
+        return ['ok' => false, 'error' => 'Database error.'];
     }
+    if ($employeeResult->getRowCount() !== 1) {
+        return ['ok' => false, 'error' => 'The selected employee could not be found.'];
+    }
+
+    $employeeRow = $employeeResult->fetchAssociative();
+    if ($employeeRow['employment_end_date'] === null) {
+        return ['ok' => false, 'error' => 'The selected employee does not have a termination date.'];
+    }
+
+    $terminationDate = new DateTime($employeeRow['employment_end_date']);
+    $employmentStartDate = new DateTime($employeeRow['employment_start_date']);
+    $periodStartDate = new DateTime($terminationDate->format('Y-m-01'));
+    if ($employmentStartDate > $periodStartDate) {
+        $periodStartDate = clone $employmentStartDate;
+    }
+
+    $scheduleDays = [
+        1 => 'monday',
+        2 => 'tuesday',
+        3 => 'wednesday',
+        4 => 'thursday',
+        5 => 'friday',
+        6 => 'saturday',
+        7 => 'sunday'
+    ];
+    $hasScheduleHours = false;
+    $hasWorkDays = false;
+    foreach ($scheduleDays as $scheduleDay) {
+        if ($employeeRow[$scheduleDay . '_hours'] !== null) $hasScheduleHours = true;
+        if (in_array($employeeRow[$scheduleDay . '_wd'], [true, 1, '1', 't'], true)) $hasWorkDays = true;
+    }
+
+    $totalHoursWorked = 0.0;
+    $totalWorkDays = 0;
+    $currentDate = clone $periodStartDate;
+    while ($currentDate <= $terminationDate) {
+        $scheduleDay = $scheduleDays[intval($currentDate->format('N'))];
+
+        if ($hasScheduleHours) {
+            $scheduledHours = floatval($employeeRow[$scheduleDay . '_hours']);
+            if ($scheduledHours > 0) {
+                $totalHoursWorked += $scheduledHours;
+                $totalWorkDays++;
+            }
+        } else if ($hasWorkDays && in_array($employeeRow[$scheduleDay . '_wd'], [true, 1, '1', 't'], true)) {
+            $totalHoursWorked += 8;
+            $totalWorkDays++;
+        }
+
+        $currentDate->modify('+1 day');
+    }
+
+    $recurringItemQuery =
+        'SELECT ' .
+        'payslip_config_items.payslip_item_type_code, ' .
+        'payslip_config_items.amount, ' .
+        'payslip_item_types.payslip_category_code, ' .
+        'payslip_item_types.payslip_item_unit_code ' .
+        'FROM payslip_config_items ' .
+        'LEFT JOIN payslip_item_types ON payslip_item_types.code = payslip_config_items.payslip_item_type_code ' .
+        'WHERE payslip_config_items.employee_id = $1 AND payslip_config_items.accrual_date IS NULL;';
+    $recurringItemResult = $db->paramQuery($recurringItemQuery, [$data['employeeId']]);
+    if (!$recurringItemResult->isValid()) {
+        return ['ok' => false, 'error' => 'Database error.'];
+    }
+
+    $periodMultiplier = 1;
+    if ($employeeRow['payment_period_code'] === 'WEEK') {
+        $periodMultiplier = 52 / 12;
+    } else if ($employeeRow['payment_period_code'] === 'BWEE') {
+        $periodMultiplier = 26 / 12;
+    } else if ($employeeRow['payment_period_code'] === 'TWMO') {
+        $periodMultiplier = 2;
+    }
+
+    $totalGrossRemuneration = 0.0;
+    $hasGrossRemunerationItem = false;
+    $isContributor = false;
+    while ($itemRow = $recurringItemResult->fetchAssociative()) {
+        if ($itemRow['payslip_item_type_code'] === '2002') {
+            $isContributor = true;
+        }
+
+        if ($itemRow['payslip_category_code'] !== 'INCO' || $itemRow['amount'] === null) {
+            continue;
+        }
+
+        $amount = floatval($itemRow['amount']);
+        if ($itemRow['payslip_item_type_code'] === '1001' && ($hasScheduleHours || $hasWorkDays)) {
+            $hasGrossRemunerationItem = true;
+            $totalGrossRemuneration += $amount * $totalHoursWorked;
+        } else if ($itemRow['payslip_item_type_code'] === '1002' && ($hasScheduleHours || $hasWorkDays)) {
+            $hasGrossRemunerationItem = true;
+            $totalGrossRemuneration += $amount * $totalWorkDays;
+        } else if ($itemRow['payslip_item_unit_code'] === 'FIXE') {
+            $hasGrossRemunerationItem = true;
+            $totalGrossRemuneration += $amount * $periodMultiplier;
+        }
+    }
+
+    $dismissalReasons = [
+        'ABSC' => 13,
+        'BUCL' => 14,
+        'CODI' => 7,
+        'DECE' => 2,
+        'DISM' => 4,
+        'EMIN' => 8,
+        'ENCO' => 5,
+        'ILLN' => 10,
+        'RESI' => 6,
+        'RETR' => 11,
+        'TRAN' => 12,
+        'MATE' => 9,
+        'RETI' => 3,
+        'DOME' => 15,
+        'VOLU' => 16,
+        'REDU' => 17,
+        'COMM' => 18,
+        'PARE' => 19
+    ];
+    $dismissalCode = strtoupper(trim($employeeRow['dismissal_reason'] ?? ''));
+    $employmentStatus = $dismissalReasons[$dismissalCode] ?? 4;
 
     $CompsqlQuery =
         'SELECT ' .
@@ -4020,82 +4117,54 @@ function getUI19PdfDetailsData($data, $user, $db)
         'company_details.uif_registration_number ' .
         'FROM ' .
         'company_details ' .
+        'ORDER BY company_details.id DESC ' .
         'LIMIT 1';
 
     $CompanyResult = $db->paramQuery($CompsqlQuery, []);
     if (!$CompanyResult->isValid()) {
         return (['ok' => false, 'error' => 'Database error.']);
     }
-    $companyInfo = [];
-    while ($sqlRow = $CompanyResult->fetchAssociative()) {
-        $companyInfo[] = [
-            'payeRefNumber' => $sqlRow['paye_reference_number'],
-            'companyName' => $sqlRow['name'],
-            'physicalUnit' => $sqlRow['physical_address_unit'],
-            'physicalComplex' => $sqlRow['physical_address_complex'],
-            'physicalStreet' => $sqlRow['physical_address_street'],
-            'physicalSuburb' => $sqlRow['physical_address_suburb'],
-            'physicalCity' => $sqlRow['physical_address_city'],
-            'physicalPostalCode' => $sqlRow['physical_address_postal_code'],
-            'postalLine1' => $sqlRow['postal_address_line_1'],
-            'postalLine2' => $sqlRow['postal_address_line_2'],
-            'postalLine3' => $sqlRow['postal_address_line_3'],
-            'postalCode'  => $sqlRow['postal_address_code'],
-            'companyEmail' => $sqlRow['email_address'],
-            'companyFax' => $sqlRow['fax_number'],
-            'registrationNumber' => $sqlRow['registration_number'],
-            'companyTel'  => $sqlRow['tel_number'],
-            'Refnumber'  => $sqlRow['uif_registration_number'],
-        ];
-    };
-    $company = $companyInfo[0] ?? [];
-
-    foreach ($employees as &$employee) {
-        foreach ($company as $key => $value) {
-            $employee[$key] = $value;   // attach each company field
-        }
-    }
-    unset($employee);
-    // -------------------------
-    // PAYRUN QUERY (KEY VALUE)
-    // -------------------------
-    $payrunQuery =
-        'SELECT ' .
-        'payslip_config_items.description,' .
-        'payslip_config_items.amount ' .
-        'FROM ' .
-        'payslip_config_items ' .
-        'WHERE ' .
-        'payslip_config_items.employee_id = $1 ' .
-        'AND description IN ' .
-        "('Salary','Commission','Daily Wage','Hourly Wage','Overtime','Employee UIF Contribution')";
-
-    $payrunResult = $db->paramQuery($payrunQuery, $sqlParams);
-
-    if (!$payrunResult->isValid()) {
-        return ['ok' => false, 'error' => 'Database error.'];
+    if ($CompanyResult->getRowCount() !== 1) {
+        return ['ok' => false, 'error' => 'Company details could not be found.'];
     }
 
-    // store description => income
-    $incomeValues = [];
-    $uifFound = 0;
-    while ($row = $payrunResult->fetchAssociative()) {
-        //$incomeValues[$row['description']] = $row['amount'];
-        if ($row['description'] === 'Employee UIF Contribution') {
-            $uifFound = 1;
-        } else {
-            $incomeValues[$row['description']] = $row['amount'];
-        }
-    }
-    $incomeValues['Employee UIF Contribution'] = $uifFound;
-    // attach income values same way as company fields
-    foreach ($employees as &$employee) {
-        foreach ($incomeValues as $desc => $value) {
-            $employee[$desc] = $value;
-        }
-    }
-    unset($employee);
+    $sqlRow = $CompanyResult->fetchAssociative();
+    $employee = [
+        'initials' => $employeeRow['initials'],
+        'lastName' => $employeeRow['last_name'],
+        'idNumber' => $employeeRow['id_number'],
+        'startDate' => $employeeRow['employment_start_date'],
+        'endDate' => $employeeRow['employment_end_date'],
+        'disCode' => $employmentStatus,
+        'workUnit' => $employeeRow['work_address_unit'],
+        'workComplex' => $employeeRow['work_address_complex'],
+        'workStreet' => $employeeRow['work_address_street'],
+        'workSuburb' => $employeeRow['work_address_suburb'],
+        'workCity' => $employeeRow['work_address_city'],
+        'workPostalCode' => $employeeRow['work_address_postal_code'],
+        'totalGrossRemuneration' => $hasGrossRemunerationItem ? round($totalGrossRemuneration, 2) : null,
+        'totalHoursWorked' => ($hasScheduleHours || $hasWorkDays) ? round($totalHoursWorked, 2) : null,
+        'isContributor' => $isContributor,
+        'reportMonth' => $terminationDate->format('F Y'),
+        'payeRefNumber' => $sqlRow['paye_reference_number'],
+        'companyName' => $sqlRow['name'],
+        'physicalUnit' => $sqlRow['physical_address_unit'],
+        'physicalComplex' => $sqlRow['physical_address_complex'],
+        'physicalStreet' => $sqlRow['physical_address_street'],
+        'physicalSuburb' => $sqlRow['physical_address_suburb'],
+        'physicalCity' => $sqlRow['physical_address_city'],
+        'physicalPostalCode' => $sqlRow['physical_address_postal_code'],
+        'postalLine1' => $sqlRow['postal_address_line_1'],
+        'postalLine2' => $sqlRow['postal_address_line_2'],
+        'postalLine3' => $sqlRow['postal_address_line_3'],
+        'postalCode'  => $sqlRow['postal_address_code'],
+        'companyEmail' => $sqlRow['email_address'],
+        'companyFax' => $sqlRow['fax_number'],
+        'registrationNumber' => $sqlRow['registration_number'],
+        'companyTel'  => $sqlRow['tel_number'],
+        'Refnumber'  => $sqlRow['uif_registration_number']
+    ];
 
     // Return the result
-    return (['ok' => true, 'employees' => $employees]);
+    return ['ok' => true, 'employees' => [$employee]];
 }
