@@ -1,7 +1,7 @@
 /* globals app, lx */
 'use strict';
 
-// SEND TRANSACTIONS TO PAYACCSYS PAYMENTS PANEL
+// SEND PAYMENTS TO PAYACCSYS PAYMENTS PANEL
 //
 // Config:
 //  renderTo:           The parent DOM object of this object
@@ -10,12 +10,11 @@
 //  flex:               CSS flex property for the panel
 //  show:               If true the panel will be shown immediately after it was created.  If false the panel will be created but not shown
 //                      Default to false
-//  payrunId:           The ID of the payrun of which transactions will be sent to the Payaccsys Payments API
+//  payrunId:           The ID of the payrun of which payments will be sent to the Payaccsys Payments API
 //
 // Events:
 //
-//  Validate:            Fired when transaction data has been internally validated and are ready to be sent to the Payments API
-//  onSend:              Fired after the transactions from the current payrun has been successfully sent to the Payaccsys Payments API
+//  onSend:              Fired after the payments from the current payrun has been successfully internally validated and are ready to be sent to the Payments API
 //  onCancel:            Fired when the user cancels and closes the panel
 //  onDestroy:           Fired just before the panel is destroyed
 //
@@ -36,16 +35,16 @@ app.panel.SendTransactions = function(config) {
 
     var batchSettingsEl = null;
     var batchSettingsHeadingEl = null;
+    var batchDescriptionTxt = null;
     var paymentDate = null;
     var paymentReferenceTxt = null;
     var paymentOptionSelect = null;
     
-    var transactionsGrid = null;
+    var paymentsGrid = null;
     
     var buttonContainerEl = null;
     var cancelBtn = null;
     var sendBtn = null;
-    var validateBtn = null;
     
     var payrunId = null;
     
@@ -83,12 +82,13 @@ app.panel.SendTransactions = function(config) {
                     return;
                 }
                 
-                batchSettingsHeadingEl.textContent = 'Batch Settings: Payrun ' + response.batch.description;
+                batchSettingsHeadingEl.textContent = 'Batch Settings';
+                batchDescriptionTxt.setValue('Payrun: ' + String(response.batch.description || ''));
                 paymentDate.setValue(response.batch.actionDate);
                 paymentReferenceTxt.setValue(response.batch.paymentReference);
                 paymentOptionSelect.setValue('SAMEDAY', 'Same Day');
                 
-                // Prepare the payment transactions for display in the grid
+                // Prepare the payments for display in the grid
                 let transactions = response.batch.transactions;
 
                 for( let i = 0; i < transactions.length; i++ ) {
@@ -97,16 +97,16 @@ app.panel.SendTransactions = function(config) {
  
                     transaction.localCheckDisplay = '<span ' + 'title="' + escapeHtml(statusMessage) + '" ' + 'style="' + 'display: block;' + 'overflow: hidden;' + 'text-overflow: ellipsis;' + 'white-space: nowrap;' + '">' + escapeHtml(statusMessage) + '</span>';
                 }
-                transactionsGrid.addRows(transactions);
+                paymentsGrid.addRows(transactions);
                 if(response.batch.ready === true){
-                    validateBtn.enable();
+                    sendBtn.enable();
                 } else {
-                    validateBtn.disable();
+                    sendBtn.disable();
                 }
             }
         });
     } 
-    // Function to escape HTML special characters in a string for safe display in the transactions grid
+    // Function to escape HTML special characters in a string for safe display in the payments grid
     function escapeHtml(value) {
         return String(value)
             .replace(/&/g, '&amp;')
@@ -174,7 +174,7 @@ app.panel.SendTransactions = function(config) {
                 borderWidth: '0px 0px 1px 0px',
                 borderColor: '#DFDFDF'
             },
-            innerHTML: 'Send Payrun Transactions to Payaccsys Payments Integrated'
+            innerHTML: 'Send Payments to Payaccsys Payments Integrated'
         });
         
         // Create the contentEl element
@@ -257,6 +257,12 @@ app.panel.SendTransactions = function(config) {
         });
 
         // Create batch settings components
+        batchDescriptionTxt = new lx.component.Textbox({
+            renderTo: batchSettingsEl,
+            label: 'Batch Description *',
+            width: '300px'
+        });
+
         paymentReferenceTxt = new lx.component.Textbox({
             renderTo: batchSettingsEl,
             label: 'Payment Ref *',
@@ -281,7 +287,7 @@ app.panel.SendTransactions = function(config) {
         });
 
         //
-        // TRANSACTION SECTION
+        // PAYMENTS SECTION
         //
 
         // Create the payment rows heading element
@@ -301,7 +307,7 @@ app.panel.SendTransactions = function(config) {
             innerHTML: '<div>Payment Rows</div>'
         });
 
-        var transactionsGridContainerEl = lx.createElement('DIV', {
+        var paymentsGridContainerEl = lx.createElement('DIV', {
             parent: gridContainerEl,
             style: {
                 boxSizing: 'border-box',
@@ -311,9 +317,9 @@ app.panel.SendTransactions = function(config) {
             }
         });
         
-        // Create transactionsGrid component
-        transactionsGrid = new lx.component.Grid({
-            renderTo: transactionsGridContainerEl,
+        // Create paymentsGrid component
+        paymentsGrid = new lx.component.Grid({
+            renderTo: paymentsGridContainerEl,
             width: '100%',
             height: '100%',
             borderWidth: '0px',
@@ -330,10 +336,8 @@ app.panel.SendTransactions = function(config) {
                 {dataIndex: 'accountTypeName', name: 'Account Type', width: '130px'},
                 {dataIndex: 'payslipId', name: 'Payslip ID', width: '120px'},
                 {dataIndex: 'amount', name: 'Nett Pay Amount', width: '120px'},
-                {dataIndex: 'localCheckDisplay', name: 'Transaction Status', type: 'html'}
-            ],
-            
-            onCellClick: transactionsGridCellClickEventHandler
+                {dataIndex: 'localCheckDisplay', name: 'Status', type: 'html'}
+            ]
         });
         
         //
@@ -362,28 +366,17 @@ app.panel.SendTransactions = function(config) {
             style: 'text',
             
             onClick: cancelBtnClickEventHandler
-        });
-
-        // Create the validateBtn component
-        validateBtn = new lx.component.Button({
+        });        
+        
+        // Create the sendBtn component
+        sendBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
-            label: 'Validate',
+            label: 'Send',
             width: '120px',
             
-            onClick: validateBtnClickEventHandler
+            onClick: sendBtnClickEventHandler
         });
-
-        validateBtn.disable();
-        
-        
-        // // Create the sendBtn component
-        // sendBtn = new lx.component.Button({
-        //     renderTo: buttonContainerEl,
-        //     label: 'Send',
-        //     width: '120px',
-            
-        //     onClick: sendBtnClickEventHandler
-        // });
+        sendBtn.disable();
         
         // Load form data
         loadPayrun( compConfig.payrunId );
@@ -456,71 +449,24 @@ app.panel.SendTransactions = function(config) {
     // EVENT HANDLERS
     //
     
-    // transactionsGrid cell click event handler
-    function transactionsGridCellClickEventHandler( clickEvent ) {
-        // Get the data index of the column that was clicked
-        let dataIndex = transactionsGrid.getColumnDataIndex(clickEvent.columnIndex);
-        
-        // Depending on the column clicked
-        if( dataIndex === 'download' ) {
-            lx.sendForm({
-                url: 'exec.php?c=Payslip&fn=downloadPayslip',
-                target: '_blank',
-                data: {
-                    payslipId: parseInt(transactionsGrid.getRow(clickEvent.rowIndex).id)
-                }
-            });
-        }
-    }
-    
     // Cancel button click event handler
     function cancelBtnClickEventHandler() {
         me.fireEvent('cancel', {srcPanel: me});
     }
 
-    function validateBtnClickEventHandler() {
-
-         // Send selected payrun's ID to Spendl API-function
-        validateBtn.disable();
-        validateBtn.showLoader();
-        lx.sendJSON({
-            url: 'exec.php?c=Payrun&fn=testApiResponse',
-            data: {
-                payrunId: payrunId,
-                paymentDate: paymentDate.getValue(),
-                paymentReference: paymentReferenceTxt.getValue(),
-                paymentOption: paymentOptionSelect.getValue()
-            },
-            onSuccess: function( responseText ) {
-                validateBtn.enable();
-                validateBtn.hideLoader();
-                
-                var response = JSON.parse(responseText);
-                
-                if( response.ok !== true ) {
-                    new lx.component.Messagebox({
-                        title: 'Sending Transactions to Payaccsys Payments Integrated for validation failed',
-                        message: response.error
-                    });
-                    return;
-                }
-                
-                me.fireEvent('validate', {srcPanel: me, results: response.results || [], summary: response.summary || null});
-            }
-        });
-
-    }
-    
-    // Send button click event handler
     function sendBtnClickEventHandler() {
-        
-        // Send selected payrun's ID to Spendl API-function
+
+         // Send payment fields to Payaccsys Payments Integrated API-function
         sendBtn.disable();
         sendBtn.showLoader();
         lx.sendJSON({
-            url: 'exec.php?c=Payrun&fn=testApiResponse',
+            url: 'exec.php?c=Payrun&fn=paymentsIntegratedApiCaller',
             data: {
-                payrunId: payrunId
+                payrunId: payrunId,
+                batchDescription: batchDescriptionTxt.getValue(),
+                paymentDate: paymentDate.getValue(),
+                paymentReference: paymentReferenceTxt.getValue(),
+                paymentOption: paymentOptionSelect.getValue()
             },
             onSuccess: function( responseText ) {
                 sendBtn.enable();
@@ -530,17 +476,17 @@ app.panel.SendTransactions = function(config) {
                 
                 if( response.ok !== true ) {
                     new lx.component.Messagebox({
-                        title: 'Sending Payslips to Spendl Wallet Failed',
+                        title: 'Sending payments to Payaccsys Payments Integrated failed',
                         message: response.error
                     });
                     return;
                 }
                 
-                me.fireEvent('send', {srcPanel: me, results: response.results || [], summary: response.summary || null});
+                me.fireEvent('send', {srcPanel: me, results: response.payments || [], summary: response.summary || null});
             }
         });
-    }
-    
+
+    }    
     
     //
     // INITIALIZE OBJECT

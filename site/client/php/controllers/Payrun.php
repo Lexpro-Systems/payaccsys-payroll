@@ -6767,7 +6767,11 @@ class Payrun extends Controller
         $defaults = [];
         Json::copy($defaults, $data);
         $validationResult = Json::validate($data, [
-            'payrunId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false]
+            'payrunId' => ['type' => Json::TYPE_INT, 'required' => true, 'nullable' => false],
+            'batchDescription' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
+            'paymentDate' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
+            'paymentReference' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false],
+            'paymentOption' => ['type' => Json::TYPE_STRING, 'required' => true, 'nullable' => false]
         ]);
         if ($validationResult !== true) {
             echo (json_encode(['ok' => false, 'error' => $validationResult]));
@@ -6781,9 +6785,51 @@ class Payrun extends Controller
         }
 
         $payrunId = (int)$data['payrunId'];
+        $batchSettings = [
+            'batchDescription' => trim((string)$data['batchDescription']),
+            'paymentDate' => trim((string)$data['paymentDate']),
+            'paymentReference' => trim((string)$data['paymentReference']),
+            'paymentOption' => strtoupper(trim((string)$data['paymentOption']))
+        ];
+
+        if ($batchSettings['batchDescription'] === '') {
+            echo (json_encode(['ok' => false, 'error' => 'A batch description is required.']));
+            return false;
+        }
+
+        if ($batchSettings['paymentDate'] === '') {
+            echo (json_encode(['ok' => false, 'error' => 'A payment date is required.']));
+            return false;
+        }
+
+        //Parse date into correct format
+        $paymentDate = DateTime::createFromFormat('!Y-m-d', $batchSettings['paymentDate']);
+        // Check if parsed date is valid
+        $paymentDateErrors = DateTime::getLastErrors();
+
+        $paymentDateIsInvalid = $paymentDate === false || ($paymentDateErrors !== false && ($paymentDateErrors['warning_count'] > 0 || $paymentDateErrors['error_count'] > 0)) 
+        || ($paymentDate !== false && $paymentDate->format('Y-m-d') !== $batchSettings['paymentDate']);
+
+        if ($paymentDateIsInvalid) {
+            echo json_encode([
+                'ok' => false,
+                'error' => 'The payment date must be a valid date in YYYY-MM-DD format.'
+            ]);
+            return false;
+        }
+
+        if ($batchSettings['paymentReference'] === '') {
+            echo (json_encode(['ok' => false, 'error' => 'A payment reference is required.']));
+            return false;
+        }
+
+        if (!in_array($batchSettings['paymentOption'], ['RTC', 'SAMEDAY', 'STANDARD'], true)) {
+            echo (json_encode(['ok' => false, 'error' => 'The selected payment option is invalid.']));
+            return false;
+        }
 
         # Calls the method to build the JSON payments integrated payloads.
-        $payloadResult = $this->buildPaymentsIntegratedPayloads($payrunId, $user, $db);
+        $payloadResult = $this->buildPaymentsIntegratedPayloads($payrunId, $batchSettings, $user, $db);
         if ($payloadResult['ok'] !== true) {
             echo json_encode($payloadResult);
             return false;
@@ -12147,17 +12193,14 @@ class Payrun extends Controller
             'ok' => true,
             'batch' => [
                 'payrunId' => $payrunId,
+
+                // Initial defaults
                 'description' => $payrunRow['description'],
                 'paymentReference' => $paymentReference,
-
-                // Initial default
                 'actionDate' => $payrunRow['to_date'],
 
                 'records' => $records,
-
                 'totalAmount' => number_format($totalAmountCents / 100, 2, '.', ''),
-
-                //'hashValue' => $hashValue,
                 'ready' => $batchIsReady,
                 'transactions' => $transactions
             ]
@@ -12478,7 +12521,7 @@ class Payrun extends Controller
     }
 
     // Loads the payrun data and returns the structured payments integrated payloads.
-    private function buildPaymentsIntegratedPayloads(int $payrunId, array $user, $db): array
+    private function buildPaymentsIntegratedPayloads(int $payrunId, array $batchSettings, array $user, $db): array
     {
         $batchResult = $this->buildPaymentsBatch($payrunId, $user, $db);
 
@@ -12486,9 +12529,38 @@ class Payrun extends Controller
             return $batchResult;
         }
 
+        if (!isset($batchResult['batch']['ready']) || $batchResult['batch']['ready'] !== true) {
+            return [
+                'ok' => false,
+                'error' => 'The payment batch contains transactions that are not ready to be sent.'
+            ];
+        }
+
         $payments = [];
         $paymentContexts = [];
         $seenPayslipIds = [];
+        $immediatePayment = false;
+        $oneDayPayment = false;
+
+        //Payment option validation (two options can't be selected at the same time)
+        switch ($batchSettings['paymentOption']) {
+            case 'RTC':
+                $immediatePayment = true;
+                break;
+
+            case 'SAMEDAY':
+                $oneDayPayment = true;
+                break;
+
+            case 'STANDARD':
+                break;
+
+            default:
+                return [
+                    'ok' => false,
+                    'error' => 'The selected payment option is invalid.'
+                ];
+        }
 
         foreach ($batchResult['batch']['transactions'] as $transaction) {
             if (!isset($transaction['payslipId']) || !is_numeric($transaction['payslipId']) || (int)$transaction['payslipId'] <= 0) {
@@ -12512,41 +12584,44 @@ class Payrun extends Controller
             $employeeCode = trim((string)$transaction['employeeCode']);
             $employeeFullNames = trim((string)$transaction['employeeFullNames']);
             $employeeSurname = trim((string)$transaction['employeeSurname']);
-            $employeeEmail = $transaction['emailAddress'];
-            $sendPaymentAdvice = isset($employeeEmail);
+            $employeeEmail = isset($transaction['emailAddress']) ? trim((string)$transaction['emailAddress']) : '';
             $uniqueReference = trim((string)$transaction['uniqueReference']);
 
-                $payments[] = [
-                    'uniqueReference' => $uniqueReference,
-                    'supplierType' => '',
-                    'name' => $employeeFullNames,
-                    'lastName' => $employeeSurname,
-                    'emailAddress' => $employeeEmail,
-                    'bank' => (string)$transaction['bankName'],
-                    'accountType' => (int)$transaction['accountType'],
-                    'accountNumber' => (string)$transaction['accountNumber'],
-                    'branchCode' => (string)$transaction['branchCode'],
-                    'amount' => (float)$transaction['amount'],
-                    'paymentDate' => null,
-                    'payeeReference' => $transaction['reference'],
-                    'sendPaymentAdvice' => $sendPaymentAdvice,
-                    'immediatePayment' => false,
-                    'oneDayPayment' => false,
-                    'custom' => $paymentCustom
-                ];
+            $payment = [
+                'uniqueReference' => $uniqueReference,
+                'supplierType' => '',
+                'name' => $employeeFullNames,
+                'lastName' => $employeeSurname,
+                'bank' => (string)$transaction['bankName'],
+                'accountType' => (int)$transaction['accountType'],
+                'accountNumber' => (string)$transaction['accountNumber'],
+                'branchCode' => (string)$transaction['branchCode'],
+                'amount' => (float)$transaction['amount'],
+                'paymentDate' => $batchSettings['paymentDate'],
+                'payeeReference' => $batchSettings['paymentReference'],
+                'immediatePayment' => $immediatePayment,
+                'oneDayPayment' => $oneDayPayment,
+                'custom' => $paymentCustom
+            ];
+            
+            if($employeeEmail !== '') {
+                $payment['emailAddress'] = $employeeEmail;
+            }
 
-                $paymentContexts[$paymentCustom] = [
-                    'payslipId' => $payslipId,
-                    'employeeId' => (int)$transaction['employeeId'],
-                    'employeeCode' => $employeeCode,
-                    'uniqueReference' => $uniqueReference
-                ];
+            $payments[] = $payment;
+
+            $paymentContexts[$paymentCustom] = [
+                'payslipId' => $payslipId,
+                'employeeId' => (int)$transaction['employeeId'],
+                'employeeCode' => $employeeCode,
+                'uniqueReference' => $uniqueReference
+            ];
         }
 
         return [
             'ok' => true,
             'payrunId' => $payrunId,
-            'batchDescription' => trim((string)$batchResult['batch']['description']),
+            'batchDescription' => $batchSettings['batchDescription'],
             'payments' => $payments,
             'paymentContexts' => $paymentContexts
         ];
@@ -12688,6 +12763,7 @@ class Payrun extends Controller
         $requiredResponseFields = [
             'jti',
             'status',
+            'batchReference',
             'availableBalance',
             'totalFees',
             'totalDeductions',
@@ -12752,6 +12828,17 @@ class Payrun extends Controller
             ];
         }
 
+        $batchReference = trim((string)$response['batchReference']);
+
+        if ($batchReference === '') {
+            return [
+                'ok' => false,
+                'httpStatus' => $httpStatus,
+                'errorType' => 'INVALID_RESPONSE',
+                'error' => 'The Payments Integrated API response has no batch reference.'
+            ];
+        }
+
         if (!is_numeric($response['availableBalance']) || !is_numeric($response['totalFees']) || !is_numeric($response['totalDeductions'])) {
             return [
                 'ok' => false,
@@ -12759,6 +12846,21 @@ class Payrun extends Controller
                 'errorType' => 'INVALID_RESPONSE',
                 'error' => 'The Payments Integrated API response contains invalid monetary totals.'
             ];
+        }
+
+        $totalPayments = null;
+
+        if (array_key_exists('totalPayments', $response)) {
+            if (!is_numeric($response['totalPayments'])) {
+                return [
+                    'ok' => false,
+                    'httpStatus' => $httpStatus,
+                    'errorType' => 'INVALID_RESPONSE',
+                    'error' => 'The Payments Integrated API returned an invalid total payments value.'
+                ];
+            }
+
+            $totalPayments = (float)$response['totalPayments'];
         }
 
         $paymentContexts = isset($payloadResult['paymentContexts']) && is_array($payloadResult['paymentContexts']) ? $payloadResult['paymentContexts'] : [];
@@ -12832,7 +12934,18 @@ class Payrun extends Controller
 
             $paymentStatus = isset($returnedPayment['status']) ? trim((string)$returnedPayment['status']) : '';
 
+            $paymentStatusValid = in_array(strtolower($paymentStatus), ['success', 'failed'], true);
+
             $uniqueReference = isset($returnedPayment['uniqueReference']) ? trim((string)$returnedPayment['uniqueReference']) : '';
+
+            $paymentReference = isset($returnedPayment['paymentReference']) ? trim((string)$returnedPayment['paymentReference']): '';
+
+            if (strcasecmp($paymentStatus, 'Success') === 0 && $paymentReference === '') {
+                $paymentSuccessful = false;
+                if ($paymentMessage === null) {
+                    $paymentMessage = 'The successful payment response has no payment reference.';
+                }
+            }
 
             $returnedCustom = isset($returnedPayment['custom']) ? trim((string)$returnedPayment['custom']) : '';
 
@@ -12846,11 +12959,17 @@ class Payrun extends Controller
 
             $uniqueReferenceMatches = ($matched === true && $uniqueReference !== '' && isset($paymentContext['uniqueReference']) && hash_equals((string)$paymentContext['uniqueReference'], $uniqueReference));
             
-            $requiredPaymentFieldsValid = $supplierCode !== '' && $paymentStatus !== '';
+            $requiredPaymentFieldsValid = $uniqueReference !== '' && $supplierCode !== '' && $paymentStatus !== '';
 
-            $paymentSuccessful = $requiredPaymentFieldsValid && strcasecmp($paymentStatus, 'Success') === 0;
+            $paymentSuccessful = $requiredPaymentFieldsValid && $paymentStatusValid && strcasecmp($paymentStatus, 'Success') === 0;
 
             $paymentMessage = isset($returnedPayment['message']) && trim((string)$returnedPayment['message']) !== '' ? trim((string)$returnedPayment['message']) : null;
+
+            $amount = isset($returnedPayment['amount']) && is_numeric($returnedPayment['amount']) ? (float)$returnedPayment['amount'] : null;
+
+            $fee = isset($returnedPayment['fee']) && is_numeric($returnedPayment['fee']) ? (float)$returnedPayment['fee'] : null;
+            
+            $product = isset($returnedPayment['product']) ? trim((string)$returnedPayment['product']) : '';
 
             if (!$requiredPaymentFieldsValid && $paymentMessage === null) {
                 $paymentMessage = 'The provider response is missing the payment status or supplier code.';
@@ -12867,8 +12986,9 @@ class Payrun extends Controller
                 'supplierCode' => $supplierCode !== '' ? $supplierCode : null,
                 'status' => $paymentStatus !== '' ? $paymentStatus : 'Failed',
                 'paymentReference' => isset($returnedPayment['paymentReference']) ? $returnedPayment['paymentReference'] : null,
-                'amount' => isset($returnedPayment['amount']) && is_numeric($returnedPayment['amount']) ? (float)$returnedPayment['amount'] : null,
-                'fee' => isset($returnedPayment['fee']) && is_numeric($returnedPayment['fee']) ? (float)$returnedPayment['fee'] : null,
+                'amount' => $amount,
+                'fee' => $fee,
+                'product' => $product !== '' ? $product : null,
                 'message' => $paymentMessage,
                 'uniqueReference' => $uniqueReference !== '' ? $uniqueReference : null,
                 'custom' => $returnedCustom !== '' ? $returnedCustom : null
@@ -12885,6 +13005,14 @@ class Payrun extends Controller
             $warnings[] = 'The provider returned ' . $returnedCount . ' payment results for ' . $submittedCount . ' submitted payments.';
         }
 
+        if ($amount === null){
+            $warnings[] = 'The provider returned an invalid amount.';
+        }
+
+        if ($fee === null){
+            $warnings[] = 'The provider returned an invalid fee.';
+        }
+
         return [
             # ok means a structurally valid loadBatch response was received. Individual payment failures are represented below.
             'ok' => true,
@@ -12892,7 +13020,9 @@ class Payrun extends Controller
             'jti' => $responseJti,
             'jtiMatches' => $jtiMatches,
             'status' => $responseStatus,
+            'batchReference' => $batchReference,
             'availableBalance' => (float)$response['availableBalance'],
+            'totalPayments' => $totalPayments,
             'totalFees' => (float)$response['totalFees'],
             'totalDeductions' => (float)$response['totalDeductions'],
             'summary' => [
