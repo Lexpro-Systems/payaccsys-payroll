@@ -12850,16 +12850,7 @@ class Payrun extends Controller
 
         $totalPayments = null;
 
-        if (array_key_exists('totalPayments', $response)) {
-            if (!is_numeric($response['totalPayments'])) {
-                return [
-                    'ok' => false,
-                    'httpStatus' => $httpStatus,
-                    'errorType' => 'INVALID_RESPONSE',
-                    'error' => 'The Payments Integrated API returned an invalid total payments value.'
-                ];
-            }
-
+        if (array_key_exists('totalPayments', $response) && is_numeric($response['totalPayments'])) {
             $totalPayments = (float)$response['totalPayments'];
         }
 
@@ -12905,6 +12896,8 @@ class Payrun extends Controller
         }
 
         $paymentResults = [];
+        # Warnings describe inconsistencies that should be shown or logged, but do not automatically invalidate an otherwise valid response
+        $warnings = [];
 
         foreach ($response['payments'] as $paymentIndex => $returnedPayment) {
             if (!is_array($returnedPayment)) {
@@ -12918,10 +12911,11 @@ class Payrun extends Controller
                     'uniqueReferenceMatches' => false,
                     'canPersist' => false,
                     'supplierCode' => null,
-                    'status' => 'Failed',
+                    'status' => null,
                     'paymentReference' => null,
                     'amount' => null,
                     'fee' => null,
+                    'product' => null,
                     'message' => 'The provider returned an invalid payment result.',
                     'uniqueReference' => null,
                     'custom' => null
@@ -12934,18 +12928,26 @@ class Payrun extends Controller
 
             $paymentStatus = isset($returnedPayment['status']) ? trim((string)$returnedPayment['status']) : '';
 
-            $paymentStatusValid = in_array(strtolower($paymentStatus), ['success', 'failed'], true);
-
             $uniqueReference = isset($returnedPayment['uniqueReference']) ? trim((string)$returnedPayment['uniqueReference']) : '';
+            
+            $requiredPaymentFieldsValid = $uniqueReference !== '' && $supplierCode !== '' && $paymentStatus !== '';
 
+            $paymentSuccessful = $requiredPaymentFieldsValid && strcasecmp($paymentStatus, 'Success') === 0;
+
+            # Validating optional response fields
+            // Payment reference is returned if status: 'Success'
             $paymentReference = isset($returnedPayment['paymentReference']) ? trim((string)$returnedPayment['paymentReference']): '';
 
-            if (strcasecmp($paymentStatus, 'Success') === 0 && $paymentReference === '') {
-                $paymentSuccessful = false;
-                if ($paymentMessage === null) {
-                    $paymentMessage = 'The successful payment response has no payment reference.';
-                }
-            }
+            // Explanatory message from provider for payment failure result
+            $paymentMessage = isset($returnedPayment['message']) && trim((string)$returnedPayment['message']) !== '' ? trim((string)$returnedPayment['message']) : null;
+
+            // Once confirmed with provider if paymentRef becomes required for successful payments, uncomment the below:
+            // if ($paymentSuccessful && $paymentReference === '') {
+            //     $paymentSuccessful = false;
+            //     if ($paymentMessage === null) {
+            //         $paymentMessage = 'The successful payment response has no payment reference.';
+            //     }
+            // }
 
             $returnedCustom = isset($returnedPayment['custom']) ? trim((string)$returnedPayment['custom']) : '';
 
@@ -12958,21 +12960,15 @@ class Payrun extends Controller
             $matched = ($returnedCustom !== '' && $submittedCustomCount === 1 && $returnedCustomCount === 1 && $paymentContext !== null);
 
             $uniqueReferenceMatches = ($matched === true && $uniqueReference !== '' && isset($paymentContext['uniqueReference']) && hash_equals((string)$paymentContext['uniqueReference'], $uniqueReference));
-            
-            $requiredPaymentFieldsValid = $uniqueReference !== '' && $supplierCode !== '' && $paymentStatus !== '';
-
-            $paymentSuccessful = $requiredPaymentFieldsValid && $paymentStatusValid && strcasecmp($paymentStatus, 'Success') === 0;
-
-            $paymentMessage = isset($returnedPayment['message']) && trim((string)$returnedPayment['message']) !== '' ? trim((string)$returnedPayment['message']) : null;
 
             $amount = isset($returnedPayment['amount']) && is_numeric($returnedPayment['amount']) ? (float)$returnedPayment['amount'] : null;
-
+            
             $fee = isset($returnedPayment['fee']) && is_numeric($returnedPayment['fee']) ? (float)$returnedPayment['fee'] : null;
             
             $product = isset($returnedPayment['product']) ? trim((string)$returnedPayment['product']) : '';
 
             if (!$requiredPaymentFieldsValid && $paymentMessage === null) {
-                $paymentMessage = 'The provider response is missing the payment status or supplier code.';
+                $paymentMessage = 'The provider response is missing the unique reference, payment status or supplier code.';
             }
 
             $paymentResults[] = [
@@ -12984,8 +12980,8 @@ class Payrun extends Controller
                 'uniqueReferenceMatches' => $uniqueReferenceMatches,
                 'canPersist' => ($paymentSuccessful && $matched && $uniqueReferenceMatches),
                 'supplierCode' => $supplierCode !== '' ? $supplierCode : null,
-                'status' => $paymentStatus !== '' ? $paymentStatus : 'Failed',
-                'paymentReference' => isset($returnedPayment['paymentReference']) ? $returnedPayment['paymentReference'] : null,
+                'status' => $paymentStatus !== '' ? $paymentStatus : null,
+                'paymentReference' => $paymentReference !== '' ? $paymentReference : null,
                 'amount' => $amount,
                 'fee' => $fee,
                 'product' => $product !== '' ? $product : null,
@@ -12998,19 +12994,8 @@ class Payrun extends Controller
         $submittedCount = count($submittedPayments);
         $returnedCount = count($paymentResults);
 
-        # Warnings describe inconsistencies that should be shown or logged, but do not automatically invalidate an otherwise valid response
-        $warnings = [];
-
         if ($returnedCount !== $submittedCount) {
             $warnings[] = 'The provider returned ' . $returnedCount . ' payment results for ' . $submittedCount . ' submitted payments.';
-        }
-
-        if ($amount === null){
-            $warnings[] = 'The provider returned an invalid amount.';
-        }
-
-        if ($fee === null){
-            $warnings[] = 'The provider returned an invalid fee.';
         }
 
         return [
