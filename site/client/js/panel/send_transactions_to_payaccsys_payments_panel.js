@@ -482,7 +482,7 @@ app.panel.SendTransactions = function(config) {
                     return;
                 }
                 
-                me.fireEvent('send', {srcPanel: me, results: response.payments || [], summary: response.summary || null});
+                me.fireEvent('send', {srcPanel: me, response: response});
             }
         });
 

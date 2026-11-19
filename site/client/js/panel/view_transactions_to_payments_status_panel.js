@@ -1,7 +1,7 @@
 /* globals app, lx */
 'use strict';
 
-// VIEW STATUS OF TRANSACTIONS SENT TO PAYACCSYS PAYMENTS
+// PAYACCSYS PAYMENTS INTEGRATED RESULT PANEL
 //
 // Config:
 //  renderTo:           The parent DOM object of this object
@@ -10,15 +10,14 @@
 //  flex:               CSS flex property for the panel
 //  show:               If true the panel will be shown immediately after it was created.  If false the panel will be created but not shown
 //                      Default to false
-//  payrunId:           The ID of the payrun to display and send to the Spendl Wallet API
+//  payrunId:           The ID of the payrun of which payments will be sent to the Payaccsys Payments API
 //
 // Events:
 //
-//  onSend:              Fired after the current payrun has been successfully sent to the Spendl Wallet API
 //  onCancel:            Fired when the user cancels and closes the panel
 //  onDestroy:           Fired just before the panel is destroyed
 //
-app.panel.SendTransactionStatus = function(config) {
+app.panel.PaymentsIntegratedStatus = function(config) {
     
     //
     // PRIVATE VARIABLES
@@ -30,13 +29,24 @@ app.panel.SendTransactionStatus = function(config) {
     var el = null;
     
     var contentEl = null;
+    var gridContainerEl = null;
     var loader = null;
+
+    var responseResult = null;
+
+    var batchSettingsEl = null;
+    var batchSettingsHeadingEl = null;
+    var batchReference = null;
+    var batchStatus = null;
+    var availableBalance = null;
+    var totalPayments = null;
+    var totalFees = null;
+    var totalDeductions = null;
     
-    var payslipsGrid = null;
+    var paymentsGrid = null;
     
     var buttonContainerEl = null;
     var cancelBtn = null;
-    var sendBtn = null;
     
     var payrunId = null;
     
@@ -51,82 +61,71 @@ app.panel.SendTransactionStatus = function(config) {
     //
     // PRIVATE FUNCTIONS
     //
-    
-    // Function to load the payrun data
-    function loadPayrun( payrunId, deliveryResults ) {
-        loader.show(false);
-        
-        lx.sendJSON({
-            url: 'exec.php?c=Payrun&fn=get',
-            data: {
-                payrunId: payrunId,
-                payslipStatusCode: 'ACTI'
-            },
-            onSuccess: function( responseText ) {
-                loader.hide();
-                var response = JSON.parse( responseText );
-                
-                // Check that the response is ok
-                if( response.ok !== true ) {
-                    new lx.component.Messagebox({
-                        title: 'Loading Payrun Failed',
-                        message: response.error
-                    });
-                    return;
-                }
 
-                var resultsByEmployeeCode = {};
-
-                if (Array.isArray(deliveryResults)) {
-                    for (var resultIndex = 0; resultIndex < deliveryResults.length; resultIndex++) {
-                        var deliveryResult = deliveryResults[resultIndex];
-
-                        resultsByEmployeeCode[deliveryResult.employeeCode] = deliveryResult;
-                    }
-                }
-                
-                // Loop through all payslips
-                let payslips = [];
-                for( let i = 0; i < response.payrun.payslips.length; i++ ) {
-
-                    let payslip = response.payrun.payslips[i];
-                    let employee = payslip.employee;
-                    
-                    var deliveryResult = resultsByEmployeeCode['EMP' + employee.empCode] || null;
-
-                    var statusCode = '-';
-                    var type = 'Not available';
-                    var details = 'No stored delivery status is available yet.';
-
-                    if (deliveryResult !== null) {
-                        statusCode =
-                            typeof deliveryResult.httpStatus !== 'undefined' ? deliveryResult.httpStatus : '-';
-
-                        if (deliveryResult.ok === true) {
-                            type = deliveryResult.status || 'submitted';
-                            details = 'Payslip submitted to Spendl Wallet.';
-                        } else {
-                            type = deliveryResult.errorType || 'failed';
-                            details = deliveryResult.error || 'Unable to send the payslip to Spendl Wallet.';
-                        }
-                    }
-
-                    payslips.push({
-                        id: payslip.id,
-                        employeeCode: employee.empCode,
-                        employeeAlias: employee.name,
-                        employeeSurname: employee.employeeSurname,
-                        period: (payslip.fromDate + ' to ' + payslip.toDate),
-                        statusCode: statusCode,
-                        type: type,
-                        details: details,
-                        retry: '<i class="fas fa-fw fa-redo"></i>',
-                    });
-                }
-                payslipsGrid.addRows(payslips);
+    // Function to create a response field with a label and value
+    function createResponseField(parent, label, value, width) {
+        var fieldEl = lx.createElement('DIV', {
+            parent: parent,
+            style: {
+                display: 'flex',
+                flexDirection: 'column',
+                boxSizing: 'border-box',
+                width: width,
+                minWidth: '160px'
             }
         });
-    }    
+
+        var labelEl = lx.createElement('DIV', {
+            parent: fieldEl,
+            style: {
+                margin: '0px 0px 5px 0px',
+                fontSize: '12px',
+                color: '#666666'
+            }
+        });
+
+        labelEl.textContent = label;
+
+        var valueEl = lx.createElement('DIV', {
+            parent: fieldEl,
+            style: {
+                minHeight: '20px',
+                fontSize: '14px',
+                color: '#0F0F0F',
+                overflowWrap: 'anywhere'
+            }
+        });
+
+        valueEl.textContent = value === null || typeof value === 'undefined' || String(value).trim() === '' ? '-' : String(value);
+
+        return valueEl;
+    }
+
+    // Function to format an amount
+    function formatAmount(value) {
+        var amount = Number(value);
+
+        if (!Number.isFinite(amount)) {
+            return '-';
+        }
+
+        return amount.toFixed(2);
+    }
+
+    function displayResponse(response) {
+        if (response === null || typeof response !== 'object') {
+            new lx.component.Messagebox({
+                title: 'Loading Payment Result Failed',
+                message: 'No payment response is available.'
+            });
+
+            return;
+        }
+
+        var payments = Array.isArray(response.payments) ? response.payments : [];
+
+        paymentsGrid.addRows(payments);
+    }
     
     //
     // PUBLIC FUNCTIONS
@@ -141,7 +140,7 @@ app.panel.SendTransactionStatus = function(config) {
             flex: '1 1 100%',
             show: false,
             payrunId: null,
-            deliveryResults: null
+            response: null
         };
         
         // Parse user config
@@ -153,12 +152,15 @@ app.panel.SendTransactionStatus = function(config) {
         
         // Attach external event handlers
         if( compConfig.hasOwnProperty('onCancel') ) me.addEventListener('cancel', compConfig.onCancel);
-        if( compConfig.hasOwnProperty('onSend') ) me.addEventListener('send', compConfig.onSend);
         if( compConfig.hasOwnProperty('onDestroy') ) me.addEventListener('destroy', compConfig.onDestroy);
         
         // Initialize state
         confirmDestroy = false;
         payrunId = compConfig.payrunId;
+        responseResult = compConfig.response;
+
+        // Validate and load provider response data into the grid
+        displayResponse(responseResult);
         
         // Create root element
         el = lx.createElement('DIV', {
@@ -186,7 +188,7 @@ app.panel.SendTransactionStatus = function(config) {
                 borderWidth: '0px 0px 1px 0px',
                 borderColor: '#DFDFDF'
             },
-            innerHTML: 'View Spendl Wallet Status'
+            innerHTML: 'Payaccsys Payments Integrated Results'
         });
         
         // Create the contentEl element
@@ -195,9 +197,14 @@ app.panel.SendTransactionStatus = function(config) {
             style: {
                 boxSizing: 'border-box',
                 padding: '0px 0px 1px 0px', // Hack required to allow the grid to fire the scroll event on Chrome browsers
-                overflow: 'auto',
+                overflowX: 'auto',
+                overflowY: 'auto',
                 position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
                 flex: '1 1 100%',
+                minWidth: '0px',
                 backgroundColor: '#F4F5F6'
             }
         });
@@ -206,32 +213,137 @@ app.panel.SendTransactionStatus = function(config) {
         loader = new lx.component.Loader({
             renderTo: contentEl
         });
-        
-        
+
+        // Create the gridContainerEl element
+        gridContainerEl = lx.createElement('DIV', {
+            parent: contentEl,
+            style: {
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                boxSizing: 'border-box',
+                width: '100%',
+                minWidth: '1800px',
+                flex: '1 1 auto',
+                minHeight: '0px'
+            }
+        });
+
         //
-        // PAYSLIP SECTION
+        // BATCH SETTINGS SECTION
         //
+
+        // Create the batch settings heading element
+        batchSettingsHeadingEl = lx.createElement('DIV', {
+            parent: gridContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flex: '0 0 auto',
+                fontSize: '16px',
+                color: '#0F0F0F',
+                margin: '15px'
+            },
+            innerHTML: '<div>Batch Results</div>'
+        });
+
+        // Create the batchSettingsEl element
+        batchSettingsEl = lx.createElement('DIV', {
+            parent: gridContainerEl,
+            style: {
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+                gap: '15px',
+                boxSizing: 'border-box',
+                width: '100%',
+                maxWidth: '100%',
+                backgroundColor: '#FFFFFF',
+                borderStyle: 'none',
+                margin: '0px',
+                padding: '15px',
+                flex: '0 0 auto'
+            }
+        });
+
+        createResponseField(batchSettingsEl, 'Batch Description', responseResult.batchDescription, '300px');
+
+        createResponseField(batchSettingsEl, 'Status', responseResult.status, '260px');
+
+        createResponseField(batchSettingsEl, 'Batch Reference', responseResult.batchReference, '180px');
+
+        createResponseField(batchSettingsEl, 'Available Balance', formatAmount(responseResult.availableBalance), '160px');
+
+        createResponseField(batchSettingsEl, 'Total Payments', formatAmount(responseResult.totalPayments), '160px');
+
+        createResponseField(batchSettingsEl, 'Total Fees', formatAmount(responseResult.totalFees), '160px');
+
+        createResponseField(batchSettingsEl, 'Total Deductions', formatAmount(responseResult.totalDeductions), '160px');
+
+        createResponseField(batchSettingsEl, 'Submitted', responseResult.summary ? responseResult.summary.submitted : null, '120px');
+
+        createResponseField(batchSettingsEl, 'Returned', responseResult.summary ? responseResult.summary.returned : null, '120px');
+
+        var warningText = Array.isArray(responseResult.warnings) && responseResult.warnings.length > 0 ? responseResult.warnings.join(' ') : 'None';
+
+        createResponseField(batchSettingsEl, 'Warnings', warningText, '400px');
+
+        //
+        // PAYMENTS SECTION
+        //
+
+        // Create the payment rows heading element
+        var paymentRowsHeadingEl = lx.createElement('DIV', {
+            parent: gridContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flex: '0 0 auto',
+                fontSize: '16px',
+                color: '#0F0F0F',
+                margin: '15px'
+            },
+            innerHTML: '<div>Payments: Result Fields</div>'
+        });
+
+        var paymentsGridContainerEl = lx.createElement('DIV', {
+            parent: gridContainerEl,
+            style: {
+                boxSizing: 'border-box',
+                width: '100%',
+                flex: '1 1 auto',
+                minHeight: '0px'
+            }
+        });
         
-        // Create payslipsGrid component
-        payslipsGrid = new lx.component.Grid({
-            renderTo: contentEl,
+        // Create paymentsGrid component
+        paymentsGrid = new lx.component.Grid({
+            renderTo: paymentsGridContainerEl,
+            width: '100%',
             height: '100%',
             borderWidth: '0px',
             
             columns: [
-                {dataIndex: 'employeeCode', name: 'Employee Code', width: '100px'},
-                {dataIndex: 'employeeAlias', name: 'Name', width: '140px'},
-                {dataIndex: 'employeeSurname', name: 'Surname', width: '140px'},
-                {dataIndex: 'period', name: 'Payslip Date', width: '180px' },
-                {dataIndex: 'statusCode', name: 'Status Code', width: '100px'},
-                {dataIndex: 'type', name: 'Type', width: '120px'},
-                {dataIndex: 'details', name: 'Details'},
-                {dataIndex: 'retry', name: 'Retry', type: 'button', width: '85px', alignment: 'center'},
-            ],
-            
-            onCellClick: payslipsGridCellClickEventHandler
+                {dataIndex: 'uniqueReference', name: 'Emp Ref', width: '100px'},
+                {dataIndex: 'employeeName', name: 'Employee Name', width: '160px'},
+                {dataIndex: 'employeeSurname', name: 'Employee Surname', width: '160px'},
+                {dataIndex: 'supplierCode', name: 'Supplier Code', width: '120px'},
+                {dataIndex: 'status', name: 'Status', width: '140px'},
+                {dataIndex: 'paymentReference', name: 'Transaction Reference', width: '140px'},                
+                {dataIndex: 'payslipId', name: 'Payslip ID', width: '120px'},
+                {dataIndex: 'amount', name: 'Nett Pay Amount', width: '120px'},
+                {dataIndex: 'fee', name: 'Fee', width: '130px'},
+                {dataIndex: 'product', name: 'Service Type', width: '140px'},
+                {dataIndex: 'message', name: 'Failure Reason', width:'180px'}
+            ]
         });
-        
         
         //
         // BUTTON CONTAINER SECTION
@@ -251,7 +363,7 @@ app.panel.SendTransactionStatus = function(config) {
             }
         });
         
-        // Create the cancelBtn component to close the panel
+        // Create the cancelBtn component
         cancelBtn = new lx.component.Button({
             renderTo: buttonContainerEl,
             label: 'OK',
@@ -260,19 +372,6 @@ app.panel.SendTransactionStatus = function(config) {
             
             onClick: cancelBtnClickEventHandler
         });
-        
-        
-        // Create the sendBtn component
-        sendBtn = new lx.component.Button({
-            renderTo: buttonContainerEl,
-            label: 'Retry All',
-            width: '120px',
-            
-            onClick: sendBtnClickEventHandler
-        });
-        
-        // Load form data
-        loadPayrun( compConfig.payrunId, compConfig.deliveryResults);
         
         // If show is set to true show the panel.
         if( compConfig.show === true ) me.show();
@@ -337,63 +436,14 @@ app.panel.SendTransactionStatus = function(config) {
         return true;
     };
     
-    
     //
     // EVENT HANDLERS
     //
-    
-    // payslipsGrid cell click event handler
-    function payslipsGridCellClickEventHandler( clickEvent ) {
-        // Get the data index of the column that was clicked
-        let dataIndex = payslipsGrid.getColumnDataIndex(clickEvent.columnIndex);
-        
-        // Depending on the column clicked
-        if( dataIndex === 'retry' ) {
-            // lx.sendForm({
-            //     url: 'exec.php?c=Payslip&fn=downloadPayslip',
-            //     target: '_blank',
-            //     data: {
-            //         payslipId: parseInt(payslipsGrid.getRow(clickEvent.rowIndex).id)
-            //     }
-            // });
-        }
-    }
     
     // Cancel button click event handler
     function cancelBtnClickEventHandler() {
         me.fireEvent('cancel', {srcPanel: me});
     }
-    
-    // Send button click event handler
-    function sendBtnClickEventHandler() {
-        
-        // Send selected payrun's ID to Spendl API-function
-        // sendBtn.disable();
-        // sendBtn.showLoader();
-        // lx.sendJSON({
-        //     url: 'exec.php?c=Payslip&fn=sendPayslips',
-        //     data: {
-        //         payrunId: payrunId
-        //     },
-        //     onSuccess: function( responseText ) {
-        //         sendBtn.enable();
-        //         sendBtn.hideLoader();
-                
-        //         var response = JSON.parse(responseText);
-                
-        //         if( response.ok !== true ) {
-        //             new lx.component.Messagebox({
-        //                 title: 'sending Payslips to Spendl Wallet Failed',
-        //                 message: response.error
-        //             });
-        //             return;
-        //         }
-                
-        //         me.fireEvent('send', {srcPanel: me});
-        //     }
-        // });
-    }
-    
     
     //
     // INITIALIZE OBJECT

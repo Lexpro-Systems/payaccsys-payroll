@@ -925,8 +925,8 @@ app.panel.ListPayruns = function (config) {
             // Has the payrun not been processed?
             if (payrun.isProcessed !== 'Yes') {
                 new lx.component.Messagebox({
-                    title: 'Unable to Send Transactions to Payaccsys Payments',
-                    message: 'The transactions cannot be sent because the specified payrun has not been processed.'
+                    title: 'Unable to Send Payments to Payaccsys Payments Integrated',
+                    message: 'The payments cannot be sent because the specified payrun has not been processed.'
                 });
                 return;
             }
@@ -945,18 +945,18 @@ app.panel.ListPayruns = function (config) {
                 app.route.popState();
             }
 
-            function showStatusPanel(results){
+            function showPaymentsIntegratedStatusPanel(response){
                 //Remove send panel data, but keep the modal and route
                 if(activePanel !== null){ 
                     activePanel.destroy();
                     activePanel = null;
                 }
 
-                activePanel = new app.panel.SendTransactionStatus({
+                activePanel = new app.panel.PaymentsIntegratedStatus({
                     renderTo: sendTransactionsModal.getContainer(),
                     show: true,
                     payrunId: payrunId,
-                    deliveryResults: results || null,
+                    response: response,
 
                     onCancel: closeModal
                 });
@@ -970,7 +970,7 @@ app.panel.ListPayruns = function (config) {
                 payrunId: payrunId,
 
                 onSend: function (event) {
-                    showStatusPanel(event.results);
+                    showPaymentsIntegratedStatusPanel(event.response);
                 },
                 onCancel: closeModal
             });

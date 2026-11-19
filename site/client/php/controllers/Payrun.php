@@ -12614,6 +12614,8 @@ class Payrun extends Controller
                 'payslipId' => $payslipId,
                 'employeeId' => (int)$transaction['employeeId'],
                 'employeeCode' => $employeeCode,
+                'employeeName' => $employeeFullNames,
+                'employeeSurname' => $employeeSurname,
                 'uniqueReference' => $uniqueReference
             ];
         }
@@ -12908,6 +12910,8 @@ class Payrun extends Controller
                     'matched' => false,
                     'payslipId' => null,
                     'employeeId' => null,
+                    'employeeName' => null,
+                    'employeeSurname' => null,
                     'uniqueReferenceMatches' => false,
                     'canPersist' => false,
                     'supplierCode' => null,
@@ -12977,6 +12981,8 @@ class Payrun extends Controller
                 'matched' => $matched,
                 'payslipId' => $matched ? (int)$paymentContext['payslipId'] : null,
                 'employeeId' => $matched ? (int)$paymentContext['employeeId'] : null,
+                'employeeName' => $matched && isset($paymentContext['employeeName']) ? $paymentContext['employeeName'] : null,
+                'employeeSurname' => $matched && isset($paymentContext['employeeSurname']) ? $paymentContext['employeeSurname'] : null,
                 'uniqueReferenceMatches' => $uniqueReferenceMatches,
                 'canPersist' => ($paymentSuccessful && $matched && $uniqueReferenceMatches),
                 'supplierCode' => $supplierCode !== '' ? $supplierCode : null,
@@ -13005,6 +13011,7 @@ class Payrun extends Controller
             'jti' => $responseJti,
             'jtiMatches' => $jtiMatches,
             'status' => $responseStatus,
+            'batchDescription' => isset($payloadResult['batchDescription']) ? trim((string)$payloadResult['batchDescription']) : null,
             'batchReference' => $batchReference,
             'availableBalance' => (float)$response['availableBalance'],
             'totalPayments' => $totalPayments,
